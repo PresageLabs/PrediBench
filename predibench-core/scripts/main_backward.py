@@ -18,8 +18,12 @@ login(os.getenv("HF_TOKEN"))
 
 MODEL_MAP = {
     "openai/gpt-5": OpenAIModelWithRetry(model_id="gpt-5"),
+    "openai/gpt-5-mini": OpenAIModelWithRetry(model_id="gpt-5-mini"),
     "huggingface/openai/gpt-oss-120b": InferenceClientModelWithRetry(
         model_id="openai/gpt-oss-120b",
+    ),
+    "huggingface/openai/gpt-oss-20b": InferenceClientModelWithRetry(
+        model_id="openai/gpt-oss-20b",
     ),
     "huggingface/deepseek-ai/DeepSeek-R1-0528": InferenceClientModelWithRetry(
         model_id="deepseek-ai/DeepSeek-R1-0528",
@@ -32,7 +36,7 @@ def main(
     max_events: int = typer.Option(5, help="Maximum number of events to analyze"),
     days_ahead: int = typer.Option(7 * 6, help="Days until event ending"),
     weeks_back: int = typer.Option(
-        4, help="Number of weeks to go back for backward mode"
+        8, help="Number of weeks to go back for backward mode"
     ),
 ):
     """Main script to run investment analysis with all models across past weeks."""
@@ -67,7 +71,7 @@ def main(
             models=list(MODEL_MAP.values()),  # Run one model at a time
             output_path=DATA_PATH,
             target_date=target_date,
-            dataset_name="m-ric/predibench-agent-choices",
+            dataset_name="Sibyllic/predibench-2",
             split="train",
         )
 

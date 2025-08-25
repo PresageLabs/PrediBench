@@ -47,7 +47,7 @@ jobs:
     - name: Run investment analysis with all models
       env:
         BUCKET_PREDIBENCH: ${{ secrets.BUCKET_PREDIBENCH }}
-        HF_TOKEN_PREDIBENCH: ${{ secrets.HF_TOKEN_PREDIBENCH }}
+        HF_TOKEN: ${{ secrets.HF_TOKEN }}
         HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
