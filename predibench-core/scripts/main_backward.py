@@ -71,7 +71,7 @@ def main(
             models=list(MODEL_MAP.values()),  # Run one model at a time
             output_path=DATA_PATH,
             target_date=target_date,
-            dataset_name="Sibyllic/predibench-2",
+            dataset_name="Sibyllic/predibench-3",
             split="train",
         )
 
