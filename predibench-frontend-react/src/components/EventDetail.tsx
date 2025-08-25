@@ -1,10 +1,10 @@
 import { ExternalLink } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { Event, LeaderboardEntry } from '../api'
-import { getChartColor } from './ui/chart-colors'
-import { VisxLineChart } from './ui/visx-line-chart'
 import { useAnalytics } from '../hooks/useAnalytics'
 import { formatVolume } from '../lib/utils'
+import { getChartColor } from './ui/chart-colors'
+import { VisxLineChart } from './ui/visx-line-chart'
 
 interface EventDetailProps {
   event: Event
@@ -105,15 +105,12 @@ export function EventDetail({ event }: EventDetailProps) {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
-        <button
-          onClick={() => {
-            trackUserAction('back_button_click', 'navigation', 'event_detail')
-            window.history.back()
-          }}
+        <a
+          href="/events"
           className="flex items-center text-muted-foreground hover:text-foreground transition-colors"
         >
           ← Back to events
-        </button>
+        </a>
         <a
           href={`https://polymarket.com/event/${event.slug}`}
           target="_blank"
