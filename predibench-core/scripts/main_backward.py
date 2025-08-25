@@ -26,8 +26,6 @@ MODEL_MAP = {
     "huggingface/deepseek-ai/DeepSeek-R1-0528": InferenceClientModelWithRetry(
         model_id="deepseek-ai/DeepSeek-R1-0528",
     ),
-    "openai/gpt-5": OpenAIModelWithRetry(model_id="gpt-5"),
-    "openai/gpt-5-mini": OpenAIModelWithRetry(model_id="gpt-5-mini"),
 }
 
 
