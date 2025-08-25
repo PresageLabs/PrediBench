@@ -4,6 +4,7 @@ import type { Event, LeaderboardEntry } from '../api'
 import { getChartColor } from './ui/chart-colors'
 import { VisxLineChart } from './ui/visx-line-chart'
 import { useAnalytics } from '../hooks/useAnalytics'
+import { formatVolume } from '../lib/utils'
 
 interface EventDetailProps {
   event: Event
@@ -139,7 +140,7 @@ export function EventDetail({ event }: EventDetailProps) {
 
             <div className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-blue-50 text-blue-900 border border-blue-200">
               <span className="font-medium">Volume:</span>
-              <span className="ml-1">{event.volume ? `$${(event.volume / 1000).toFixed(0)}K` : 'N/A'}</span>
+              <span className="ml-1">{formatVolume(event.volume)}</span>
             </div>
 
             <div className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-gray-50 text-gray-900 border border-gray-200">
@@ -153,7 +154,10 @@ export function EventDetail({ event }: EventDetailProps) {
         <div>
           {loading ? (
             <div className="h-64 flex items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <div className="text-center">
+                <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-2"></div>
+                <div className="text-sm text-muted-foreground">Loading market data...</div>
+              </div>
             </div>
           ) : (
             <div className="w-full">
@@ -209,7 +213,10 @@ export function EventDetail({ event }: EventDetailProps) {
 
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              <div className="text-center">
+                <div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-2"></div>
+                <div className="text-sm text-muted-foreground">Loading predictions...</div>
+              </div>
             </div>
           ) : (
             <div className="overflow-x-auto">

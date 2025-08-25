@@ -364,7 +364,7 @@ export function VisxLineChart({
           <g key={line.dataKey}>
             {/* Gray background line */}
             <AnimatedLineSeries
-              stroke="#9ca3af"
+              stroke="hsl(var(--muted-foreground))"
               dataKey={`${line.dataKey}-gray`}
               data={line.data}
               xAccessor={xAccessor}

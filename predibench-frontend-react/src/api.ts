@@ -41,6 +41,7 @@ export interface Event {
   id: string
   slug: string
   title: string
+  tags: string[]
   description: string | null
   start_datetime: string | null
   end_datetime: string | null

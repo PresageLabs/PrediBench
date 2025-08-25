@@ -1,21 +1,37 @@
-import { Clock, DollarSign, Search, TrendingUp } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import type { Event, LeaderboardEntry } from '../api'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
+import { Card, CardContent, CardHeader } from './ui/card'
+import { EventCard } from './EventCard'
 
-interface QuestionsPageProps {
+interface EventsPageProps {
   events: Event[]
   leaderboard: LeaderboardEntry[]
   loading?: boolean
 }
 
-
-export function QuestionsPage({ events, loading: initialLoading = false }: QuestionsPageProps) {
+export function EventsPage({ events, loading: initialLoading = false }: EventsPageProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<'volume' | 'probability' | 'endDate'>('volume')
   const [orderBy, setOrderBy] = useState<'asc' | 'desc'>('desc')
   const [isLive, setIsLive] = useState(false)
+  const [selectedTag, setSelectedTag] = useState<string>('')
+
+  // Helper function to capitalize words in a string
+  const capitalizeWords = (str: string) => {
+    return str.split(' ').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ')
+  }
+
+  // Get unique tags from all events, capitalize and deduplicate
+  const uniqueTags = Array.from(
+    new Set(
+      events
+        .flatMap(event => event.tags || [])
+        .map(tag => capitalizeWords(tag))
+    )
+  ).sort()
 
 
   // Filter and sort events
@@ -29,8 +45,10 @@ export function QuestionsPage({ events, loading: initialLoading = false }: Quest
         )
 
       const matchesStatus = isLive ? (event.end_datetime ? new Date(event.end_datetime) > new Date() : true) : true
+      
+      const matchesTag = selectedTag === '' || (event.tags && event.tags.includes(selectedTag))
 
-      return matchesSearch && matchesStatus
+      return matchesSearch && matchesStatus && matchesTag
     })
     .sort((a, b) => {
       let comparison = 0
@@ -71,6 +89,26 @@ export function QuestionsPage({ events, loading: initialLoading = false }: Quest
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-4">
+          {/* Tag Filter */}
+          <div className="flex items-center space-x-2">
+            <span className="text-sm font-medium">Tag:</span>
+            <select
+              value={selectedTag}
+              onChange={(e) => setSelectedTag(e.target.value)}
+              className="px-3 py-1 border border-border rounded bg-background text-sm"
+              disabled={uniqueTags.length === 0}
+            >
+              <option value="">All tags</option>
+              {uniqueTags.length === 0 ? (
+                <option disabled>No tags available</option>
+              ) : (
+                uniqueTags.map(tag => (
+                  <option key={tag} value={tag}>{tag}</option>
+                ))
+              )}
+            </select>
+          </div>
+          
           {/* Sort By */}
           <div className="flex items-center space-x-2">
             <span className="text-sm font-medium">Sort by:</span>
@@ -114,9 +152,19 @@ export function QuestionsPage({ events, loading: initialLoading = false }: Quest
         </div>
       </div>
 
+      {/* Loading Spinner when initially loading */}
+      {initialLoading && events.length === 0 && (
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-2"></div>
+            <div className="text-sm text-muted-foreground">Loading events...</div>
+          </div>
+        </div>
+      )}
+
       {/* Events Grid with Loading States */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {initialLoading || events.length === 0 ? (
+        {initialLoading && events.length === 0 ? (
           // Show skeleton loading cards while loading
           Array.from({ length: 6 }).map((_, index) => (
             <Card key={index}>
@@ -166,77 +214,7 @@ export function QuestionsPage({ events, loading: initialLoading = false }: Quest
           </div>
         ) : (
           filteredAndSortedEvents.map((event) => (
-            <Link key={event.id} to={`/events/${event.id}`}>
-              <Card className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-[1.02]">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between mb-2">
-                    <CardTitle className="text-lg line-clamp-2 flex-1">{event.title}</CardTitle>
-                    <div className="flex items-center space-x-2 ml-2">
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {event.markets.length} Markets
-                      </span>
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
-                        {event.end_datetime && new Date(event.end_datetime) > new Date() ? 'LIVE' : 'CLOSED'}
-                      </span>
-                    </div>
-                  </div>
-                  <CardDescription className="line-clamp-2 text-sm">{event.description || "No description available"}</CardDescription>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="space-y-4">
-                    {/* Markets Preview */}
-                    <div>
-                      <p className="text-sm font-medium mb-2">Markets in this event:</p>
-                      <div className="space-y-1">
-                        {event.markets?.slice(0, 3).map((market) => (
-                          <div key={market.id} className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground line-clamp-1 flex-1">{market.question}</span>
-                            <div className="flex items-center space-x-2 ml-2">
-                              <span className="font-medium text-xs">
-                                {market.outcomes[0].price ? `${(market.outcomes[0].price * 100).toFixed(0)}%` : 'N/A'}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                        {(event.markets.length) > 3 && (
-                          <div className="text-xs text-muted-foreground">
-                            +{(event.markets.length) - 3} more markets
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Volume and End Date */}
-                    <div className="flex items-center justify-between text-sm border-t pt-3">
-                      <div className="flex items-center space-x-4">
-                        <div className="flex items-center text-muted-foreground">
-                          <DollarSign className="h-4 w-4 mr-1" />
-                          <span className="font-medium">
-                            {event.volume ? `$${(event.volume / 1000).toFixed(0)}K` : 'N/A'}
-                          </span>
-                        </div>
-                        <div className="flex items-center text-muted-foreground">
-                          <TrendingUp className="h-4 w-4 mr-1" />
-                          <span className="text-xs">
-                            {event.liquidity ? `$${(event.liquidity / 1000).toFixed(0)}K liquidity` : 'No liquidity data'}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center text-muted-foreground">
-                        <Clock className="h-4 w-4 mr-1" />
-                        <span className="text-xs">
-                          {event.end_datetime
-                            ? `Closes ${new Date(event.end_datetime).toLocaleDateString()}`
-                            : 'No end date'
-                          }
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
+            <EventCard key={event.id} event={event} />
           ))
         )}
       </div>
