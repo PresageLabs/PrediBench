@@ -44,8 +44,8 @@ def add_retry_logic(base_class: Type[T]) -> Type[T]:
             wait=wait_fixed(1),  # 1 second
             retry=retry_if_exception(lambda e: not is_rate_limit_error(e)),
             reraise=True,
-            before_sleep=before_sleep_log(logger, logging.INFO),
-            after=after_log(logger, logging.INFO),
+            before_sleep=before_sleep_log(logger, logging.WARNING),
+            after=after_log(logger, logging.WARNING),
         )
         def generate(
             self,
@@ -68,16 +68,16 @@ def add_retry_logic(base_class: Type[T]) -> Type[T]:
             wait=wait_fixed(120),  # 2 minutes
             retry=retry_if_exception(is_rate_limit_error),
             reraise=True,
-            before_sleep=before_sleep_log(logger, logging.INFO),
-            after=after_log(logger, logging.INFO),
+            before_sleep=before_sleep_log(logger, logging.WARNING),
+            after=after_log(logger, logging.WARNING),
         )
         @retry(
             stop=stop_after_attempt(5),
             wait=wait_fixed(1),  # 1 second
             retry=retry_if_exception(lambda e: not is_rate_limit_error(e)),
             reraise=True,
-            before_sleep=before_sleep_log(logger, logging.INFO),
-            after=after_log(logger, logging.INFO),
+            before_sleep=before_sleep_log(logger, logging.WARNING),
+            after=after_log(logger, logging.WARNING),
         )
         def generate_stream(
             self,
