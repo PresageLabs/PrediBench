@@ -151,7 +151,7 @@ def _process_event_investment(
     date_output_path: Path | None,
     timestamp_for_saving: str,
     price_history_limit: int = 20,
-) -> EventInvestmentDecisions:
+) -> EventInvestmentDecisions | None:
     """Process investment decisions for all relevant markets."""
     logger.info(f"Processing event: {event.title} with {len(event.markets)} markets")
     backward_mode = is_backward_mode(target_date)
@@ -297,6 +297,13 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
         market_decision.market_question = market_data[market_decision.market_id][
             "question"
         ]
+        
+    # Validate all market IDs are correct
+    valid_market_ids = set(market_data.keys())
+    for market_decision in market_decisions:
+        if market_decision.market_id not in valid_market_ids:
+            logger.error(f"Invalid market ID {market_decision.market_id} in decisions for event {event.id}. Valid IDs: {list(valid_market_ids)}")
+            return None
 
     event_decisions = EventInvestmentDecisions(
         event_id=event.id,
@@ -309,11 +316,11 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
 
 
 def _process_single_model(
-    model: ApiModel | str,
     events: list[Event],
     target_date: date,
     date_output_path: Path,
     timestamp_for_saving: str,
+    model: ApiModel | str,
     force_rewrite_cache: bool = False,
 ) -> ModelInvestmentDecisions:
     """Process investments for all events for a model."""
@@ -347,12 +354,14 @@ def _process_single_model(
             date_output_path=date_output_path,
             timestamp_for_saving=timestamp_for_saving,
         )
-        all_event_decisions.append(event_decisions)
-
-        # Save individual event result
+        
+        if event_decisions is None:
+            continue
+        
         event_content = event_decisions.model_dump_json(indent=2)
         write_to_storage(event_file_path, event_content)
         logger.info(f"Saved event result to {event_file_path}")
+        all_event_decisions.append(event_decisions)
 
     model_result = ModelInvestmentDecisions(
         model_id=model_id,
