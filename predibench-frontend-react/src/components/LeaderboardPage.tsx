@@ -36,7 +36,10 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
           <div className="h-80">
             {loading ? (
               <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <div className="text-center">
+                  <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-2"></div>
+                  <div className="text-sm text-muted-foreground">Loading PnL chart...</div>
+                </div>
               </div>
             ) : (
               <VisxLineChart

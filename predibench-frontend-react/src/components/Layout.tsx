@@ -1,4 +1,4 @@
-import { BarChart3, Newspaper, Trophy, Menu, X, HelpCircle } from 'lucide-react'
+import { BarChart3, HelpCircle, Menu, Newspaper, Trophy, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { Footer } from './Footer'
@@ -11,7 +11,7 @@ interface LayoutProps {
 
 export function Layout({ children, currentPage }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  
+
   const pages = [
     { id: 'leaderboard', name: 'Leaderboard', href: '/leaderboard', icon: Trophy },
     { id: 'models', name: 'Models', href: '/models', icon: BarChart3 },
@@ -30,10 +30,10 @@ export function Layout({ children, currentPage }: LayoutProps) {
                 PrediBench
               </a>
               <p className="text-sm text-muted-foreground hidden md:block">
-                Let LLMs bet on the future
+                LLMs bet on the future!
               </p>
             </div>
-            
+
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-3">
               <nav className="flex items-center space-x-1">
@@ -58,7 +58,7 @@ export function Layout({ children, currentPage }: LayoutProps) {
               </nav>
               <ThemeToggle />
             </div>
-            
+
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -68,7 +68,7 @@ export function Layout({ children, currentPage }: LayoutProps) {
               {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
           </div>
-          
+
           {/* Mobile Navigation Menu */}
           {isMobileMenuOpen && (
             <div className="md:hidden mt-4 border-t border-border pt-4">

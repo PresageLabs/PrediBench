@@ -8,7 +8,7 @@ import { HomePage } from './components/HomePage'
 import { Layout } from './components/Layout'
 import { LeaderboardPage } from './components/LeaderboardPage'
 import { ModelsPage } from './components/ModelsPage'
-import { QuestionsPage } from './components/QuestionsPage'
+import { EventsPage } from './components/EventsPage'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useAnalytics } from './hooks/useAnalytics'
 
@@ -100,7 +100,7 @@ function AppContent() {
       <Routes>
         <Route path="/" element={<HomePage leaderboard={leaderboard} events={events} loading={loading} />} />
         <Route path="/leaderboard" element={<LeaderboardPage leaderboard={leaderboard} loading={loading} />} />
-        <Route path="/events" element={<QuestionsPage events={events} leaderboard={leaderboard} loading={loading} />} />
+        <Route path="/events" element={<EventsPage events={events} leaderboard={leaderboard} loading={loading} />} />
         <Route path="/models" element={<ModelsPage leaderboard={leaderboard} />} />
         <Route path="/about" element={<AboutPage />} />
         <Route

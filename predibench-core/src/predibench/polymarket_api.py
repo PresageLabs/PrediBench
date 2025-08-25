@@ -339,6 +339,7 @@ class Event(BaseModel, arbitrary_types_allowed=True):
     id: str
     slug: str
     title: str
+    tags: list[str] | None = None
     description: str | None = None
     start_datetime: datetime | None = None
     end_datetime: datetime | None = None
@@ -364,7 +365,10 @@ class Event(BaseModel, arbitrary_types_allowed=True):
             id=event_data["id"],
             slug=event_data["slug"],
             title=event_data["title"],
-            description=event_data.get("description"),
+            tags=[tag["label"] for tag in event_data["tags"]]
+            if "tags" in event_data
+            else None,
+            description=event_data.get("description", None),
             start_datetime=convert_polymarket_time_to_datetime(event_data["startDate"])
             if "startDate" in event_data
             else None,

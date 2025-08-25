@@ -21,6 +21,16 @@ export function LeaderboardTable({
 
   return (
     <div>
+      {/* Loading Spinner when initially loading */}
+      {loading && leaderboard.length === 0 && (
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-2"></div>
+            <div className="text-sm text-muted-foreground">Loading leaderboard...</div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-card rounded-xl border border-border/30 overflow-hidden max-w-4xl mx-auto">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -32,7 +42,7 @@ export function LeaderboardTable({
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {loading && leaderboard.length === 0 ? (
                 Array.from({ length: 5 }).map((_, index) => (
                   <tr key={index} className="border-t border-border/20">
                     <td className="py-4 px-6">
