@@ -92,6 +92,12 @@ def load_dataset_from_google():
                 except Exception as e:
                     print(f"Error reading {blob.name}: {e}")
                     continue
+    
+    if not all_dataframes:
+        # No CSV files found in bucket, fall back to HuggingFace
+        dataset = load_dataset(AGENT_CHOICES_REPO, split="test")
+        return dataset.to_pandas().sort_values("date")
+    
     # Combine all CSV dataframes
     combined_df = pd.concat(all_dataframes, ignore_index=True)
     return combined_df.sort_values("date")
