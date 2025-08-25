@@ -40,8 +40,8 @@ def add_retry_logic(base_class: Type[T]) -> Type[T]:
             after=after_log(logger, logging.INFO),
         )
         @retry(
-            stop=stop_after_attempt(5),
-            wait=wait_fixed(1),  # 1 second
+            stop=stop_after_attempt(10),
+            wait=wait_fixed(0.5),  # 1 second
             retry=retry_if_exception(lambda e: not is_rate_limit_error(e)),
             reraise=True,
             before_sleep=before_sleep_log(logger, logging.WARNING),
