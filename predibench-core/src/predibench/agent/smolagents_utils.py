@@ -125,11 +125,19 @@ def final_answer(
             - bet (float): Your bet (-1.0 to 1.0) for the market : if you estimate the yes to be overvalued/undervalued, place your bet accordingly!
         unallocated_capital (float): Fraction of capital not allocated to any bet (0.0 to 1.0)
     """
+    # Check market decisions - raise errors if incorrect
+    if not market_decisions or len(market_decisions) == 0:
+        raise ValueError("No market decisions provided - at least one market decision is required")
+    
     validated_decisions = []
     total_allocated = 0.0
     assert unallocated_capital >= 0.0, "Unallocated capital cannot be negative"
 
     for decision_dict in market_decisions:
+        # Check required fields
+        assert "market_id" in decision_dict, (
+            "A key 'market_id' is required for each market decision"
+        )
         assert "rationale" in decision_dict, (
             "A key 'rationale' is required for each market decision"
         )
@@ -139,6 +147,14 @@ def final_answer(
         assert "bet" in decision_dict, (
             "A key 'bet' is required for each market decision"
         )
+        
+        # Validate market_id is not empty
+        if not decision_dict["market_id"] or decision_dict["market_id"].strip() == "":
+            raise ValueError(f"Market ID cannot be empty or whitespace only")
+            
+        # Validate rationale is not empty
+        if not decision_dict["rationale"] or decision_dict["rationale"].strip() == "":
+            raise ValueError(f"Rationale cannot be empty for market {decision_dict['market_id']}")
         assert -1.0 <= decision_dict["bet"] <= 1.0, (
             f"Your bet must be between -1.0 and 1.0, got {decision_dict['bet']} for market {decision_dict['market_id']}"
         )

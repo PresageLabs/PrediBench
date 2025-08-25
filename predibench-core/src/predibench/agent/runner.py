@@ -7,6 +7,7 @@ import datasets
 import numpy as np
 from datasets import Dataset, concatenate_datasets, load_dataset
 from dotenv import load_dotenv
+from pydantic import ValidationError
 from predibench.agent.dataclasses import (
     EventInvestmentDecisions,
     MarketInvestmentDecision,
@@ -20,7 +21,7 @@ from predibench.agent.smolagents_utils import (
 from predibench.date_utils import is_backward_mode
 from predibench.logger_config import get_logger
 from predibench.polymarket_api import Event
-from predibench.storage_utils import write_to_storage
+from predibench.storage_utils import write_to_storage, file_exists_in_storage, read_from_storage
 from smolagents import ApiModel
 
 load_dotenv()
@@ -31,7 +32,7 @@ logger = get_logger(__name__)
 def _upload_results_to_hf_dataset(
     results_per_model: list[ModelInvestmentDecisions],
     target_date: date,
-    dataset_name: str = "Sibyllic/predibench",
+    dataset_name: str,
     split: str = "train",
     erase_existing: bool = False,
 ) -> None:
@@ -48,6 +49,18 @@ def _upload_results_to_hf_dataset(
     current_timestamp = datetime.now()
 
     for model_investment_decision in results_per_model:
+        # Extract provider from model_id
+        model_id = model_investment_decision.model_id
+        if model_id.startswith("openai/"):
+            provider = "openai"
+        elif model_id.startswith("huggingface/"):
+            provider = "huggingface"
+        else:
+            provider = "unknown"
+        
+        # Calculate backward mode
+        backward_mode = is_backward_mode(model_investment_decision.target_date)
+        
         for (
             event_investment_decision
         ) in model_investment_decision.event_investment_decisions:
@@ -69,6 +82,9 @@ def _upload_results_to_hf_dataset(
                     else obj,
                 ),
                 "timestamp_uploaded": current_timestamp,
+                # New columns
+                "backward_mode": backward_mode,
+                "provider": provider,
             }
             new_rows.append(row)
 
@@ -135,7 +151,7 @@ def _process_event_investment(
     date_output_path: Path | None,
     timestamp_for_saving: str,
     price_history_limit: int = 20,
-) -> EventInvestmentDecisions:
+) -> EventInvestmentDecisions | None:
     """Process investment decisions for all relevant markets."""
     logger.info(f"Processing event: {event.title} with {len(event.markets)} markets")
     backward_mode = is_backward_mode(target_date)
@@ -281,6 +297,13 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
         market_decision.market_question = market_data[market_decision.market_id][
             "question"
         ]
+        
+    # Validate all market IDs are correct
+    valid_market_ids = set(market_data.keys())
+    for market_decision in market_decisions:
+        if market_decision.market_id not in valid_market_ids:
+            logger.error(f"Invalid market ID {market_decision.market_id} in decisions for event {event.id}. Valid IDs: {list(valid_market_ids)}")
+            return None
 
     event_decisions = EventInvestmentDecisions(
         event_id=event.id,
@@ -293,16 +316,36 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
 
 
 def _process_single_model(
-    model: ApiModel | str,
     events: list[Event],
     target_date: date,
-    date_output_path: Path | None,
+    date_output_path: Path,
     timestamp_for_saving: str,
+    model: ApiModel | str,
+    force_rewrite_cache: bool = False,
 ) -> ModelInvestmentDecisions:
     """Process investments for all events for a model."""
     all_event_decisions = []
+    model_id = model.model_id if isinstance(model, ApiModel) else model
 
     for event in events:
+        # Check if event file already exists for this model
+        event_file_path = date_output_path / model_id.replace("/", "--") / f"{event.id}.json"
+        
+        if file_exists_in_storage(event_file_path, force_rewrite=force_rewrite_cache):
+            # File exists and we're not forcing rewrite, so load existing result
+            logger.info(f"Loading existing event result for {event.title} for model {model_id} from {event_file_path}")
+            existing_content = read_from_storage(event_file_path)
+            try:
+                event_decisions = EventInvestmentDecisions.model_validate_json(existing_content)
+            except (ValidationError) as e:
+                logger.error(f"Failed to parse existing event result (Pydantic error): {e}. Re-processing event.")
+                # Fall through to process the event normally
+                event_decisions = None
+
+            if isinstance(event_decisions, EventInvestmentDecisions):
+                all_event_decisions.append(event_decisions)
+                continue
+                
         logger.info(f"Processing event: {event.title}")
         event_decisions = _process_event_investment(
             model=model,
@@ -311,21 +354,26 @@ def _process_single_model(
             date_output_path=date_output_path,
             timestamp_for_saving=timestamp_for_saving,
         )
+        
+        if event_decisions is None:
+            continue
+        
+        event_content = event_decisions.model_dump_json(indent=2)
+        write_to_storage(event_file_path, event_content)
+        logger.info(f"Saved event result to {event_file_path}")
         all_event_decisions.append(event_decisions)
 
-    model_id = model.model_id if isinstance(model, ApiModel) else model
     model_result = ModelInvestmentDecisions(
         model_id=model_id,
         target_date=target_date,
         event_investment_decisions=all_event_decisions,
     )
 
-    if date_output_path:
-        save_model_result(
-            model_result=model_result,
-            date_output_path=date_output_path,
-            timestamp_for_saving=timestamp_for_saving,
-        )
+    save_model_result(
+        model_result=model_result,
+        date_output_path=date_output_path,
+        timestamp_for_saving=timestamp_for_saving,
+    )
     return model_result
 
 
@@ -333,10 +381,11 @@ def run_agent_investments(
     models: list[ApiModel | str],
     events: list[Event],
     target_date: date,
-    date_output_path: Path | None,
+    date_output_path: Path,
     split: str,
     timestamp_for_saving: str,
     dataset_name: str | None = None,
+    force_rewrite_cache: bool = False,
 ) -> list[ModelInvestmentDecisions]:
     """Launch agent investments for events on a specific date."""
     logger.info(f"Running agent investments for {len(models)} models on {target_date}")
@@ -352,6 +401,7 @@ def run_agent_investments(
             target_date=target_date,
             date_output_path=date_output_path,
             timestamp_for_saving=timestamp_for_saving,
+            force_rewrite_cache=force_rewrite_cache,
         )
         results.append(model_result)
 

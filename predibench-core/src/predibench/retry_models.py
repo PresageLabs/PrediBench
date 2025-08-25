@@ -5,12 +5,14 @@ from smolagents import ChatMessage, ChatMessageStreamDelta, Tool
 from smolagents.models import ApiModel, InferenceClientModel, LiteLLMModel, OpenAIModel
 from tenacity import (
     retry,
-    retry_if_exception_type,
+    retry_if_exception,
     stop_after_attempt,
     wait_fixed,
     before_sleep_log,
     after_log,
 )
+import logging
+
 
 from predibench.logger_config import get_logger
 
@@ -19,17 +21,31 @@ logger = get_logger(__name__)
 T = TypeVar("T", bound=ApiModel)
 
 
+def is_rate_limit_error(exception):
+    """Check if the exception is a rate limit error."""
+    error_str = str(exception).lower()
+    return "429" in error_str or "rate limit" in error_str or "too many requests" in error_str or "rate_limit" in error_str
+
+
 def add_retry_logic(base_class: Type[T]) -> Type[T]:
     """Factory function to add retry logic to any ApiModel class."""
 
     class ModelWithRetry(base_class):
         @retry(
             stop=stop_after_attempt(5),
-            wait=wait_fixed(61),
-            retry=retry_if_exception_type((Exception,)),
+            wait=wait_fixed(120),  # 2 minutes
+            retry=retry_if_exception(is_rate_limit_error),
             reraise=True,
             before_sleep=before_sleep_log(logger, logging.INFO),
             after=after_log(logger, logging.INFO),
+        )
+        @retry(
+            stop=stop_after_attempt(10),
+            wait=wait_fixed(0.5),  # 1 second
+            retry=retry_if_exception(lambda e: not is_rate_limit_error(e)),
+            reraise=True,
+            before_sleep=before_sleep_log(logger, logging.WARNING),
+            after=after_log(logger, logging.WARNING),
         )
         def generate(
             self,
@@ -49,11 +65,19 @@ def add_retry_logic(base_class: Type[T]) -> Type[T]:
 
         @retry(
             stop=stop_after_attempt(5),
-            wait=wait_fixed(61),
-            retry=retry_if_exception_type((Exception,)),
+            wait=wait_fixed(120),  # 2 minutes
+            retry=retry_if_exception(is_rate_limit_error),
             reraise=True,
-            before_sleep=before_sleep_log(logger, logging.INFO),
-            after=after_log(logger, logging.INFO),
+            before_sleep=before_sleep_log(logger, logging.WARNING),
+            after=after_log(logger, logging.WARNING),
+        )
+        @retry(
+            stop=stop_after_attempt(5),
+            wait=wait_fixed(1),  # 1 second
+            retry=retry_if_exception(lambda e: not is_rate_limit_error(e)),
+            reraise=True,
+            before_sleep=before_sleep_log(logger, logging.WARNING),
+            after=after_log(logger, logging.WARNING),
         )
         def generate_stream(
             self,

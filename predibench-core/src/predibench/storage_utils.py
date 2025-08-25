@@ -185,5 +185,37 @@ def read_from_storage(file_path: Path) -> str:
     return _read_file_from_bucket_or_data_dir(str(relative_path))
 
 
+def file_exists_in_storage(file_path: Path, force_rewrite: bool = False) -> bool:
+    """
+    Check if a file exists in storage (GCP bucket or local data directory).
+
+    Args:
+        file_path: Path object that must be relative to DATA_PATH
+
+    Returns:
+        True if file exists, False otherwise
+
+    Raises:
+        ValueError: If the path is not relative to DATA_PATH
+    """
+    if force_rewrite:
+        return False
+    
+    # Ensure the path is relative to DATA_PATH
+    if not file_path.is_relative_to(DATA_PATH):
+        raise ValueError(f"Path {file_path} is not relative to DATA_PATH {DATA_PATH}")
+
+    relative_path = file_path.relative_to(DATA_PATH)
+    blob_name = str(relative_path)
+    
+    # Check bucket if available
+    if has_bucket_access():
+        bucket = get_bucket()
+        blob = bucket.blob(blob_name)
+        return blob.exists()
+    
+    # Check local 
+    return file_path.exists()    
+
 if __name__ == "__main__":
     print(has_bucket_access())

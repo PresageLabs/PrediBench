@@ -18,6 +18,7 @@ from predibench.retry_models import (
     OpenAIModelWithRetry,
 )
 from predibench.utils import get_timestamp_string
+from predibench.storage_utils import file_exists_in_storage
 
 load_dotenv()
 login(os.getenv("HF_TOKEN"))
@@ -32,9 +33,9 @@ def run_investments_for_specific_date(
     time_until_ending: timedelta,
     target_date: date,
     cache_file_path: Path | None = None,
-    load_from_cache: bool = False,
+    force_rewrite_cache: bool = False,
     filter_crypto_events: bool = True,
-    dataset_name: str = "Sibyllic/predibench",
+    dataset_name: str = "Sibyllic/predibench-3",
     split: str = "train",
 ) -> list[ModelInvestmentDecisions]:
     """Run event-based investment simulation with multiple AI models."""
@@ -48,7 +49,7 @@ def run_investments_for_specific_date(
         or date_output_path / f"events_cache_{get_timestamp_string()}.json"
     )
 
-    if cache_file_path.exists() and load_from_cache:
+    if file_exists_in_storage(cache_file_path, force_rewrite=force_rewrite_cache):
         logger.info("Loading events from cache")
         selected_events = load_events_from_file(cache_file_path)
     else:
@@ -84,6 +85,7 @@ def run_investments_for_specific_date(
         dataset_name=dataset_name,
         split=split,
         timestamp_for_saving=get_timestamp_string(),
+        force_rewrite_cache=force_rewrite_cache,
     )
 
     logger.info("Investment analysis complete!")
