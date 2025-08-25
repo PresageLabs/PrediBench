@@ -27,7 +27,7 @@ export function Layout({ children, currentPage }: LayoutProps) {
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
               <a href="/" className="text-3xl font-bold tracking-tight hover:text-muted-foreground transition-colors">
-                PrediBench
+                🤞 PrediBench
               </a>
               <p className="text-sm text-muted-foreground hidden md:block">
                 LLMs bet on the future!
