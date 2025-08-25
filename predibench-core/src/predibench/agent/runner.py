@@ -418,15 +418,19 @@ def run_agent_investments(
     for model in models:
         model_name = model.model_id if isinstance(model, ApiModel) else model
         logger.info(f"Processing model: {model_name}")
-        model_result = _process_single_model(
-            model=model,
-            events=events,
-            target_date=target_date,
-            date_output_path=date_output_path,
-            timestamp_for_saving=timestamp_for_saving,
-            force_rewrite_cache=force_rewrite_cache,
-        )
-        results.append(model_result)
+        try:
+            model_result = _process_single_model(
+                model=model,
+                events=events,
+                target_date=target_date,
+                date_output_path=date_output_path,
+                timestamp_for_saving=timestamp_for_saving,
+                force_rewrite_cache=force_rewrite_cache,
+            )
+            results.append(model_result)
+        except Exception as e:
+            logger.error(f"Failed to process model {model_name}: {e}")
+            continue
 
     if dataset_name:
         _upload_results_to_hf_dataset(
