@@ -21,4 +21,4 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-predibench = { path = "../predibench-core", editable = true }
+predibench = { git = "https://github.com/aymeric-roucher/PrediBench", subdirectory = "predibench-core" }
