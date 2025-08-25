@@ -85,6 +85,7 @@ def run_investments_for_specific_date(
         dataset_name=dataset_name,
         split=split,
         timestamp_for_saving=get_timestamp_string(),
+        force_rewrite_cache=force_rewrite_cache,
     )
 
     logger.info("Investment analysis complete!")

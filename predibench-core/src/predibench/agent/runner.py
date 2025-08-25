@@ -7,6 +7,7 @@ import datasets
 import numpy as np
 from datasets import Dataset, concatenate_datasets, load_dataset
 from dotenv import load_dotenv
+from pydantic import ValidationError
 from predibench.agent.dataclasses import (
     EventInvestmentDecisions,
     MarketInvestmentDecision,
@@ -20,7 +21,7 @@ from predibench.agent.smolagents_utils import (
 from predibench.date_utils import is_backward_mode
 from predibench.logger_config import get_logger
 from predibench.polymarket_api import Event
-from predibench.storage_utils import write_to_storage
+from predibench.storage_utils import write_to_storage, file_exists_in_storage, read_from_storage
 from smolagents import ApiModel
 
 load_dotenv()
@@ -311,13 +312,33 @@ def _process_single_model(
     model: ApiModel | str,
     events: list[Event],
     target_date: date,
-    date_output_path: Path | None,
+    date_output_path: Path,
     timestamp_for_saving: str,
+    force_rewrite_cache: bool = False,
 ) -> ModelInvestmentDecisions:
     """Process investments for all events for a model."""
     all_event_decisions = []
+    model_id = model.model_id if isinstance(model, ApiModel) else model
 
     for event in events:
+        # Check if event file already exists for this model
+        event_file_path = date_output_path / model_id.replace("/", "--") / f"{event.id}.json"
+        
+        if file_exists_in_storage(event_file_path, force_rewrite=force_rewrite_cache):
+            # File exists and we're not forcing rewrite, so load existing result
+            logger.info(f"Loading existing event result for {event.title} for model {model_id} from {event_file_path}")
+            existing_content = read_from_storage(event_file_path)
+            try:
+                event_decisions = EventInvestmentDecisions.model_validate_json(existing_content)
+            except (ValidationError) as e:
+                logger.error(f"Failed to parse existing event result (Pydantic error): {e}. Re-processing event.")
+                # Fall through to process the event normally
+                event_decisions = None
+
+            if isinstance(event_decisions, EventInvestmentDecisions):
+                all_event_decisions.append(event_decisions)
+                continue
+                
         logger.info(f"Processing event: {event.title}")
         event_decisions = _process_event_investment(
             model=model,
@@ -328,19 +349,22 @@ def _process_single_model(
         )
         all_event_decisions.append(event_decisions)
 
-    model_id = model.model_id if isinstance(model, ApiModel) else model
+        # Save individual event result
+        event_content = event_decisions.model_dump_json(indent=2)
+        write_to_storage(event_file_path, event_content)
+        logger.info(f"Saved event result to {event_file_path}")
+
     model_result = ModelInvestmentDecisions(
         model_id=model_id,
         target_date=target_date,
         event_investment_decisions=all_event_decisions,
     )
 
-    if date_output_path:
-        save_model_result(
-            model_result=model_result,
-            date_output_path=date_output_path,
-            timestamp_for_saving=timestamp_for_saving,
-        )
+    save_model_result(
+        model_result=model_result,
+        date_output_path=date_output_path,
+        timestamp_for_saving=timestamp_for_saving,
+    )
     return model_result
 
 
@@ -348,10 +372,11 @@ def run_agent_investments(
     models: list[ApiModel | str],
     events: list[Event],
     target_date: date,
-    date_output_path: Path | None,
+    date_output_path: Path,
     split: str,
     timestamp_for_saving: str,
     dataset_name: str | None = None,
+    force_rewrite_cache: bool = False,
 ) -> list[ModelInvestmentDecisions]:
     """Launch agent investments for events on a specific date."""
     logger.info(f"Running agent investments for {len(models)} models on {target_date}")
@@ -367,6 +392,7 @@ def run_agent_investments(
             target_date=target_date,
             date_output_path=date_output_path,
             timestamp_for_saving=timestamp_for_saving,
+            force_rewrite_cache=force_rewrite_cache,
         )
         results.append(model_result)
 
