@@ -2,6 +2,7 @@ import json
 import os
 from datetime import datetime
 from functools import lru_cache
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -14,6 +15,8 @@ from predibench.polymarket_api import (
     EventsRequestParameters,
     _HistoricalTimeSeriesRequestParameters,
 )
+from predibench.storage_utils import read_from_storage, has_bucket_access, get_bucket
+from predibench.common import DATA_PATH
 from pydantic import BaseModel
 
 print("Successfully imported predibench modules")
@@ -65,11 +68,38 @@ class Stats(BaseModel):
 
 # Real data loading functions
 @lru_cache(maxsize=1)
+def load_dataset_from_google():
+    """Load agent choices from GCP by reading CSV files from date folders"""
+    if not has_bucket_access():
+        # No bucket access, fall back to HuggingFace
+        dataset = load_dataset(AGENT_CHOICES_REPO, split="test")
+        return dataset.to_pandas().sort_values("date")
+    
+    # Has bucket access, load directly from GCP bucket
+    all_dataframes = []
+    bucket = get_bucket()
+    blobs = bucket.list_blobs(prefix="")
+    
+    for blob in blobs:
+        if blob.name.endswith('.csv') and '/' in blob.name:
+            parts = blob.name.split('/')
+            if len(parts) == 2:  # date/model.csv format
+                try:
+                    csv_content = blob.download_as_text()
+                    from io import StringIO
+                    df = pd.read_csv(StringIO(csv_content))
+                    all_dataframes.append(df)
+                except Exception as e:
+                    print(f"Error reading {blob.name}: {e}")
+                    continue
+    # Combine all CSV dataframes
+    combined_df = pd.concat(all_dataframes, ignore_index=True)
+    return combined_df.sort_values("date")
+
+@lru_cache(maxsize=1)
 def load_agent_choices():
-    """Load agent choices from HuggingFace dataset"""
-    dataset = load_dataset(AGENT_CHOICES_REPO, split="test")
-    dataset = dataset.to_pandas()
-    return dataset.sort_values("date")
+    """Load agent choices from GCP instead of HuggingFace dataset"""
+    return load_dataset_from_google()
 
 
 @lru_cache(maxsize=32)

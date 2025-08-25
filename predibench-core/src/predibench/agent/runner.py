@@ -35,6 +35,7 @@ def _upload_results_to_hf_dataset(
     dataset_name: str,
     split: str = "train",
     erase_existing: bool = False,
+    date_output_path: Path | None = None,
 ) -> None:
     """Upload investment results to the Hugging Face dataset."""
     # Try to load the existing dataset, handle empty dataset case
@@ -124,6 +125,28 @@ def _upload_results_to_hf_dataset(
         )
 
         logger.info(f"Successfully uploaded {len(new_rows)} new rows to HF dataset")
+        
+        # Also save individual CSV files for each model in the date folder
+        if date_output_path is not None:
+            # Group new_rows by model_id
+            model_data = {}
+            for row in new_rows:
+                model_id = row['model_id']
+                if model_id not in model_data:
+                    model_data[model_id] = []
+                model_data[model_id].append(row)
+            
+            # Save CSV for each model
+            for model_id, rows in model_data.items():
+                import pandas as pd
+                df = pd.DataFrame(rows)
+                csv_filename = f"{model_id.replace('/', '--')}.csv"
+                csv_path = date_output_path / csv_filename
+                
+                # Convert to CSV content
+                csv_content = df.to_csv(index=False)
+                write_to_storage(csv_path, csv_content)
+                logger.info(f"Saved CSV for model {model_id} to {csv_path}")
     else:
         logger.warning("No data to upload to HF dataset")
 
@@ -411,6 +434,7 @@ def run_agent_investments(
             target_date=target_date,
             dataset_name=dataset_name,
             split=split,
+            date_output_path=date_output_path,
         )
 
     return results
