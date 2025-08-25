@@ -17,12 +17,15 @@ MODEL_MAP = {
     "openai/gpt-5-mini": OpenAIModelWithRetry(model_id="gpt-5-mini"),
     "huggingface/openai/gpt-oss-120b": InferenceClientModelWithRetry(
         model_id="openai/gpt-oss-120b",
+        provider="fireworks-ai"
     ),
-    "huggingface/openai/gpt-oss-20b": InferenceClientModelWithRetry(
-        model_id="openai/gpt-oss-20b",
+    "huggingface/deepseek-ai/DeepSeek-V3.1": InferenceClientModelWithRetry(
+        model_id="deepseek-ai/DeepSeek-V3.1",
+        provider="novita",
     ),
-    "huggingface/deepseek-ai/DeepSeek-R1-0528": InferenceClientModelWithRetry(
-        model_id="deepseek-ai/DeepSeek-R1-0528",
+    "huggingface/Qwen/Qwen3-Coder-480B-A35B-Instruct": InferenceClientModelWithRetry(
+        model_id="Qwen/Qwen3-Coder-480B-A35B-Instruct",
+        provider="fireworks-ai",
     ),
 }
 
