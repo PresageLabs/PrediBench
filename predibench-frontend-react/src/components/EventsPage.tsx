@@ -1,8 +1,8 @@
 import { Search } from 'lucide-react'
 import { useState } from 'react'
 import type { Event, LeaderboardEntry } from '../api'
-import { Card, CardContent, CardHeader } from './ui/card'
 import { EventCard } from './EventCard'
+import { Card, CardContent, CardHeader } from './ui/card'
 
 interface EventsPageProps {
   events: Event[]
@@ -17,21 +17,30 @@ export function EventsPage({ events, loading: initialLoading = false }: EventsPa
   const [isLive, setIsLive] = useState(false)
   const [selectedTag, setSelectedTag] = useState<string>('')
 
-  // Helper function to capitalize words in a string
-  const capitalizeWords = (str: string) => {
-    return str.split(' ').map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-    ).join(' ')
+
+  // Rank tags by frequency (after capitalization) and keep top 7
+  function capitalizeWords(str: string): string {
+    return str
+      .split(/\s+/)
+      .map(word => {
+        // If word is all caps, leave it
+        if (word === word.toUpperCase()) return word;
+        // Else capitalize first letter, lowercase rest
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      })
+      .join(" ");
   }
 
-  // Get unique tags from all events, capitalize and deduplicate
-  const uniqueTags = Array.from(
-    new Set(
-      events
-        .flatMap(event => event.tags || [])
-        .map(tag => capitalizeWords(tag))
-    )
-  ).sort()
+  const tagCounts = new Map<string, number>();
+
+  for (const tag of events.flatMap(e => e.tags ?? []).map(t => capitalizeWords(t))) {
+    tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+  }
+
+  const topTags = [...tagCounts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])) // freq desc, then alpha
+    .slice(0, 7)
+    .map(([tag]) => tag);
 
 
   // Filter and sort events
@@ -45,7 +54,7 @@ export function EventsPage({ events, loading: initialLoading = false }: EventsPa
         )
 
       const matchesStatus = isLive ? (event.end_datetime ? new Date(event.end_datetime) > new Date() : true) : true
-      
+
       const matchesTag = selectedTag === '' || (event.tags && event.tags.includes(selectedTag))
 
       return matchesSearch && matchesStatus && matchesTag
@@ -96,19 +105,19 @@ export function EventsPage({ events, loading: initialLoading = false }: EventsPa
               value={selectedTag}
               onChange={(e) => setSelectedTag(e.target.value)}
               className="px-3 py-1 border border-border rounded bg-background text-sm"
-              disabled={uniqueTags.length === 0}
+              disabled={topTags.length === 0}
             >
               <option value="">All tags</option>
-              {uniqueTags.length === 0 ? (
+              {topTags.length === 0 ? (
                 <option disabled>No tags available</option>
               ) : (
-                uniqueTags.map(tag => (
+                topTags.map(tag => (
                   <option key={tag} value={tag}>{tag}</option>
                 ))
               )}
             </select>
           </div>
-          
+
           {/* Sort By */}
           <div className="flex items-center space-x-2">
             <span className="text-sm font-medium">Sort by:</span>
