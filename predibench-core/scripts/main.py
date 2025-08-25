@@ -21,7 +21,7 @@ MODEL_MAP = {
     ),
     "huggingface/deepseek-ai/DeepSeek-V3.1": InferenceClientModelWithRetry(
         model_id="deepseek-ai/DeepSeek-V3.1",
-        provider="novita",
+        provider="fireworks-ai",
     ),
     "huggingface/Qwen/Qwen3-Coder-480B-A35B-Instruct": InferenceClientModelWithRetry(
         model_id="Qwen/Qwen3-Coder-480B-A35B-Instruct",
