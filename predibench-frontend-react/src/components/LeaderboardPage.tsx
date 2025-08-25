@@ -14,8 +14,7 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
     <div className="container mx-auto px-4 py-8">
       {/* Page Title and Subtitle */}
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold mb-4">PrediBench Leaderboard</h1>
-        <p className="text-lg text-muted-foreground">LLMs bet their money on the future</p>
+        <h1 className="text-4xl font-bold mb-4">🏆 PrediBench Leaderboard</h1>
       </div>
 
       {/* Leaderboard Table */}

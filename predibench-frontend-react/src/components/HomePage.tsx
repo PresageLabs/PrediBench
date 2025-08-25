@@ -14,7 +14,7 @@ export function HomePage({ leaderboard, events, loading = false }: HomePageProps
     <div className="container mx-auto px-4 py-8">
       {/* Page Title and Subtitle */}
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold mb-4">PrediBench</h1>
+        <h1 className="text-4xl font-bold mb-4">🤞 PrediBench</h1>
         <p className="text-lg text-muted-foreground">LLMs bet money on the future!</p>
       </div>
 
