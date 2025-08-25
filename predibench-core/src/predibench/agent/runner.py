@@ -48,6 +48,18 @@ def _upload_results_to_hf_dataset(
     current_timestamp = datetime.now()
 
     for model_investment_decision in results_per_model:
+        # Extract provider from model_id
+        model_id = model_investment_decision.model_id
+        if model_id.startswith("openai/"):
+            provider = "openai"
+        elif model_id.startswith("huggingface/"):
+            provider = "huggingface"
+        else:
+            provider = "unknown"
+        
+        # Calculate backward mode
+        backward_mode = is_backward_mode(model_investment_decision.target_date)
+        
         for (
             event_investment_decision
         ) in model_investment_decision.event_investment_decisions:
@@ -69,6 +81,9 @@ def _upload_results_to_hf_dataset(
                     else obj,
                 ),
                 "timestamp_uploaded": current_timestamp,
+                # New columns
+                "backward_mode": backward_mode,
+                "provider": provider,
             }
             new_rows.append(row)
 
