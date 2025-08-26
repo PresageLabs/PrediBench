@@ -6,6 +6,7 @@ For local development, the data is stored in the data directory.
 This module contains utility functions for interacting with Google Cloud Storage.
 """
 
+import json
 import os
 import uuid
 from functools import cache
@@ -22,7 +23,12 @@ logger = get_logger(__name__)
 BUCKET_ENV_VAR = "BUCKET_PREDIBENCH"
 
 try:
-    STORAGE_CLIENT = storage.Client()
+    bucket_json_key = os.getenv("BUCKET_JSON_KEY")
+    if bucket_json_key:
+        credentials_info = json.loads(bucket_json_key)
+        STORAGE_CLIENT = storage.Client.from_service_account_info(credentials_info)
+    else:
+        STORAGE_CLIENT = storage.Client()
 except Exception as e:
     logger.error(f"Error initializing storage client: {e}")
     STORAGE_CLIENT = None

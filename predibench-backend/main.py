@@ -16,6 +16,7 @@ from predibench.polymarket_api import (
 )
 from predibench.storage_utils import get_bucket
 from pydantic import BaseModel
+from predibench.agent.dataclasses import ModelInvestmentDecisions
 
 print("Successfully imported predibench modules")
 
@@ -66,9 +67,8 @@ class Stats(BaseModel):
 
 # Real data loading functions
 @lru_cache(maxsize=1)
-def load_model_results_from_google():
+def load_model_results_from_google() -> list[ModelInvestmentDecisions]:
     # Has bucket access, load directly from GCP bucket
-    from predibench.agent.dataclasses import ModelInvestmentDecisions
     
     model_results = []
     bucket = get_bucket()
@@ -87,13 +87,7 @@ def load_model_results_from_google():
                 except Exception as e:
                     print(f"Error reading {blob.name}: {e}")
                     continue
-    
-    if not model_results:
-        # No JSON files found in bucket, fall back to HuggingFace
-        dataset = load_dataset(AGENT_CHOICES_REPO, split="train")
-        # Convert HF dataset back to DataFrame for now (fallback case)
-        return dataset.to_pandas().sort_values("date")
-    
+
     # Sort by target_date
     model_results.sort(key=lambda x: x.target_date)
     return model_results
@@ -220,8 +214,6 @@ def calculate_real_performance():
 
     print(f"Calculated performance for {len(agents_performance)} agents")
     return agents_performance
-
-calculate_real_performance()
 
 # Generate leaderboard from real data only
 @lru_cache(maxsize=1)

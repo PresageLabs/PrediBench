@@ -6,12 +6,16 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/
 
-# Copy and install dependencies
-COPY pyproject.toml ./
+# Copy all required files for editable install
+COPY predibench-backend/pyproject.toml ./
+COPY predibench-core/pyproject.toml ./predibench-core/pyproject.toml
+COPY predibench-core/README.md ./predibench-core/README.md
+COPY predibench-core/src/predibench/__init__.py ./predibench-core/src/predibench/__init__.py
 RUN uv sync --no-dev
 
-# Copy application code
-COPY main.py ./
+# Copy application code and predibench-core source
+COPY predibench-backend/main.py ./
+COPY predibench-core/src/ ./predibench-core/src/
 
 # Create user for security
 RUN groupadd -r appuser && useradd -r -g appuser appuser
