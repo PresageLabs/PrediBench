@@ -44,9 +44,9 @@ def get_bucket() -> storage.Bucket | None:
 
 
 @cache
-def has_bucket_access(write_access_only: bool = True) -> bool:
+def has_bucket_write_access() -> bool:
     """
-    Check if the bucket is set and working.
+    Check if the bucket is set and working with write access.
 
     If not set, the data is stored in the data directory.
 
@@ -62,11 +62,10 @@ def has_bucket_access(write_access_only: bool = True) -> bool:
         blob = bucket.blob(f"ping/ping_{random_string}.txt")
         blob.upload_from_string("ping")
         print(f"File uploaded to {blob.name}")
-        if not write_access_only:
-            file_content = blob.download_as_bytes().decode("utf-8")
-            print(f"File content: {file_content}")
-            assert file_content == "ping"
-            blob.delete()
+        file_content = blob.download_as_bytes().decode("utf-8")
+        print(f"File content: {file_content}")
+        assert file_content == "ping"
+        blob.delete()
         return True
     except ClientError as e:
         print(f"Error accessing bucket {bucket.name}: {e}")
@@ -75,6 +74,32 @@ def has_bucket_access(write_access_only: bool = True) -> bool:
         print(
             f"Error while uploading file: {e}, file content is {file_content}, not 'ping'"
         )
+        raise e
+    except Exception as e:
+        print(f"Error accessing bucket {bucket.name}: {e}")
+        return False
+
+
+@cache
+def has_bucket_read_access() -> bool:
+    """
+    Check if the bucket is set and working with read access only.
+
+    If not set, the data is stored in the data directory.
+
+    If set but not working, raising an error.
+    """
+
+    bucket = get_bucket()
+    if bucket is None:
+        return False
+
+    try:
+        # Just try to list some blobs to test read access
+        list(bucket.list_blobs(max_results=1))
+        return True
+    except ClientError as e:
+        print(f"Error accessing bucket {bucket.name}: {e}")
         raise e
     except Exception as e:
         print(f"Error accessing bucket {bucket.name}: {e}")
@@ -96,7 +121,7 @@ def _write_file_to_bucket_or_data_dir(file_path: Path, blob_name: str) -> bool:
         local_dest.write_text(file_path.read_text())
 
     # Also upload to bucket if available
-    if has_bucket_access():
+    if has_bucket_write_access():
         bucket = get_bucket()
         blob = bucket.blob(blob_name)
         blob.upload_from_filename(str(file_path))
@@ -115,7 +140,7 @@ def _write_to_bucket_or_data_dir(content: str, blob_name: str) -> bool:
     local_path.write_text(content)
 
     # Also upload to bucket if available
-    if has_bucket_access():
+    if has_bucket_write_access():
         bucket = get_bucket()
         blob = bucket.blob(blob_name)
         blob.upload_from_string(content)
@@ -155,7 +180,7 @@ def _read_file_from_bucket_or_data_dir(blob_name: str) -> str:
         return local_path.read_text()
 
     # If not found locally, try bucket
-    if has_bucket_access():
+    if has_bucket_read_access():
         bucket = get_bucket()
         blob = bucket.blob(blob_name)
         return blob.download_as_text()
@@ -209,7 +234,7 @@ def file_exists_in_storage(file_path: Path, force_rewrite: bool = False) -> bool
     blob_name = str(relative_path)
     
     # Check bucket if available
-    if has_bucket_access():
+    if has_bucket_read_access():
         bucket = get_bucket()
         blob = bucket.blob(blob_name)
         return blob.exists()
@@ -218,4 +243,4 @@ def file_exists_in_storage(file_path: Path, force_rewrite: bool = False) -> bool
     return file_path.exists()    
 
 if __name__ == "__main__":
-    print(has_bucket_access())
+    print(has_bucket_write_access())

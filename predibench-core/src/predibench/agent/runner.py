@@ -3,9 +3,7 @@ import os
 from datetime import date, datetime
 from pathlib import Path
 
-import datasets
 import numpy as np
-from datasets import Dataset, concatenate_datasets, load_dataset
 from dotenv import load_dotenv
 from pydantic import ValidationError
 from predibench.agent.dataclasses import (
@@ -29,126 +27,6 @@ load_dotenv()
 logger = get_logger(__name__)
 
 
-def _upload_results_to_hf_dataset(
-    results_per_model: list[ModelInvestmentDecisions],
-    target_date: date,
-    dataset_name: str,
-    split: str = "train",
-    erase_existing: bool = False,
-    date_output_path: Path | None = None,
-) -> None:
-    """Upload investment results to the Hugging Face dataset."""
-    # Try to load the existing dataset, handle empty dataset case
-    try:
-        ds = load_dataset(dataset_name)
-    except datasets.data_files.EmptyDatasetError:
-        logger.info(f"Dataset {dataset_name} is empty, will create with new data")
-        ds = None
-
-    # Prepare new data rows
-    new_rows = []
-    current_timestamp = datetime.now()
-
-    for model_investment_decision in results_per_model:
-        # Extract provider from model_id
-        model_id = model_investment_decision.model_id
-        if model_id.startswith("openai/"):
-            provider = "openai"
-        elif model_id.startswith("huggingface/"):
-            provider = "huggingface"
-        else:
-            provider = "unknown"
-        
-        # Calculate backward mode
-        backward_mode = is_backward_mode(model_investment_decision.target_date)
-        
-        for (
-            event_investment_decision
-        ) in model_investment_decision.event_investment_decisions:
-            row = {
-                # ModelInvestmentResult fields
-                "model_id": model_investment_decision.model_id,
-                "agent_name": model_investment_decision.model_id,  # Keep for backward compatibility
-                "target_date": model_investment_decision.target_date,
-                "date": target_date,  # Keep for backward compatibility
-                # EventInvestmentResult fields
-                "event_id": event_investment_decision.event_id,
-                "event_title": event_investment_decision.event_title,
-                "event_description": event_investment_decision.event_description,
-                # MarketInvestmentResult fields
-                "decisions_per_market": json.dumps(
-                    event_investment_decision.market_investment_decisions,
-                    default=lambda obj: obj.model_dump()
-                    if hasattr(obj, "model_dump")
-                    else obj,
-                ),
-                "timestamp_uploaded": current_timestamp,
-                # New columns
-                "backward_mode": backward_mode,
-                "provider": provider,
-            }
-            new_rows.append(row)
-
-    if new_rows:
-        # Create a new dataset with the new rows
-        new_dataset = Dataset.from_list(new_rows)
-        # Concatenate with existing dataset using datasets.concatenate_datasets
-
-        # Handle dataset combination based on erase_existing flag
-        if erase_existing or ds is None:
-            # Either erasing existing data or dataset is empty, just use new data
-            combined_dataset = new_dataset
-            if erase_existing:
-                logger.info(
-                    f"Erasing existing dataset and creating fresh dataset with {len(new_dataset)} rows"
-                )
-            else:
-                logger.info(f"Dataset is empty, creating with {len(new_dataset)} rows")
-        else:
-            try:
-                existing_data = ds[split]
-                combined_dataset = concatenate_datasets([existing_data, new_dataset])
-                logger.info(
-                    f"Appending {len(new_dataset)} rows to existing {len(existing_data)} rows"
-                )
-            except KeyError:
-                # Split doesn't exist, just use new data
-                combined_dataset = new_dataset
-                logger.info(
-                    f"Split '{split}' doesn't exist, creating with {len(new_dataset)} rows"
-                )
-
-        # Push back to hub as a pull request (safer approach)
-        combined_dataset.push_to_hub(
-            dataset_name,
-            split=split,
-        )
-
-        logger.info(f"Successfully uploaded {len(new_rows)} new rows to HF dataset")
-        
-        # Also save individual CSV files for each model in the date folder
-        if date_output_path is not None:
-            # Group new_rows by model_id
-            model_data = {}
-            for row in new_rows:
-                model_id = row['model_id']
-                if model_id not in model_data:
-                    model_data[model_id] = []
-                model_data[model_id].append(row)
-            
-            # Save CSV for each model
-            for model_id, rows in model_data.items():
-                import pandas as pd
-                df = pd.DataFrame(rows)
-                csv_filename = f"{model_id.replace('/', '--')}.csv"
-                csv_path = date_output_path / csv_filename
-                
-                # Convert to CSV content
-                csv_content = df.to_csv(index=False)
-                write_to_storage(csv_path, csv_content)
-                logger.info(f"Saved CSV for model {model_id} to {csv_path}")
-    else:
-        logger.warning("No data to upload to HF dataset")
 
 
 def save_model_result(
@@ -405,9 +283,7 @@ def run_agent_investments(
     events: list[Event],
     target_date: date,
     date_output_path: Path,
-    split: str,
     timestamp_for_saving: str,
-    dataset_name: str | None = None,
     force_rewrite_cache: bool = False,
 ) -> list[ModelInvestmentDecisions]:
     """Launch agent investments for events on a specific date."""
@@ -418,27 +294,15 @@ def run_agent_investments(
     for model in models:
         model_name = model.model_id if isinstance(model, ApiModel) else model
         logger.info(f"Processing model: {model_name}")
-        try:
-            model_result = _process_single_model(
-                model=model,
-                events=events,
-                target_date=target_date,
-                date_output_path=date_output_path,
-                timestamp_for_saving=timestamp_for_saving,
-                force_rewrite_cache=force_rewrite_cache,
-            )
-            results.append(model_result)
-        except Exception as e:
-            logger.error(f"Failed to process model {model_name}: {e}")
-            continue
-
-    if dataset_name:
-        _upload_results_to_hf_dataset(
-            results_per_model=results,
+        model_result = _process_single_model(
+            model=model,
+            events=events,
             target_date=target_date,
-            dataset_name=dataset_name,
-            split=split,
             date_output_path=date_output_path,
+            timestamp_for_saving=timestamp_for_saving,
+            force_rewrite_cache=force_rewrite_cache,
         )
+        results.append(model_result)
+
 
     return results
