@@ -77,6 +77,8 @@ def load_model_results_from_google():
     for blob in blobs:
         if blob.name.endswith('.json') and '/' in blob.name:
             parts = blob.name.split('/')
+            if "events_cache" in blob.name:
+                continue
             if len(parts) == 2:  # date/model_timestamp.json format
                 try:
                     json_content = blob.download_as_text()
