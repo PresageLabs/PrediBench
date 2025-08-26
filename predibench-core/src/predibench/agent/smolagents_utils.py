@@ -1,9 +1,11 @@
 import json
+import os
 import textwrap
 from datetime import date
 
 import numpy as np
 import requests
+from openai import OpenAI
 from predibench.agent.dataclasses import (
     MarketInvestmentDecision,
     SingleModelDecision,
@@ -127,8 +129,10 @@ def final_answer(
     """
     # Check market decisions - raise errors if incorrect
     if not market_decisions or len(market_decisions) == 0:
-        raise ValueError("No market decisions provided - at least one market decision is required")
-    
+        raise ValueError(
+            "No market decisions provided - at least one market decision is required"
+        )
+
     validated_decisions = []
     total_allocated = 0.0
     assert unallocated_capital >= 0.0, "Unallocated capital cannot be negative"
@@ -147,14 +151,16 @@ def final_answer(
         assert "bet" in decision_dict, (
             "A key 'bet' is required for each market decision"
         )
-        
+
         # Validate market_id is not empty
         if not decision_dict["market_id"] or decision_dict["market_id"].strip() == "":
-            raise ValueError(f"Market ID cannot be empty or whitespace only")
-            
+            raise ValueError("Market ID cannot be empty or whitespace only")
+
         # Validate rationale is not empty
         if not decision_dict["rationale"] or decision_dict["rationale"].strip() == "":
-            raise ValueError(f"Rationale cannot be empty for market {decision_dict['market_id']}")
+            raise ValueError(
+                f"Rationale cannot be empty for market {decision_dict['market_id']}"
+            )
         assert -1.0 <= decision_dict["bet"] <= 1.0, (
             f"Your bet must be between -1.0 and 1.0, got {decision_dict['bet']} for market {decision_dict['market_id']}"
         )
@@ -223,27 +229,9 @@ The final_answer tool must contain the arguments rationale and decision.
     return result.output
 
 
-def run_deep_research(
-    model_id: str,
-    question: str,
-    structured_output_model_id: str,
+def structure_final_answer(
+    research_output: str, structured_output_model_id: str = "gpt-5"
 ) -> list[MarketInvestmentDecision]:
-    from openai import OpenAI
-
-    client = OpenAI(timeout=3600)
-
-    response = client.responses.create(
-        model=model_id,
-        input=question
-        + "\n\nProvide your detailed analysis and reasoning, then clearly state your final decisions for each market you want to bet on.",
-        tools=[
-            {"type": "web_search_preview"},
-            {"type": "code_interpreter", "container": {"type": "auto"}},
-        ],
-    )
-    research_output = response.output_text
-
-    # Use structured output to get EventDecisions
     structured_model = LiteLLMModel(
         model_id=structured_output_model_id,
     )
@@ -263,7 +251,6 @@ def run_deep_research(
         
         The sum of all amounts must not exceed 1.0.
     """)
-
     structured_output = structured_model.generate(
         [ChatMessage(role="user", content=structured_prompt)],
         response_format={
@@ -277,3 +264,51 @@ def run_deep_research(
 
     parsed_output = json.loads(structured_output.content)
     return parsed_output["market_investment_decisions"]
+
+
+def run_deep_research(
+    model_id: str,
+    question: str,
+) -> list[MarketInvestmentDecision]:
+    client = OpenAI(timeout=3600)
+
+    response = client.responses.create(
+        model=model_id,
+        input=question
+        + "\n\nProvide your detailed analysis and reasoning, then clearly state your final decisions for each market you want to bet on.",
+        tools=[
+            {"type": "web_search_preview"},
+            {"type": "code_interpreter", "container": {"type": "auto"}},
+        ],
+    )
+    research_output = response.output_text
+
+    # Use structured output to get EventDecisions
+    structured_market_decisions = structure_final_answer(research_output)
+    return structured_market_decisions
+
+
+def run_perplexity_deep_research(
+    model_id: str,
+    question: str,
+) -> list[MarketInvestmentDecision]:
+    url = "https://api.perplexity.ai/chat/completions"
+
+    payload = {
+        "model": model_id,
+        "messages": [
+            {
+                "role": "user",
+                "content": question,
+            }
+        ],
+    }
+    headers = {
+        "Authorization": f"Bearer {os.getenv('PERPLEXITY_API_KEY')}",
+        "Content-Type": "application/json",
+    }
+
+    response = requests.post(url, json=payload, headers=headers)
+    research_output = response.json()
+    structured_market_decisions = structure_final_answer(research_output)
+    return structured_market_decisions

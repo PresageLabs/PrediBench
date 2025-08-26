@@ -245,9 +245,8 @@ class MarketsRequestParameters(_RequestParameters):
                 )
             markets = filtered_markets
 
-        if end_datetime:
-            for market in markets:
-                market.fill_prices(end_datetime)
+        for market in markets:
+            market.fill_prices(end_datetime)
         return markets
 
 
