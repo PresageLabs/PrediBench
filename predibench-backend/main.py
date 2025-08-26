@@ -15,7 +15,7 @@ from predibench.polymarket_api import (
     EventsRequestParameters,
     _HistoricalTimeSeriesRequestParameters,
 )
-from predibench.storage_utils import read_from_storage, has_bucket_access, get_bucket
+from predibench.storage_utils import read_from_storage, get_bucket
 from predibench.common import DATA_PATH
 from pydantic import BaseModel
 
@@ -39,7 +39,7 @@ app.add_middleware(
 
 
 # Configuration
-AGENT_CHOICES_REPO = "m-ric/predibench-agent-decisions-2"
+AGENT_CHOICES_REPO = "Sibyllic/predibench-3"
 
 
 # Data models
@@ -69,12 +69,6 @@ class Stats(BaseModel):
 # Real data loading functions
 @lru_cache(maxsize=1)
 def load_dataset_from_google():
-    """Load agent choices from GCP by reading CSV files from date folders"""
-    if not has_bucket_access():
-        # No bucket access, fall back to HuggingFace
-        dataset = load_dataset(AGENT_CHOICES_REPO, split="test")
-        return dataset.to_pandas().sort_values("date")
-    
     # Has bucket access, load directly from GCP bucket
     all_dataframes = []
     bucket = get_bucket()
@@ -95,12 +89,17 @@ def load_dataset_from_google():
     
     if not all_dataframes:
         # No CSV files found in bucket, fall back to HuggingFace
-        dataset = load_dataset(AGENT_CHOICES_REPO, split="test")
+        dataset = load_dataset(AGENT_CHOICES_REPO, split="train")
         return dataset.to_pandas().sort_values("date")
     
     # Combine all CSV dataframes
     combined_df = pd.concat(all_dataframes, ignore_index=True)
     return combined_df.sort_values("date")
+
+@lru_cache(maxsize=1)
+def load_dataset_from_huggingface():
+    dataset = load_dataset(AGENT_CHOICES_REPO, split="train")
+    return dataset.to_pandas().sort_values("date")
 
 @lru_cache(maxsize=1)
 def load_agent_choices():
