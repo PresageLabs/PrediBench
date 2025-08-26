@@ -59,12 +59,6 @@ def main(
 
     # Run for each date and each model
     for target_date in dates_to_process:
-        is_today = target_date == date.today()
-        target_date = None if is_today else target_date
-
-        logger.info(
-            f"Processing date: {target_date} ({'today' if is_today else 'backward mode'})"
-        )
 
         run_investments_for_specific_date(
             time_until_ending=timedelta(days=days_ahead),
