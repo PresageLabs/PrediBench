@@ -89,6 +89,12 @@ if __name__ == "__main__":
     # Test with random model to verify new output format
     models = [
         ModelInfo(
+            model_id="o3-deep-research",
+            model_pretty_name="O3 Deep Research",
+            inference_provider="openai",
+            company_pretty_name="OpenAI",
+        ),
+        ModelInfo(
             model_id="sonar-deep-research",
             model_pretty_name="Sonar Deep Research",
             inference_provider="perplexity",

@@ -1,5 +1,6 @@
 import os
-from datetime import date
+import time
+from datetime import date, datetime
 from pathlib import Path
 
 import numpy as np
@@ -25,6 +26,7 @@ from predibench.storage_utils import (
     write_to_storage,
 )
 from pydantic import ValidationError
+from smolagents import Timing
 
 load_dotenv()
 
@@ -58,6 +60,8 @@ def _process_event_investment(
     """Process investment decisions for all relevant markets."""
     logger.info(f"Processing event: {event.title} with {len(event.markets)} markets")
     backward_mode = is_backward_mode(target_date)
+
+    timing = Timing(start_time=time.time())
 
     # Prepare market data for all markets
     market_data = {}
@@ -158,7 +162,7 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
     if model_info.model_id == "test_random":
         # Create random decisions for all markets with capital allocation constraint
 
-        market_decisions = []
+        market_investments = []
         per_event_allocation = 1.0
 
         number_markets = len(market_data)
@@ -179,13 +183,13 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
                 market_id=market_info["id"],
                 model_decision=model_decision,
             )
-            market_decisions.append(market_decision)
+            market_investments.append(market_decision)
 
     elif (
         model_info.inference_provider == "openai"
         and "deep-research" in model_info.model_id
     ):
-        market_decisions = run_openai_deep_research(
+        complete_market_investment_decisions = run_openai_deep_research(
             model_id=model_info.model_id,
             question=full_question,
         )
@@ -193,12 +197,12 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
         model_info.inference_provider == "perplexity"
         and "deep-research" in model_info.model_id
     ):
-        market_decisions = run_perplexity_deep_research(
+        complete_market_investment_decisions = run_perplexity_deep_research(
             model_id=model_info.model_id,
             question=full_question,
         )
     else:
-        market_decisions = run_smolagents(
+        complete_market_investment_decisions = run_smolagents(
             model_info=model_info,
             question=full_question,
             cutoff_date=target_date if backward_mode else None,
@@ -206,25 +210,43 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
             search_api_key=os.getenv("SERPER_API_KEY"),
             max_steps=20,
         )
-    for market_decision in market_decisions:
+    for (
+        market_decision
+    ) in complete_market_investment_decisions.market_investment_decisions:
         market_decision.market_question = market_data[market_decision.market_id][
             "question"
         ]
 
     # Validate all market IDs are correct
     valid_market_ids = set(market_data.keys())
-    for market_decision in market_decisions:
+    for (
+        market_decision
+    ) in complete_market_investment_decisions.market_investment_decisions:
         if market_decision.market_id not in valid_market_ids:
             logger.error(
                 f"Invalid market ID {market_decision.market_id} in decisions for event {event.id}. Valid IDs: {list(valid_market_ids)}"
             )
             return None
 
+    full_response_json = complete_market_investment_decisions.full_response
+    if not isinstance(full_response_json, dict):
+        try:
+            full_response_json = (
+                complete_market_investment_decisions.full_response.dict()
+            )
+        except Exception as e:
+            raise e
+
+    timing.end_time = time.time()
     event_decisions = EventInvestmentDecisions(
         event_id=event.id,
         event_title=event.title,
         event_description=event.description,
-        market_investment_decisions=market_decisions,
+        market_investment_decisions=complete_market_investment_decisions.market_investment_decisions,
+        unallocated_capital=complete_market_investment_decisions.unallocated_capital,
+        full_response=full_response_json,
+        token_usage=complete_market_investment_decisions.token_usage,
+        timing=timing,
     )
 
     return event_decisions
@@ -291,6 +313,7 @@ def _process_single_model(
         model_id=model_info.model_id,
         model_info=model_info,
         target_date=target_date,
+        decision_datetime=datetime.now(),
         event_investment_decisions=all_event_decisions,
     )
 

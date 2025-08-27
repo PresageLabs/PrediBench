@@ -2,6 +2,7 @@ import json
 import os
 import textwrap
 from datetime import date
+from typing import Any
 
 import numpy as np
 import requests
@@ -16,6 +17,7 @@ from pydantic import BaseModel
 from smolagents import (
     ChatMessage,
     LiteLLMModel,
+    TokenUsage,
     Tool,
     ToolCallingAgent,
     VisitWebpageTool,
@@ -114,7 +116,7 @@ class GoogleSearchTool(Tool):
 @tool
 def final_answer(
     market_decisions: list[dict], unallocated_capital: float
-) -> list[MarketInvestmentDecision]:
+) -> tuple[list[MarketInvestmentDecision], float]:
     """
     Use this tool to validate and return the final event decisions for all relevant markets.
     Provide decisions for all markets you want to bet on.
@@ -183,18 +185,27 @@ def final_answer(
 
     # assert total_allocated + unallocated_capital == 1.0, (
     #     f"Total capital allocation, calculated as the sum of all absolute value of bets, must equal 1.0, got {total_allocated + unallocated_capital:.3f} (allocated: {total_allocated:.3f}, unallocated: {unallocated_capital:.3f})"
-    # ) @ NOTE: models like gpt-4.1 are too dumb to respect this constraint, let's just enforce it a-posteriori with rescaling
-    if total_allocated + unallocated_capital != 1.0:
-        for decision in validated_decisions:
-            decision.model_decision.bet = decision.model_decision.bet / (
-                total_allocated + unallocated_capital
-            )
+    # ) @ NOTE: models like gpt-4.1 are too dumb to respect this constraint, let's just enforce it a-posteriori with rescaling if needed.
+    # if total_allocated + unallocated_capital != 1.0:
+    #     for decision in validated_decisions:
+    #         decision.model_decision.bet = decision.model_decision.bet / (
+    #             total_allocated + unallocated_capital
+    #         )
+    # NOTE: don't rescale in the end
 
-    return validated_decisions
+    return validated_decisions, unallocated_capital
+
+
+class CompleteMarketInvestmentDecisions(BaseModel):
+    market_investment_decisions: list[MarketInvestmentDecision]
+    unallocated_capital: float
+    full_response: Any
+    token_usage: TokenUsage | None = None
 
 
 class ListMarketInvestmentDecisions(BaseModel):
     market_investment_decisions: list[MarketInvestmentDecision]
+    unallocated_capital: float
 
 
 def run_smolagents(
@@ -204,7 +215,7 @@ def run_smolagents(
     search_provider: str,
     search_api_key: str,
     max_steps: int,
-) -> list[MarketInvestmentDecision]:
+) -> CompleteMarketInvestmentDecisions:
     """Run smolagent for event-level analysis with structured output."""
     model_client = model_info.client
     assert model_client is not None, "Model client is not set"
@@ -226,14 +237,18 @@ The final_answer tool must contain the arguments rationale and decision.
         tools=tools, model=model_client, max_steps=max_steps, return_full_result=True
     )
 
-    result = agent.run(prompt)
-
-    return result.output
+    full_result = agent.run(prompt)
+    return CompleteMarketInvestmentDecisions(
+        market_investment_decisions=full_result.output[0],
+        unallocated_capital=full_result.output[1],
+        full_response=full_result.steps,
+        token_usage=full_result.token_usage,
+    )
 
 
 def structure_final_answer(
     research_output: str, structured_output_model_id: str = "gpt-4.1"
-) -> list[MarketInvestmentDecision]:
+) -> tuple[list[MarketInvestmentDecision], float]:
     structured_model = LiteLLMModel(model_id=structured_output_model_id)
 
     structured_prompt = textwrap.dedent(f"""
@@ -248,7 +263,7 @@ def structure_final_answer(
         4. confidence_in_assessment: Your confidence level (0.0 to 1.0)
         5. direction: "buy_yes", "buy_no", or "nothing"
         6. amount: Fraction of capital to bet (0.0 to 1.0)
-        
+
         The sum of all amounts must not exceed 1.0.
     """)
     structured_output = structured_model.generate(
@@ -264,19 +279,23 @@ def structure_final_answer(
 
     parsed_output = json.loads(structured_output.content)
     market_investment_decisions_json = parsed_output["market_investment_decisions"]
-    return [
-        MarketInvestmentDecision(**decision)
-        for decision in market_investment_decisions_json
-    ]
+    unallocated_capital = parsed_output["unallocated_capital"]
+    return (
+        [
+            MarketInvestmentDecision(**decision)
+            for decision in market_investment_decisions_json
+        ],
+        unallocated_capital,
+    )
 
 
 def run_openai_deep_research(
     model_id: str,
     question: str,
-) -> list[MarketInvestmentDecision]:
+) -> CompleteMarketInvestmentDecisions:
     client = OpenAI(timeout=3600)
 
-    response = client.responses.create(
+    full_response = client.responses.create(
         model=model_id,
         input=question
         + "\n\nProvide your detailed analysis and reasoning, then clearly state your final decisions for each market you want to bet on.",
@@ -285,17 +304,28 @@ def run_openai_deep_research(
             {"type": "code_interpreter", "container": {"type": "auto"}},
         ],
     )
-    research_output = response.output_text
+    research_output = full_response.output_text
 
     # Use structured output to get EventDecisions
-    structured_market_decisions = structure_final_answer(research_output)
-    return structured_market_decisions
+    structured_market_decisions, unallocated_capital = structure_final_answer(
+        research_output
+    )
+    return CompleteMarketInvestmentDecisions(
+        market_investment_decisions=structured_market_decisions,
+        unallocated_capital=unallocated_capital,
+        full_response=full_response,
+        token_usage=TokenUsage(
+            input_tokens=full_response.usage.input_tokens,
+            output_tokens=full_response.usage.output_tokens
+            + full_response.usage.output_tokens_details.reasoning_tokens,
+        ),
+    )
 
 
 def run_perplexity_deep_research(
     model_id: str,
     question: str,
-) -> list[MarketInvestmentDecision]:
+) -> CompleteMarketInvestmentDecisions:
     url = "https://api.perplexity.ai/chat/completions"
 
     payload = {
@@ -312,7 +342,20 @@ def run_perplexity_deep_research(
         "Content-Type": "application/json",
     }
 
-    response = requests.post(url, json=payload, headers=headers)
-    research_output = response.json()["choices"][0]["message"]["content"]
+    raw_response = requests.post(url, json=payload, headers=headers)
+    raw_response.raise_for_status()
+    full_response = raw_response.json()
+    research_output = full_response["choices"][0]["message"]["content"]
     # TODO: save research_output directly to storage
-    return structure_final_answer(research_output)
+    structured_market_decisions, unallocated_capital = structure_final_answer(
+        research_output
+    )
+    return CompleteMarketInvestmentDecisions(
+        market_investment_decisions=structured_market_decisions,
+        unallocated_capital=unallocated_capital,
+        full_response=full_response,
+        token_usage=TokenUsage(
+            input_tokens=full_response["usage"]["prompt_tokens"],
+            output_tokens=full_response["usage"]["completion_tokens"],
+        ),
+    )

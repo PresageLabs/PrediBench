@@ -1,7 +1,8 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
+from smolagents import Timing, TokenUsage
 
 # NOTE: price ad odd of the 'yes' on any market should be equal, since normalized to 1
 
@@ -29,6 +30,10 @@ class EventInvestmentDecisions(BaseModel):
     market_investment_decisions: list[
         MarketInvestmentDecision
     ]  # Multiple markets per event
+    unallocated_capital: float
+    full_response: Any
+    token_usage: TokenUsage | None = None
+    timing: Timing | None = None
 
 
 class ModelInfo(BaseModel):
@@ -44,4 +49,5 @@ class ModelInvestmentDecisions(BaseModel):
     model_id: str
     model_info: ModelInfo
     target_date: date
+    decision_datetime: datetime
     event_investment_decisions: list[EventInvestmentDecisions]
