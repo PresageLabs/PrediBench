@@ -7,7 +7,7 @@ from huggingface_hub import login
 
 from predibench.agent.dataclasses import ModelInfo
 from predibench.agent.runner import ModelInvestmentDecisions, run_agent_investments
-from predibench.common import DATA_PATH
+from predibench.common import DATA_PATH, get_date_output_path
 from predibench.logger_config import get_logger
 from predibench.market_selection import choose_events
 from predibench.polymarket_data import load_events_from_file
@@ -27,26 +27,19 @@ logger = get_logger(__name__)
 def run_investments_for_specific_date(
     models: list[ModelInfo],
     max_n_events: int,
-    output_path: Path,
-    time_until_ending: timedelta,
     target_date: date,
-    cache_file_path: Path | None = None,
-    force_rewrite_cache: bool = False,
+    time_until_ending: timedelta,
+    force_rewrite: bool = False,
     filter_crypto_events: bool = True,
 ) -> list[ModelInvestmentDecisions]:
     """Run event-based investment simulation with multiple AI models."""
     logger.info(f"Running investment analysis for {target_date}")
 
-    date_output_path = output_path / target_date.strftime("%Y-%m-%d")
-    date_output_path.mkdir(parents=True, exist_ok=True)
+    cache_file_path = get_date_output_path(target_date)
+    cache_file_path = cache_file_path / "events.json"
 
-    cache_file_path = (
-        cache_file_path
-        or date_output_path / f"events_cache_{get_timestamp_string()}.json"
-    )
-
-    if file_exists_in_storage(cache_file_path, force_rewrite=force_rewrite_cache):
-        logger.info("Loading events from cache")
+    if file_exists_in_storage(cache_file_path, force_rewrite=force_rewrite):
+        logger.info(f"Loading events from cache: {cache_file_path}")
         selected_events = load_events_from_file(cache_file_path)
     else:
         logger.info("Fetching events from API")
@@ -78,9 +71,7 @@ def run_investments_for_specific_date(
         models=models,
         events=selected_events,
         target_date=target_date,
-        date_output_path=date_output_path,
-        timestamp_for_saving=get_timestamp_string(),
-        force_rewrite_cache=force_rewrite_cache,
+        force_rewrite=force_rewrite,
     )
 
     logger.info("Investment analysis complete!")
@@ -91,31 +82,26 @@ def run_investments_for_specific_date(
 if __name__ == "__main__":
     # Test with random model to verify new output format
     models = [
-        # ModelInfo(
-        #     model_id="o3-deep-research",
-        #     model_pretty_name="O3 Deep Research",
-        #     inference_provider="openai",
-        #     company_pretty_name="OpenAI",
-        # ),
-        # ModelInfo(
-        #     model_id="sonar-deep-research",
-        #     model_pretty_name="Sonar Deep Research",
-        #     inference_provider="perplexity",
-        #     company_pretty_name="Perplexity",
-        # ),
         ModelInfo(
-            model_id="claude-4-sonnet",
-            model_pretty_name="Claude 4 Sonnet",
-            inference_provider="anthropic",
-            company_pretty_name="Anthropic",
+        model_id="Qwen/Qwen3-Coder-480B-A35B-Instruct",
+        model_pretty_name="Qwen3-Coder-480B-A35B-Instruct",
+        inference_provider="fireworks-ai",
+        company_pretty_name="Qwen",
+        open_weights=True,
+    ),
+        ModelInfo(
+            model_id="openai/gpt-oss-120b",
+            model_pretty_name="GPT-OSS 120B",
+            inference_provider="fireworks-ai",
+            company_pretty_name="OpenAI",
+            open_weights=True,
         ),
     ]
 
     results = run_investments_for_specific_date(
         models=models,
         time_until_ending=timedelta(days=7 * 6),
-        max_n_events=2,  # Smaller number for testing
-        output_path=DATA_PATH,
+        max_n_events=2,
         target_date=date(2025, 8, 19),
-        force_rewrite_cache=True,
+        force_rewrite=True,
     )

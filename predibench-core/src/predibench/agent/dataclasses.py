@@ -1,4 +1,7 @@
 from datetime import date, datetime
+from pathlib import Path
+from predibench.common import DATA_PATH, get_date_output_path
+from predibench.storage_utils import write_to_storage
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -35,6 +38,7 @@ class EventInvestmentDecisions(BaseModel):
     timing: Timing | None = None
 
 
+
 class ModelInfo(BaseModel):
     model_id: str
     model_pretty_name: str
@@ -42,6 +46,18 @@ class ModelInfo(BaseModel):
     company_pretty_name: str
     open_weights: bool = False
     client: Any | None = None
+    
+    def get_model_result_path(self, target_date: date) -> Path:
+        """
+        Get the path to the model result for a given model and target date.
+        """
+        date_output_path = get_date_output_path(target_date)
+        model_result_path = (
+                date_output_path
+                / self.model_id.replace("/", "--")
+            )
+        model_result_path.mkdir(parents=True, exist_ok=True)
+        return model_result_path
 
 
 class ModelInvestmentDecisions(BaseModel):
@@ -50,3 +66,16 @@ class ModelInvestmentDecisions(BaseModel):
     target_date: date
     decision_datetime: datetime
     event_investment_decisions: list[EventInvestmentDecisions]
+
+    def _save_model_result(self) -> None:
+        """Save model result to file."""
+        
+        model_result_path = self.model_info.get_model_result_path(self.target_date)
+
+        filename = f"model_investment_decisions.json"
+        filepath = model_result_path / filename
+
+        content = self.model_dump_json(indent=2, exclude="model_info.client")
+        write_to_storage(filepath, content)
+
+        print(f"Saved model result to {filepath}")
