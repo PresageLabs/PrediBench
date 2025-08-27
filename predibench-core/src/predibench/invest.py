@@ -4,10 +4,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from huggingface_hub import login
-from smolagents.models import (
-    ApiModel,
-)
 
+from predibench.agent.dataclasses import ModelInfo
 from predibench.agent.runner import ModelInvestmentDecisions, run_agent_investments
 from predibench.common import DATA_PATH
 from predibench.logger_config import get_logger
@@ -20,14 +18,14 @@ from predibench.retry_models import (
 from predibench.storage_utils import file_exists_in_storage
 from predibench.utils import get_timestamp_string
 
-load_dotenv()
+load_dotenv(override=True)
 login(os.getenv("HF_TOKEN"))
 
 logger = get_logger(__name__)
 
 
 def run_investments_for_specific_date(
-    models: list[ApiModel | str],
+    models: list[ModelInfo],
     max_n_events: int,
     output_path: Path,
     time_until_ending: timedelta,
@@ -65,15 +63,13 @@ def run_investments_for_specific_date(
         logger.info(f"  - {event.title} (Volume: ${event.volume:,.0f})")
 
     for model in models:
-        if isinstance(model, str):
-            if model.startswith("openai/"):
-                models[models.index(model)] = OpenAIModelWithRetry(
-                    model_id=model[len("openai/") :]
-                )
-            elif model.startswith("huggingface/"):
-                models[models.index(model)] = InferenceClientModelWithRetry(
-                    model_id=model[len("huggingface/") :]
-                )
+        if model.inference_provider == "openai":
+            model.client = OpenAIModelWithRetry(model_id=model.model_id)
+        elif model.open_weights:
+            model.client = InferenceClientModelWithRetry(
+                model_id=model.model_id,
+                provider=model.inference_provider,
+            )
 
     results = run_agent_investments(
         models=models,
@@ -92,15 +88,19 @@ def run_investments_for_specific_date(
 if __name__ == "__main__":
     # Test with random model to verify new output format
     models = [
-        # "huggingface/openai/gpt-oss-120b",  # Use test model for verification
-        # "huggingface/openai/gpt-oss-20b",  # Use test model for verification
-        "sonar-deep-research"
+        ModelInfo(
+            model_id="sonar-deep-research",
+            model_pretty_name="Sonar Deep Research",
+            inference_provider="perplexity",
+            company_pretty_name="Perplexity",
+        ),
     ]
 
     results = run_investments_for_specific_date(
+        models=models,
         time_until_ending=timedelta(days=7 * 6),
         max_n_events=2,  # Smaller number for testing
-        models=models,
         output_path=DATA_PATH,
         target_date=date(2025, 8, 19),
+        force_rewrite_cache=True,
     )

@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -30,7 +31,17 @@ class EventInvestmentDecisions(BaseModel):
     ]  # Multiple markets per event
 
 
+class ModelInfo(BaseModel):
+    model_id: str
+    model_pretty_name: str
+    inference_provider: str
+    company_pretty_name: str
+    open_weights: bool = False
+    client: Any | None = None
+
+
 class ModelInvestmentDecisions(BaseModel):
     model_id: str
+    model_info: ModelInfo
     target_date: date
     event_investment_decisions: list[EventInvestmentDecisions]

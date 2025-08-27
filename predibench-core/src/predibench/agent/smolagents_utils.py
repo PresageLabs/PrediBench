@@ -8,12 +8,12 @@ import requests
 from openai import OpenAI
 from predibench.agent.dataclasses import (
     MarketInvestmentDecision,
+    ModelInfo,
     SingleModelDecision,
 )
 from predibench.logger_config import get_logger
 from pydantic import BaseModel
 from smolagents import (
-    ApiModel,
     ChatMessage,
     LiteLLMModel,
     Tool,
@@ -198,7 +198,7 @@ class ListMarketInvestmentDecisions(BaseModel):
 
 
 def run_smolagents(
-    model: ApiModel,
+    model_info: ModelInfo,
     question: str,
     cutoff_date: date | None,
     search_provider: str,
@@ -206,6 +206,8 @@ def run_smolagents(
     max_steps: int,
 ) -> list[MarketInvestmentDecision]:
     """Run smolagent for event-level analysis with structured output."""
+    model_client = model_info.client
+    assert model_client is not None, "Model client is not set"
 
     prompt = f"""{question}
         
@@ -221,7 +223,7 @@ The final_answer tool must contain the arguments rationale and decision.
         final_answer,
     ]
     agent = ToolCallingAgent(
-        tools=tools, model=model, max_steps=max_steps, return_full_result=True
+        tools=tools, model=model_client, max_steps=max_steps, return_full_result=True
     )
 
     result = agent.run(prompt)
@@ -230,11 +232,9 @@ The final_answer tool must contain the arguments rationale and decision.
 
 
 def structure_final_answer(
-    research_output: str, structured_output_model_id: str = "gpt-5"
+    research_output: str, structured_output_model_id: str = "gpt-4.1"
 ) -> list[MarketInvestmentDecision]:
-    structured_model = LiteLLMModel(
-        model_id=structured_output_model_id,
-    )
+    structured_model = LiteLLMModel(model_id=structured_output_model_id)
 
     structured_prompt = textwrap.dedent(f"""
         Based on the following research output, extract the investment decisions for each market:
@@ -263,10 +263,14 @@ def structure_final_answer(
     )
 
     parsed_output = json.loads(structured_output.content)
-    return parsed_output["market_investment_decisions"]
+    market_investment_decisions_json = parsed_output["market_investment_decisions"]
+    return [
+        MarketInvestmentDecision(**decision)
+        for decision in market_investment_decisions_json
+    ]
 
 
-def run_deep_research(
+def run_openai_deep_research(
     model_id: str,
     question: str,
 ) -> list[MarketInvestmentDecision]:
@@ -309,6 +313,6 @@ def run_perplexity_deep_research(
     }
 
     response = requests.post(url, json=payload, headers=headers)
-    research_output = response.json()
-    structured_market_decisions = structure_final_answer(research_output)
-    return structured_market_decisions
+    research_output = response.json()["choices"][0]["message"]["content"]
+    # TODO: save research_output directly to storage
+    return structure_final_answer(research_output)

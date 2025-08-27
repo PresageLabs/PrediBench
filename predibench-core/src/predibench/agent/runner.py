@@ -7,11 +7,12 @@ from dotenv import load_dotenv
 from predibench.agent.dataclasses import (
     EventInvestmentDecisions,
     MarketInvestmentDecision,
+    ModelInfo,
     ModelInvestmentDecisions,
     SingleModelDecision,
 )
 from predibench.agent.smolagents_utils import (
-    run_deep_research,
+    run_openai_deep_research,
     run_perplexity_deep_research,
     run_smolagents,
 )
@@ -23,7 +24,7 @@ from predibench.storage_utils import (
     read_from_storage,
     write_to_storage,
 )
-from smolagents import ApiModel
+from pydantic import ValidationError
 
 load_dotenv()
 
@@ -47,7 +48,7 @@ def save_model_result(
 
 
 def _process_event_investment(
-    model: ApiModel | str,
+    model_info: ModelInfo,
     event: Event,
     target_date: date,
     date_output_path: Path | None,
@@ -144,7 +145,7 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
 
     # Save prompt to file if date_output_path is provided
     if date_output_path:
-        model_id = model.model_id if isinstance(model, ApiModel) else model
+        model_id = model_info.model_id
         prompt_file = (
             date_output_path
             / model_id.replace("/", "--")
@@ -154,7 +155,7 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
         write_to_storage(prompt_file, full_question)
         logger.info(f"Saved prompt to {prompt_file}")
 
-    if isinstance(model, str) and model == "test_random":
+    if model_info.model_id == "test_random":
         # Create random decisions for all markets with capital allocation constraint
 
         market_decisions = []
@@ -180,19 +181,25 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
             )
             market_decisions.append(market_decision)
 
-    elif isinstance(model, str) and model == "o3-deep-research":
-        market_decisions = run_deep_research(
-            model_id="o3-deep-research",
+    elif (
+        model_info.inference_provider == "openai"
+        and "deep-research" in model_info.model_id
+    ):
+        market_decisions = run_openai_deep_research(
+            model_id=model_info.model_id,
             question=full_question,
         )
-    elif isinstance(model, str) and model == "sonar-deep-research":
+    elif (
+        model_info.inference_provider == "perplexity"
+        and "deep-research" in model_info.model_id
+    ):
         market_decisions = run_perplexity_deep_research(
-            model_id=model_id,
+            model_id=model_info.model_id,
             question=full_question,
         )
     else:
         market_decisions = run_smolagents(
-            model=model,
+            model_info=model_info,
             question=full_question,
             cutoff_date=target_date if backward_mode else None,
             search_provider="serper",
@@ -228,23 +235,24 @@ def _process_single_model(
     target_date: date,
     date_output_path: Path,
     timestamp_for_saving: str,
-    model: ApiModel | str,
+    model_info: ModelInfo,
     force_rewrite_cache: bool = False,
 ) -> ModelInvestmentDecisions:
     """Process investments for all events for a model."""
     all_event_decisions = []
-    model_id = model.model_id if isinstance(model, ApiModel) else model
 
     for event in events:
         # Check if event file already exists for this model
         event_file_path = (
-            date_output_path / model_id.replace("/", "--") / f"{event.id}.json"
+            date_output_path
+            / model_info.model_id.replace("/", "--")
+            / f"{event.id}.json"
         )
 
         if file_exists_in_storage(event_file_path, force_rewrite=force_rewrite_cache):
             # File exists and we're not forcing rewrite, so load existing result
             logger.info(
-                f"Loading existing event result for {event.title} for model {model_id} from {event_file_path}"
+                f"Loading existing event result for {event.title} for model {model_info.model_id} from {event_file_path}"
             )
             existing_content = read_from_storage(event_file_path)
             try:
@@ -264,7 +272,7 @@ def _process_single_model(
 
         logger.info(f"Processing event: {event.title}")
         event_decisions = _process_event_investment(
-            model=model,
+            model_info=model_info,
             event=event,
             target_date=target_date,
             date_output_path=date_output_path,
@@ -280,7 +288,8 @@ def _process_single_model(
         all_event_decisions.append(event_decisions)
 
     model_result = ModelInvestmentDecisions(
-        model_id=model_id,
+        model_id=model_info.model_id,
+        model_info=model_info,
         target_date=target_date,
         event_investment_decisions=all_event_decisions,
     )
@@ -294,7 +303,7 @@ def _process_single_model(
 
 
 def run_agent_investments(
-    models: list[ApiModel | str],
+    models: list[ModelInfo],
     events: list[Event],
     target_date: date,
     date_output_path: Path,
@@ -307,10 +316,9 @@ def run_agent_investments(
 
     results = []
     for model in models:
-        model_name = model.model_id if isinstance(model, ApiModel) else model
-        logger.info(f"Processing model: {model_name}")
+        logger.info(f"Processing model: {model.model_pretty_name}")
         model_result = _process_single_model(
-            model=model,
+            model_info=model,
             events=events,
             target_date=target_date,
             date_output_path=date_output_path,
