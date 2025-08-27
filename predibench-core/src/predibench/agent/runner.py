@@ -119,8 +119,9 @@ CAPITAL ALLOCATION RULES:
 - For EACH market, specify your bet. Provide:
 1. market_id: The market ID
 2. rationale: Explanation for your decision
-4. odds: The odds you think the market will settle at
-3. bet: The amount you bet on this market (can be negative if you want to short the market, e.g. if it's overpriced)
+3. odds: The odds you think the market will settle at
+4. bet: The amount you bet on this market (can be negative if you want to short the market, e.g. if it's overpriced)
+5. confidence: Your confidence in this decision (0.0 to 1.0)
 - The sum of ALL (absolute value of bets) + unallocated_capital must equal 1.0
 - You can choose not to bet on markets with poor edges by setting bets summing to lower than 1 and a non-zero unallocated_capital
 
@@ -156,6 +157,7 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
                 rationale=f"Random decision for testing market {market_info['id']}",
                 odds=np.random.uniform(0.1, 0.9),
                 bet=amount,
+                confidence=np.random.uniform(0.1, 0.9),
             )
             market_decision = MarketInvestmentDecision(
                 market_id=market_info["id"],
