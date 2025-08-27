@@ -1,14 +1,15 @@
 import json
 import os
+import time
 from datetime import datetime
-from functools import lru_cache
+from functools import lru_cache, wraps
 
 import numpy as np
 import pandas as pd
-from datasets import load_dataset
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from predibench.pnl import get_pnls
+from predibench.agent.dataclasses import ModelInvestmentDecisions
+from predibench.pnl import PnlCalculator, get_pnls
 from predibench.polymarket_api import (
     Event,
     EventsRequestParameters,
@@ -16,9 +17,55 @@ from predibench.polymarket_api import (
 )
 from predibench.storage_utils import get_bucket
 from pydantic import BaseModel
-from predibench.agent.dataclasses import ModelInvestmentDecisions
 
 print("Successfully imported predibench modules")
+
+
+def profile_time(func):
+    """Decorator to profile function execution time"""
+
+    @wraps(func)
+    async def async_wrapper(*args, **kwargs):
+        start_time = time.time()
+        try:
+            result = await func(*args, **kwargs)
+            end_time = time.time()
+            execution_time = end_time - start_time
+            print(f"[PROFILE] {func.__name__} took {execution_time:.4f}s")
+            return result
+        except Exception as e:
+            end_time = time.time()
+            execution_time = end_time - start_time
+            print(
+                f"[PROFILE] {func.__name__} failed after {execution_time:.4f}s - {str(e)}"
+            )
+            raise
+
+    @wraps(func)
+    def sync_wrapper(*args, **kwargs):
+        start_time = time.time()
+        try:
+            result = func(*args, **kwargs)
+            end_time = time.time()
+            execution_time = end_time - start_time
+            print(f"[PROFILE] {func.__name__} took {execution_time:.4f}s")
+            return result
+        except Exception as e:
+            end_time = time.time()
+            execution_time = end_time - start_time
+            print(
+                f"[PROFILE] {func.__name__} failed after {execution_time:.4f}s - {str(e)}"
+            )
+            raise
+
+    # Return appropriate wrapper based on whether function is async
+    import inspect
+
+    if inspect.iscoroutinefunction(func):
+        return async_wrapper
+    else:
+        return sync_wrapper
+
 
 app = FastAPI(title="Polymarket LLM Benchmark API", version="1.0.0")
 
@@ -114,6 +161,16 @@ def get_events_by_ids(event_ids: tuple[str, ...]) -> list[Event]:
     return events
 
 
+@profile_time
+def get_pnl_wrapper(
+    positions_df: pd.DataFrame,
+    write_plots: bool = False,
+    end_date: datetime | None = None,
+) -> dict[str, PnlCalculator]:
+    return get_pnls(positions_df, write_plots, end_date)
+
+
+@profile_time
 @lru_cache(maxsize=1)
 def calculate_real_performance():
     """Calculate real PnL and performance metrics exactly like gradio app"""
@@ -173,7 +230,7 @@ def calculate_real_performance():
 
     # positions_df = positions_df.pivot(index="date", columns="market_id", values="bet")
 
-    pnl_calculators = get_pnls(
+    pnl_calculators = get_pnl_wrapper(
         positions_df, write_plots=False, end_date=datetime.today()
     )
     agents_performance = {}
@@ -277,13 +334,21 @@ def get_events_that_received_predictions() -> list[Event]:
 
 
 # API Endpoints
+@app.get("/")
+@profile_time
+async def root():
+    return {"message": "Polymarket LLM Benchmark API", "version": "1.0.0"}
+
+
 @app.get("/api/leaderboard", response_model=list[LeaderboardEntry])
+@profile_time
 async def get_leaderboard_endpoint():
     """Get the current leaderboard with LLM performance data"""
     return get_leaderboard()
 
 
 @app.get("/api/events", response_model=list[Event])
+@profile_time
 async def get_events_endpoint(
     search: str = "",
     sort_by: str = "volume",
@@ -321,6 +386,7 @@ async def get_events_endpoint(
 
 
 @app.get("/api/stats", response_model=Stats)
+@profile_time
 async def get_stats():
     """Get overall benchmark statistics"""
     leaderboard = get_leaderboard()
@@ -332,6 +398,19 @@ async def get_stats():
         totalTrades=sum(entry.trades for entry in leaderboard),
         totalProfit=sum(entry.profit for entry in leaderboard),
     )
+
+
+@app.get("/api/model/{model_id}", response_model=LeaderboardEntry)
+@profile_time
+async def get_model_details(model_id: str):
+    """Get detailed information for a specific model"""
+    leaderboard = get_leaderboard()
+    model = next((entry for entry in leaderboard if entry.id == model_id), None)
+
+    if not model:
+        return {"error": "Model not found"}
+
+    return model
 
 
 @lru_cache(maxsize=1)
@@ -385,7 +464,7 @@ def get_positions_df():
 @lru_cache(maxsize=1)
 def get_all_markets_pnls():
     positions_df = get_positions_df()
-    pnl_calculators = get_pnls(
+    pnl_calculators = get_pnl_wrapper(
         positions_df, write_plots=False, end_date=datetime.today()
     )
     return pnl_calculators
@@ -393,6 +472,7 @@ def get_all_markets_pnls():
 
 @lru_cache(maxsize=16)
 @app.get("/api/model/{agent_id}/pnl")
+@profile_time
 async def get_model_investment_details(agent_id: str):
     """Get market-level position and PnL data for a specific model"""
 
@@ -476,7 +556,21 @@ async def get_model_investment_details(agent_id: str):
     return markets_data
 
 
+@app.get("/api/event/{event_id}")
+@profile_time
+async def get_event_details(event_id: str):
+    """Get detailed information for a specific event including all its markets"""
+    events_list = get_events_by_ids((event_id,))
+
+    if not events_list:
+        return {"error": "Event not found"}
+
+    return events_list[0]
+
+
 @app.get("/api/event/{event_id}/market_prices")
+@profile_time
+@lru_cache(maxsize=16)
 async def get_event_market_prices(event_id: str):
     """Get price history for all markets in an event"""
     events_list = get_events_by_ids((event_id,))
@@ -503,6 +597,7 @@ async def get_event_market_prices(event_id: str):
     "/api/event/{event_id}/investment_decisions",
     response_model=list[dict],
 )
+@profile_time
 async def get_event_investment_decisions(event_id: str):
     """Get real investment choices for a specific event"""
     # Load agent choices data like in gradio app

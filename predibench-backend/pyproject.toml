@@ -21,4 +21,4 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-predibench = { path = "./predibench-core", editable = true }
+predibench = { path = "../predibench-core", editable = true }

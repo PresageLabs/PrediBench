@@ -67,9 +67,7 @@ def has_bucket_write_access() -> bool:
         random_string = str(uuid.uuid4())
         blob = bucket.blob(f"ping/ping_{random_string}.txt")
         blob.upload_from_string("ping")
-        print(f"File uploaded to {blob.name}")
         file_content = blob.download_as_bytes().decode("utf-8")
-        print(f"File content: {file_content}")
         assert file_content == "ping"
         blob.delete()
         return True

@@ -1,30 +1,32 @@
-import json
 import os
+import time
 from datetime import date, datetime
 from pathlib import Path
 
 import numpy as np
 from dotenv import load_dotenv
-from pydantic import ValidationError
 from predibench.agent.dataclasses import (
     EventInvestmentDecisions,
     MarketInvestmentDecision,
+    ModelInfo,
     ModelInvestmentDecisions,
     SingleModelDecision,
 )
 from predibench.agent.smolagents_utils import (
-    run_deep_research,
+    run_openai_deep_research,
+    run_perplexity_deep_research,
     run_smolagents,
 )
 from predibench.date_utils import is_backward_mode
 from predibench.logger_config import get_logger
 from predibench.polymarket_api import Event
 from predibench.storage_utils import (
-    write_to_storage,
     file_exists_in_storage,
     read_from_storage,
+    write_to_storage,
 )
-from smolagents import ApiModel
+from pydantic import ValidationError
+from smolagents import Timing
 
 load_dotenv()
 
@@ -48,7 +50,7 @@ def save_model_result(
 
 
 def _process_event_investment(
-    model: ApiModel | str,
+    model_info: ModelInfo,
     event: Event,
     target_date: date,
     date_output_path: Path | None,
@@ -58,6 +60,8 @@ def _process_event_investment(
     """Process investment decisions for all relevant markets."""
     logger.info(f"Processing event: {event.title} with {len(event.markets)} markets")
     backward_mode = is_backward_mode(target_date)
+
+    timing = Timing(start_time=time.time())
 
     # Prepare market data for all markets
     market_data = {}
@@ -145,7 +149,7 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
 
     # Save prompt to file if date_output_path is provided
     if date_output_path:
-        model_id = model.model_id if isinstance(model, ApiModel) else model
+        model_id = model_info.model_id
         prompt_file = (
             date_output_path
             / model_id.replace("/", "--")
@@ -155,10 +159,10 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
         write_to_storage(prompt_file, full_question)
         logger.info(f"Saved prompt to {prompt_file}")
 
-    if isinstance(model, str) and model == "test_random":
+    if model_info.model_id == "test_random":
         # Create random decisions for all markets with capital allocation constraint
 
-        market_decisions = []
+        market_investments = []
         per_event_allocation = 1.0
 
         number_markets = len(market_data)
@@ -179,42 +183,70 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
                 market_id=market_info["id"],
                 model_decision=model_decision,
             )
-            market_decisions.append(market_decision)
+            market_investments.append(market_decision)
 
-    elif isinstance(model, str) and model == "o3-deep-research":
-        market_decisions = run_deep_research(
-            model_id="o3-deep-research",
+    elif (
+        model_info.inference_provider == "openai"
+        and "deep-research" in model_info.model_id
+    ):
+        complete_market_investment_decisions = run_openai_deep_research(
+            model_id=model_info.model_id,
             question=full_question,
-            structured_output_model_id="gpt-5",
+        )
+    elif (
+        model_info.inference_provider == "perplexity"
+        and "deep-research" in model_info.model_id
+    ):
+        complete_market_investment_decisions = run_perplexity_deep_research(
+            model_id=model_info.model_id,
+            question=full_question,
         )
     else:
-        market_decisions = run_smolagents(
-            model=model,
+        complete_market_investment_decisions = run_smolagents(
+            model_info=model_info,
             question=full_question,
             cutoff_date=target_date if backward_mode else None,
             search_provider="serper",
             search_api_key=os.getenv("SERPER_API_KEY"),
             max_steps=20,
         )
-    for market_decision in market_decisions:
+    for (
+        market_decision
+    ) in complete_market_investment_decisions.market_investment_decisions:
         market_decision.market_question = market_data[market_decision.market_id][
             "question"
         ]
 
     # Validate all market IDs are correct
     valid_market_ids = set(market_data.keys())
-    for market_decision in market_decisions:
+    for (
+        market_decision
+    ) in complete_market_investment_decisions.market_investment_decisions:
         if market_decision.market_id not in valid_market_ids:
             logger.error(
                 f"Invalid market ID {market_decision.market_id} in decisions for event {event.id}. Valid IDs: {list(valid_market_ids)}"
             )
             return None
 
+    full_response_json = complete_market_investment_decisions.full_response
+    if not isinstance(full_response_json, dict):
+        try:
+            full_response_json = (
+                complete_market_investment_decisions.full_response.dict()
+            )
+        except Exception as e:
+            raise e
+
+    timing.end_time = time.time()
     event_decisions = EventInvestmentDecisions(
         event_id=event.id,
         event_title=event.title,
         event_description=event.description,
-        market_investment_decisions=market_decisions,
+        market_investment_decisions=complete_market_investment_decisions.market_investment_decisions,
+        unallocated_capital=complete_market_investment_decisions.unallocated_capital,
+        full_response=full_response_json,
+        token_usage=complete_market_investment_decisions.token_usage,
+        timing=timing,
     )
 
     return event_decisions
@@ -225,23 +257,24 @@ def _process_single_model(
     target_date: date,
     date_output_path: Path,
     timestamp_for_saving: str,
-    model: ApiModel | str,
+    model_info: ModelInfo,
     force_rewrite_cache: bool = False,
 ) -> ModelInvestmentDecisions:
     """Process investments for all events for a model."""
     all_event_decisions = []
-    model_id = model.model_id if isinstance(model, ApiModel) else model
 
     for event in events:
         # Check if event file already exists for this model
         event_file_path = (
-            date_output_path / model_id.replace("/", "--") / f"{event.id}.json"
+            date_output_path
+            / model_info.model_id.replace("/", "--")
+            / f"{event.id}.json"
         )
 
         if file_exists_in_storage(event_file_path, force_rewrite=force_rewrite_cache):
             # File exists and we're not forcing rewrite, so load existing result
             logger.info(
-                f"Loading existing event result for {event.title} for model {model_id} from {event_file_path}"
+                f"Loading existing event result for {event.title} for model {model_info.model_id} from {event_file_path}"
             )
             existing_content = read_from_storage(event_file_path)
             try:
@@ -261,7 +294,7 @@ def _process_single_model(
 
         logger.info(f"Processing event: {event.title}")
         event_decisions = _process_event_investment(
-            model=model,
+            model_info=model_info,
             event=event,
             target_date=target_date,
             date_output_path=date_output_path,
@@ -277,8 +310,10 @@ def _process_single_model(
         all_event_decisions.append(event_decisions)
 
     model_result = ModelInvestmentDecisions(
-        model_id=model_id,
+        model_id=model_info.model_id,
+        model_info=model_info,
         target_date=target_date,
+        decision_datetime=datetime.now(),
         event_investment_decisions=all_event_decisions,
     )
 
@@ -291,7 +326,7 @@ def _process_single_model(
 
 
 def run_agent_investments(
-    models: list[ApiModel | str],
+    models: list[ModelInfo],
     events: list[Event],
     target_date: date,
     date_output_path: Path,
@@ -304,10 +339,9 @@ def run_agent_investments(
 
     results = []
     for model in models:
-        model_name = model.model_id if isinstance(model, ApiModel) else model
-        logger.info(f"Processing model: {model_name}")
+        logger.info(f"Processing model: {model.model_pretty_name}")
         model_result = _process_single_model(
-            model=model,
+            model_info=model,
             events=events,
             target_date=target_date,
             date_output_path=date_output_path,
