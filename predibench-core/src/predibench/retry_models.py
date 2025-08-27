@@ -1,18 +1,23 @@
-from typing import Generator, Type, TypeVar
 import logging
+import time
+from typing import Generator, Type, TypeVar
 
 from smolagents import ChatMessage, ChatMessageStreamDelta, Tool
-from smolagents.models import ApiModel, InferenceClientModel, LiteLLMModel, OpenAIModel
+from smolagents.models import (
+    AmazonBedrockModel,
+    ApiModel,
+    InferenceClientModel,
+    LiteLLMModel,
+    OpenAIModel,
+)
 from tenacity import (
+    after_log,
+    before_sleep_log,
     retry,
     retry_if_exception,
     stop_after_attempt,
     wait_fixed,
-    before_sleep_log,
-    after_log,
 )
-import logging
-
 
 from predibench.logger_config import get_logger
 
@@ -32,7 +37,7 @@ def is_rate_limit_error(exception):
     )
 
 
-def add_retry_logic(base_class: Type[T]) -> Type[T]:
+def add_retry_logic(base_class: Type[T], wait_time: float = 0) -> Type[T]:
     """Factory function to add retry logic to any ApiModel class."""
 
     class ModelWithRetry(base_class):
@@ -60,6 +65,7 @@ def add_retry_logic(base_class: Type[T]) -> Type[T]:
             tools_to_call_from: list[Tool] | None = None,
             **kwargs,
         ) -> ChatMessage:
+            time.sleep(wait_time)
             return super().generate(
                 messages=messages,
                 stop_sequences=stop_sequences,
@@ -92,6 +98,7 @@ def add_retry_logic(base_class: Type[T]) -> Type[T]:
             tools_to_call_from: list[Tool] | None = None,
             **kwargs,
         ) -> Generator[ChatMessageStreamDelta, None, None]:
+            time.sleep(wait_time)
             return super().generate_stream(
                 messages=messages,
                 stop_sequences=stop_sequences,
@@ -111,3 +118,4 @@ def add_retry_logic(base_class: Type[T]) -> Type[T]:
 InferenceClientModelWithRetry = add_retry_logic(InferenceClientModel)
 OpenAIModelWithRetry = add_retry_logic(OpenAIModel)
 LiteLLMModelWithRetry = add_retry_logic(LiteLLMModel)
+AWSBedrockModelWithRetry = add_retry_logic(AmazonBedrockModel)
