@@ -130,11 +130,27 @@ def final_answer(
             - confidence (float): Your confidence in your decision (0.0 to 1.0)
         unallocated_capital (float): Fraction of capital not allocated to any bet (0.0 to 1.0)
     """
-    # Check market decisions - raise errors if incorrect
+    # Manual type checks for market_decisions
+    if not isinstance(market_decisions, list):
+        raise TypeError(f"market_decisions must be a list, got {type(market_decisions).__name__}")
+    
     if not market_decisions or len(market_decisions) == 0:
         raise ValueError(
             "No market decisions provided - at least one market decision is required"
         )
+    
+    for i, decision in enumerate(market_decisions):
+        if not isinstance(decision, dict):
+            raise TypeError(f"market_decisions[{i}] must be a dict, got {type(decision).__name__}")
+    
+    # Manual type checks for unallocated_capital
+    if not isinstance(unallocated_capital, (int, float)):
+        raise TypeError(f"unallocated_capital must be a float or int, got {type(unallocated_capital).__name__}")
+    
+    try:
+        unallocated_capital = float(unallocated_capital)
+    except (ValueError, TypeError) as e:
+        raise TypeError(f"unallocated_capital cannot be converted to float: {e}")
 
     validated_decisions = []
     total_allocated = 0.0
