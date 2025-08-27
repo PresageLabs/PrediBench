@@ -17,8 +17,8 @@ from predibench.retry_models import (
     InferenceClientModelWithRetry,
     OpenAIModelWithRetry,
 )
-from predibench.utils import get_timestamp_string
 from predibench.storage_utils import file_exists_in_storage
+from predibench.utils import get_timestamp_string
 
 load_dotenv()
 login(os.getenv("HF_TOKEN"))
@@ -92,8 +92,9 @@ def run_investments_for_specific_date(
 if __name__ == "__main__":
     # Test with random model to verify new output format
     models = [
-        "huggingface/openai/gpt-oss-120b",  # Use test model for verification
-        "huggingface/openai/gpt-oss-20b",  # Use test model for verification
+        # "huggingface/openai/gpt-oss-120b",  # Use test model for verification
+        # "huggingface/openai/gpt-oss-20b",  # Use test model for verification
+        "sonar-deep-research"
     ]
 
     results = run_investments_for_specific_date(
