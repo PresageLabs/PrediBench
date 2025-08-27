@@ -1,3 +1,4 @@
+import json
 import os
 import time
 from datetime import date, datetime
@@ -33,29 +34,10 @@ load_dotenv()
 logger = get_logger(__name__)
 
 
-def save_model_result(
-    model_result: ModelInvestmentDecisions,
-    date_output_path: Path,
-    timestamp_for_saving: str,
-) -> None:
-    """Save model result to file."""
-
-    filename = f"{model_result.model_id.replace('/', '--')}_{timestamp_for_saving}.json"
-    filepath = date_output_path / filename
-
-    model_result.model_info.client = None
-    content = model_result.model_dump_json(indent=2)
-    write_to_storage(filepath, content)
-
-    logger.info(f"Saved model result to {filepath}")
-
-
 def _process_event_investment(
     model_info: ModelInfo,
     event: Event,
     target_date: date,
-    date_output_path: Path | None,
-    timestamp_for_saving: str,
     price_history_limit: int = 20,
 ) -> EventInvestmentDecisions | None:
     """Process investment decisions for all relevant markets."""
@@ -105,20 +87,28 @@ def _process_event_investment(
             "recent_prices": recent_prices,
             "current_price": current_price,
             "is_closed": is_closed,
+            "outcomes": [outcome.name for outcome in market.outcomes],
             "price_outcome_name": market.price_outcome_name or "Unknown outcome",
         }
         market_data[market.id] = market_info
 
     # Create summaries for all markets
     market_summaries = []
-
+    descriptions_already_used = set() # to avoid repeating the same description
     for market_info in market_data.values():
         outcome_name = market_info["price_outcome_name"]
+        description = market_info["description"]
+        if not description or description in descriptions_already_used:
+            description = ""
+        else:
+            descriptions_already_used.add(description)
+            description = f"Description: {description}"
 
         summary = f"""
 Market ID: {market_info["id"]}
 Question: {market_info["question"]}
-Description: {market_info["description"] or "No description"}
+{description}
+Outcomes: {", ".join(market_info["outcomes"])}
 Historical prices for the outcome "{outcome_name}":
 {market_info["recent_prices"]}
 Last available price for "{outcome_name}": {market_info["current_price"]}
@@ -126,39 +116,44 @@ Last available price for "{outcome_name}": {market_info["current_price"]}
         market_summaries.append(summary)
 
     full_question = f"""
-Date: {target_date.strftime("%B %d, %Y")}
+You are an expert prediction-market analyst and portfolio allocator on the prediction market platform Polymarket.
 
-Event: {event.title}
+**EVENT DETAILS:**
+- Date: {target_date.strftime("%B %d, %Y")}
+- Event: {event.title}
+- Platform: Polymarket
+- Available Markets: {len(market_data)} related markets
 
-You have access to {len(market_data)} markets related to this event. You must allocate your capital across these markets.
+**ANALYSIS REQUIREMENTS:**
+1. Use web search to gather current information about this event, be highly skeptical of sensationalized headlines or partisan sources
+2. Apply your internal knowledge critically
+3. Consider Polymarket-specific factors (user base, crypto market correlation, etc.)
 
-CAPITAL ALLOCATION RULES:
-- You have exactly 1.0 dollars to allocate. Negative bets can be done to short the market, but they still count in absolute value towards the 1.0 dollar allocation.
+
+**CAPITAL ALLOCATION RULES:**
+- The markets are usually "Yes" or "No" markets, but sometimes the outcomes can be different (two sports teams for instance).
+- You have exactly 1.0 dollars to allocate. Use the "bet" field to allocate your capital. Negative means you buy the opposite of the market (usually the "No" outcome), but they still count in absolute value towards the 1.0 dollar allocation.
 - For EACH market, specify your bet. Provide:
 1. market_id: The market ID
-2. rationale: Explanation for your decision
-4. odds: The odds you think the market will settle at
-3. bet: The amount you bet on this market (can be negative if you want to short the market, e.g. if it's overpriced)
+2. rationale: Explanation for your decision and why you think this market is mispriced (or correctly priced if skipping)
+3. odds: The odds you think the market will settle at (your true probability estimate)
+4. bet: The amount you bet on this market (can be negative if you want to buy the opposite of the market)
+5. confidence: Your confidence in this decision (0.0 to 1.0)
 - The sum of ALL (absolute value of bets) + unallocated_capital must equal 1.0
 - You can choose not to bet on markets with poor edges by setting bets summing to lower than 1 and a non-zero unallocated_capital
 
-AVAILABLE MARKETS:
+**AVAILABLE MARKETS:**
 {"".join(market_summaries)}
 
-Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, your unallocated_capital should be 0.5.
+Example: If you bet 0.3 in market A, -0.2 in market B (meaning you buy 0.2 of the "No" outcome), and nothing on market C, your unallocated_capital should be 0.5.
     """
 
     # Save prompt to file if date_output_path is provided
-    if date_output_path:
-        model_id = model_info.model_id
-        prompt_file = (
-            date_output_path
-            / model_id.replace("/", "--")
-            / f"prompt_event_{event.id}_{timestamp_for_saving}.txt"
-        )
+    model_result_path = model_info.get_model_result_path(target_date)
+    prompt_file = model_result_path / f"{event.id}_prompt_event.txt"
+    write_to_storage(prompt_file, full_question)
+    logger.info(f"Saved prompt to {prompt_file}")
 
-        write_to_storage(prompt_file, full_question)
-        logger.info(f"Saved prompt to {prompt_file}")
 
     if model_info.model_id == "test_random":
         # Create random decisions for all markets with capital allocation constraint
@@ -179,6 +174,7 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
                 rationale=f"Random decision for testing market {market_info['id']}",
                 odds=np.random.uniform(0.1, 0.9),
                 bet=amount,
+                confidence=np.random.uniform(0.1, 0.9),
             )
             market_decision = MarketInvestmentDecision(
                 market_id=market_info["id"],
@@ -230,13 +226,13 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
             return None
 
     full_response_json = complete_market_investment_decisions.full_response
-    if not isinstance(full_response_json, dict):
-        try:
-            full_response_json = (
-                complete_market_investment_decisions.full_response.dict()
-            )
-        except Exception as e:
-            raise e
+    
+
+    # Write full response to file
+    model_result_path = model_info.get_model_result_path(target_date)
+    full_response_file = model_result_path / f"{event.id}_full_response.json"
+    with open(full_response_file, 'w') as f:
+        json.dump(full_response_json, f, indent=2)
 
     timing.end_time = time.time()
     event_decisions = EventInvestmentDecisions(
@@ -245,7 +241,6 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
         event_description=event.description,
         market_investment_decisions=complete_market_investment_decisions.market_investment_decisions,
         unallocated_capital=complete_market_investment_decisions.unallocated_capital,
-        full_response=full_response_json,
         token_usage=complete_market_investment_decisions.token_usage,
         timing=timing,
     )
@@ -256,23 +251,18 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
 def _process_single_model(
     events: list[Event],
     target_date: date,
-    date_output_path: Path,
-    timestamp_for_saving: str,
     model_info: ModelInfo,
-    force_rewrite_cache: bool = False,
+    force_rewrite: bool = False,
 ) -> ModelInvestmentDecisions:
     """Process investments for all events for a model."""
     all_event_decisions = []
 
     for event in events:
         # Check if event file already exists for this model
-        event_file_path = (
-            date_output_path
-            / model_info.model_id.replace("/", "--")
-            / f"{event.id}.json"
-        )
+        model_result_path = model_info.get_model_result_path(target_date)
+        event_file_path = model_result_path / f"{event.id}_event_decisions.json"
 
-        if file_exists_in_storage(event_file_path, force_rewrite=force_rewrite_cache):
+        if file_exists_in_storage(event_file_path, force_rewrite=force_rewrite):
             # File exists and we're not forcing rewrite, so load existing result
             logger.info(
                 f"Loading existing event result for {event.title} for model {model_info.model_id} from {event_file_path}"
@@ -294,12 +284,10 @@ def _process_single_model(
                 continue
 
         logger.info(f"Processing event: {event.title}")
-        event_decisions = _process_event_investment(
+        event_decisions: EventInvestmentDecisions = _process_event_investment(
             model_info=model_info,
             event=event,
             target_date=target_date,
-            date_output_path=date_output_path,
-            timestamp_for_saving=timestamp_for_saving,
         )
 
         if event_decisions is None:
@@ -318,10 +306,7 @@ def _process_single_model(
         event_investment_decisions=all_event_decisions,
     )
 
-    save_model_result(
-        model_result=model_result,
-        date_output_path=date_output_path,
-        timestamp_for_saving=timestamp_for_saving,
+    model_result._save_model_result(
     )
     return model_result
 
@@ -330,9 +315,7 @@ def run_agent_investments(
     models: list[ModelInfo],
     events: list[Event],
     target_date: date,
-    date_output_path: Path,
-    timestamp_for_saving: str,
-    force_rewrite_cache: bool = False,
+    force_rewrite: bool = False,
 ) -> list[ModelInvestmentDecisions]:
     """Launch agent investments for events on a specific date."""
     logger.info(f"Running agent investments for {len(models)} models on {target_date}")
@@ -345,9 +328,7 @@ def run_agent_investments(
             model_info=model,
             events=events,
             target_date=target_date,
-            date_output_path=date_output_path,
-            timestamp_for_saving=timestamp_for_saving,
-            force_rewrite_cache=force_rewrite_cache,
+            force_rewrite=force_rewrite,
         )
         results.append(model_result)
 

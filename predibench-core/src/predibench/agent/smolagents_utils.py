@@ -125,8 +125,9 @@ def final_answer(
         market_decisions (list[dict]): List of market decisions. Each dict should contain:
             - market_id (str): The market ID
             - rationale (str): Reasoning for the decision
-            - odds (float): Your probability assessment (0.0 to 1.0) for the yes to the market
-            - bet (float): Your bet (-1.0 to 1.0) for the market : if you estimate the yes to be overvalued/undervalued, place your bet accordingly!
+            - odds (float): Your probability assessment (0.0 to 1.0) for the main outcome of the market (usually the "Yes" outcome)
+            - bet (float): Your bet (-1.0 to 1.0) for the market : if you estimate the main outcome (usually the "Yes" outcome) to be overvalued/undervalued, place your bet accordingly!
+            - confidence (float): Your confidence in your decision (0.0 to 1.0)
         unallocated_capital (float): Fraction of capital not allocated to any bet (0.0 to 1.0)
     """
     # Check market decisions - raise errors if incorrect
@@ -153,6 +154,9 @@ def final_answer(
         assert "bet" in decision_dict, (
             "A key 'bet' is required for each market decision"
         )
+        assert "confidence" in decision_dict, (
+            "A key 'confidence' is required for each market decision"
+        )
 
         # Validate market_id is not empty
         if not decision_dict["market_id"] or decision_dict["market_id"].strip() == "":
@@ -169,11 +173,15 @@ def final_answer(
         assert 0.0 <= decision_dict["odds"] <= 1.0, (
             f"Your estimated odds must be between 0.0 and 1.0, got {decision_dict['odds']} for market {decision_dict['market_id']}"
         )
+        assert 0.0 <= decision_dict["confidence"] <= 1.0, (
+            f"Your confidence must be between 0.0 and 1.0, got {decision_dict['confidence']} for market {decision_dict['market_id']}"
+        )
 
         model_decision = SingleModelDecision(
             rationale=decision_dict["rationale"],
             odds=decision_dict["odds"],
             bet=decision_dict["bet"],
+            confidence=decision_dict["confidence"],
         )
         total_allocated += np.abs(decision_dict["bet"])
 
@@ -225,6 +233,8 @@ def run_smolagents(
 Use the final_answer tool to validate your output before providing the final answer.
 The final_answer tool must contain the arguments rationale and decision.
 """
+    if cutoff_date is not None:
+        assert cutoff_date < date.today()
 
     tools = [
         GoogleSearchTool(
@@ -263,6 +273,7 @@ def structure_final_answer(
         4. confidence_in_assessment: Your confidence level (0.0 to 1.0)
         5. direction: "buy_yes", "buy_no", or "nothing"
         6. amount: Fraction of capital to bet (0.0 to 1.0)
+        7. confidence: Your confidence in this decision (0.0 to 1.0)
 
         The sum of all amounts must not exceed 1.0.
     """)
