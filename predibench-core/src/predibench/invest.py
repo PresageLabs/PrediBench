@@ -1,27 +1,29 @@
 import os
 from datetime import date, timedelta
-from pathlib import Path
 
 from dotenv import load_dotenv
 from huggingface_hub import login
+from smolagents.models import LiteLLMModel
 
 from predibench.agent.dataclasses import ModelInfo
 from predibench.agent.runner import ModelInvestmentDecisions, run_agent_investments
-from predibench.common import DATA_PATH, get_date_output_path
+from predibench.common import get_date_output_path
 from predibench.logger_config import get_logger
 from predibench.market_selection import choose_events
 from predibench.polymarket_data import load_events_from_file
 from predibench.retry_models import (
     InferenceClientModelWithRetry,
     OpenAIModelWithRetry,
+    add_retry_logic,
 )
 from predibench.storage_utils import file_exists_in_storage
-from predibench.utils import get_timestamp_string
 
 load_dotenv(override=True)
 login(os.getenv("HF_TOKEN"))
 
 logger = get_logger(__name__)
+
+LiteLLMModelWithRetryWait = add_retry_logic(LiteLLMModel, wait_time=120)
 
 
 def run_investments_for_specific_date(
@@ -59,8 +61,10 @@ def run_investments_for_specific_date(
         if model.inference_provider == "openai":
             model.client = OpenAIModelWithRetry(model_id=model.model_id)
         elif model.inference_provider == "anthropic":
-            # NOTE: Use bedrock in case
-            model.client = OpenAIModelWithRetry(model_id=model.model_id)
+            # NOTE: Anthropic allows max 5 requests per minute
+            model.client = LiteLLMModelWithRetryWait(
+                model_id="anthropic/" + model.model_id
+            )
         elif model.open_weights:
             model.client = InferenceClientModelWithRetry(
                 model_id=model.model_id,
@@ -83,18 +87,16 @@ if __name__ == "__main__":
     # Test with random model to verify new output format
     models = [
         ModelInfo(
-        model_id="Qwen/Qwen3-Coder-480B-A35B-Instruct",
-        model_pretty_name="Qwen3-Coder-480B-A35B-Instruct",
-        inference_provider="fireworks-ai",
-        company_pretty_name="Qwen",
-        open_weights=True,
-    ),
+            model_id="claude-sonnet-4-20250514",
+            model_pretty_name="Claude Sonnet 4",
+            inference_provider="anthropic",
+            company_pretty_name="Anthropic",
+        ),
         ModelInfo(
-            model_id="openai/gpt-oss-120b",
-            model_pretty_name="GPT-OSS 120B",
-            inference_provider="fireworks-ai",
-            company_pretty_name="OpenAI",
-            open_weights=True,
+            model_id="claude-opus-4-1-20250805",
+            model_pretty_name="Claude Opus 4.1",
+            inference_provider="anthropic",
+            company_pretty_name="Anthropic",
         ),
     ]
 
