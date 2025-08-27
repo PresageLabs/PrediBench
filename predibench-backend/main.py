@@ -631,6 +631,7 @@ async def get_event_investment_decisions(event_id: str):
                         "agent_name": row["agent_name"],
                         "bet": model_decision["bet"],
                         "odds": model_decision["odds"],
+                        "confidence": model_decision["confidence"],
                         "rationale": model_decision["rationale"],
                         "date": row["date"],
                     }
@@ -665,6 +666,7 @@ async def get_event_investment_decisions(event_id: str):
                         "agent_name": model_result.model_id,
                         "bet": market_decision.model_decision.bet,
                         "odds": market_decision.model_decision.odds,
+                        "confidence": market_decision.model_decision.confidence,
                         "rationale": market_decision.model_decision.rationale,
                         "date": model_result.target_date,
                     }
