@@ -13,11 +13,14 @@ from smolagents import Timing, TokenUsage
 class SingleModelDecision(BaseModel):
     rationale: str
     odds: float = Field(
-        ..., ge=0.0, le=1.0
-    )  # Model's assessment of probability (0.0 to 1.0)
+        ..., ge=0.0, le=1.0, description="Model's assessment of probability (0.0 to 1.0)"
+    ) 
     bet: float = Field(
-        ..., ge=-1.0, le=1.0
-    )  # Model's bet on this market (-1.0 to 1.0, sums of absolute values must be 1 with bets on other markets from this event)
+        ..., ge=-1.0, le=1.0, description="Model's bet on this market (-1.0 to 1.0, sums of absolute values must be 1 with bets on other markets from this event)"
+    ) 
+    confidence: float = Field(
+        ..., ge=0.0, le=1.0, description="Model's confidence in its decision (0.0 to 1.0)"
+    ) 
 
 
 class MarketInvestmentDecision(BaseModel):

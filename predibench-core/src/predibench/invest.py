@@ -102,6 +102,6 @@ if __name__ == "__main__":
         models=models,
         time_until_ending=timedelta(days=7 * 6),
         max_n_events=2,
-        target_date=date(2025, 8, 19),
+        target_date=date.today(),
         force_rewrite=True,
     )
