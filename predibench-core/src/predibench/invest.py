@@ -35,8 +35,6 @@ def run_investments_for_specific_date(
     cache_file_path: Path | None = None,
     force_rewrite_cache: bool = False,
     filter_crypto_events: bool = True,
-    dataset_name: str = "Sibyllic/predibench-3",
-    split: str = "train",
 ) -> list[ModelInvestmentDecisions]:
     """Run event-based investment simulation with multiple AI models."""
     logger.info(f"Running investment analysis for {target_date}")
@@ -82,8 +80,6 @@ def run_investments_for_specific_date(
         events=selected_events,
         target_date=target_date,
         date_output_path=date_output_path,
-        dataset_name=dataset_name,
-        split=split,
         timestamp_for_saving=get_timestamp_string(),
         force_rewrite_cache=force_rewrite_cache,
     )

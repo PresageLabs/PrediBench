@@ -1,0 +1,23 @@
+__pycache__
+*.pyc
+.env
+.git
+README.md
+Dockerfile
+.dockerignore
+
+# Frontend directories
+predibench-frontend-gradio/
+predibench-frontend-react/
+
+# Data and bucket directories
+data/
+bucket/
+
+# Test files
+predibench-core/tests/
+
+# Lock files and cache
+*.lock
+.cache/
+

@@ -18,8 +18,7 @@ login(os.getenv("HF_TOKEN"))
 
 MODEL_MAP = {
     "huggingface/openai/gpt-oss-120b": InferenceClientModelWithRetry(
-        model_id="openai/gpt-oss-120b",
-        provider="fireworks-ai"
+        model_id="openai/gpt-oss-120b", provider="fireworks-ai"
     ),
     "huggingface/deepseek-ai/DeepSeek-V3.1": InferenceClientModelWithRetry(
         model_id="deepseek-ai/DeepSeek-V3.1",
@@ -59,21 +58,12 @@ def main(
 
     # Run for each date and each model
     for target_date in dates_to_process:
-        is_today = target_date == date.today()
-        target_date = None if is_today else target_date
-
-        logger.info(
-            f"Processing date: {target_date} ({'today' if is_today else 'backward mode'})"
-        )
-
         run_investments_for_specific_date(
             time_until_ending=timedelta(days=days_ahead),
             max_n_events=max_events,
             models=list(MODEL_MAP.values()),  # Run one model at a time
             output_path=DATA_PATH,
             target_date=target_date,
-            dataset_name="Sibyllic/predibench-3",
-            split="train",
         )
 
     logger.info(f"All analyses completed. Total results: {len(all_results)}")

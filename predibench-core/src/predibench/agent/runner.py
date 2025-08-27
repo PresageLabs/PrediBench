@@ -3,9 +3,7 @@ import os
 from datetime import date, datetime
 from pathlib import Path
 
-import datasets
 import numpy as np
-from datasets import Dataset, concatenate_datasets, load_dataset
 from dotenv import load_dotenv
 from predibench.agent.dataclasses import (
     EventInvestmentDecisions,
@@ -22,11 +20,18 @@ from predibench.date_utils import is_backward_mode
 from predibench.logger_config import get_logger
 from predibench.polymarket_api import Event
 from predibench.storage_utils import (
+<<<<<<< HEAD
     file_exists_in_storage,
     read_from_storage,
     write_to_storage,
 )
 from pydantic import ValidationError
+=======
+    write_to_storage,
+    file_exists_in_storage,
+    read_from_storage,
+)
+>>>>>>> main
 from smolagents import ApiModel
 
 load_dotenv()
@@ -34,6 +39,7 @@ load_dotenv()
 logger = get_logger(__name__)
 
 
+<<<<<<< HEAD
 def _upload_results_to_hf_dataset(
     results_per_model: list[ModelInvestmentDecisions],
     target_date: date,
@@ -157,6 +163,8 @@ def _upload_results_to_hf_dataset(
         logger.warning("No data to upload to HF dataset")
 
 
+=======
+>>>>>>> main
 def save_model_result(
     model_result: ModelInvestmentDecisions,
     date_output_path: Path,
@@ -425,9 +433,7 @@ def run_agent_investments(
     events: list[Event],
     target_date: date,
     date_output_path: Path,
-    split: str,
     timestamp_for_saving: str,
-    dataset_name: str | None = None,
     force_rewrite_cache: bool = False,
 ) -> list[ModelInvestmentDecisions]:
     """Launch agent investments for events on a specific date."""
@@ -438,27 +444,14 @@ def run_agent_investments(
     for model in models:
         model_name = model.model_id if isinstance(model, ApiModel) else model
         logger.info(f"Processing model: {model_name}")
-        try:
-            model_result = _process_single_model(
-                model=model,
-                events=events,
-                target_date=target_date,
-                date_output_path=date_output_path,
-                timestamp_for_saving=timestamp_for_saving,
-                force_rewrite_cache=force_rewrite_cache,
-            )
-            results.append(model_result)
-        except Exception as e:
-            logger.error(f"Failed to process model {model_name}: {e}")
-            continue
-
-    if dataset_name:
-        _upload_results_to_hf_dataset(
-            results_per_model=results,
+        model_result = _process_single_model(
+            model=model,
+            events=events,
             target_date=target_date,
-            dataset_name=dataset_name,
-            split=split,
             date_output_path=date_output_path,
+            timestamp_for_saving=timestamp_for_saving,
+            force_rewrite_cache=force_rewrite_cache,
         )
+        results.append(model_result)
 
     return results
