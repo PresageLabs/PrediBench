@@ -61,6 +61,8 @@ def run_investments_for_specific_date(
         elif model.inference_provider == "anthropic":
             # NOTE: Use bedrock in case
             model.client = OpenAIModelWithRetry(model_id=model.model_id)
+        elif model.inference_provider == "google":
+            model.client = OpenAIModelWithRetry(model_id=model.model_id, api_base="https://generativelanguage.googleapis.com/v1beta/openai/", api_key=os.getenv("GEMINI_API_KEY"))
         elif model.open_weights:
             model.client = InferenceClientModelWithRetry(
                 model_id=model.model_id,
@@ -83,19 +85,19 @@ if __name__ == "__main__":
     # Test with random model to verify new output format
     models = [
         ModelInfo(
-        model_id="Qwen/Qwen3-Coder-480B-A35B-Instruct",
-        model_pretty_name="Qwen3-Coder-480B-A35B-Instruct",
-        inference_provider="fireworks-ai",
-        company_pretty_name="Qwen",
-        open_weights=True,
-    ),
-        ModelInfo(
-            model_id="openai/gpt-oss-120b",
-            model_pretty_name="GPT-OSS 120B",
-            inference_provider="fireworks-ai",
-            company_pretty_name="OpenAI",
-            open_weights=True,
+            model_id="gemini-2.5-pro",
+            model_pretty_name="Gemini 2.5 Pro",
+            inference_provider="google",
+            company_pretty_name="Google",
+            open_weights=False,
         ),
+        # ModelInfo(
+        #     model_id="gemini-2.5-flash",
+        #     model_pretty_name="Gemini 2.5 Flash",
+        #     inference_provider="google",
+        #     company_pretty_name="Google",
+        #     open_weights=False,
+        # ),
     ]
 
     results = run_investments_for_specific_date(
