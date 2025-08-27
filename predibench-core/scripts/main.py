@@ -16,8 +16,7 @@ MODEL_MAP = {
     "openai/gpt-5": OpenAIModelWithRetry(model_id="gpt-5"),
     "openai/gpt-5-mini": OpenAIModelWithRetry(model_id="gpt-5-mini"),
     "huggingface/openai/gpt-oss-120b": InferenceClientModelWithRetry(
-        model_id="openai/gpt-oss-120b",
-        provider="fireworks-ai"
+        model_id="openai/gpt-oss-120b", provider="fireworks-ai"
     ),
     "huggingface/deepseek-ai/DeepSeek-V3.1": InferenceClientModelWithRetry(
         model_id="deepseek-ai/DeepSeek-V3.1",
@@ -28,6 +27,7 @@ MODEL_MAP = {
         provider="fireworks-ai",
     ),
 }
+
 
 @app.command()
 def main(

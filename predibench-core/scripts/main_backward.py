@@ -18,8 +18,7 @@ login(os.getenv("HF_TOKEN"))
 
 MODEL_MAP = {
     "huggingface/openai/gpt-oss-120b": InferenceClientModelWithRetry(
-        model_id="openai/gpt-oss-120b",
-        provider="fireworks-ai"
+        model_id="openai/gpt-oss-120b", provider="fireworks-ai"
     ),
     "huggingface/deepseek-ai/DeepSeek-V3.1": InferenceClientModelWithRetry(
         model_id="deepseek-ai/DeepSeek-V3.1",
@@ -59,7 +58,6 @@ def main(
 
     # Run for each date and each model
     for target_date in dates_to_process:
-
         run_investments_for_specific_date(
             time_until_ending=timedelta(days=days_ahead),
             max_n_events=max_events,

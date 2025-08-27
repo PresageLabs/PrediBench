@@ -19,14 +19,16 @@ from predibench.agent.smolagents_utils import (
 from predibench.date_utils import is_backward_mode
 from predibench.logger_config import get_logger
 from predibench.polymarket_api import Event
-from predibench.storage_utils import write_to_storage, file_exists_in_storage, read_from_storage
+from predibench.storage_utils import (
+    write_to_storage,
+    file_exists_in_storage,
+    read_from_storage,
+)
 from smolagents import ApiModel
 
 load_dotenv()
 
 logger = get_logger(__name__)
-
-
 
 
 def save_model_result(
@@ -198,12 +200,14 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
         market_decision.market_question = market_data[market_decision.market_id][
             "question"
         ]
-        
+
     # Validate all market IDs are correct
     valid_market_ids = set(market_data.keys())
     for market_decision in market_decisions:
         if market_decision.market_id not in valid_market_ids:
-            logger.error(f"Invalid market ID {market_decision.market_id} in decisions for event {event.id}. Valid IDs: {list(valid_market_ids)}")
+            logger.error(
+                f"Invalid market ID {market_decision.market_id} in decisions for event {event.id}. Valid IDs: {list(valid_market_ids)}"
+            )
             return None
 
     event_decisions = EventInvestmentDecisions(
@@ -230,23 +234,31 @@ def _process_single_model(
 
     for event in events:
         # Check if event file already exists for this model
-        event_file_path = date_output_path / model_id.replace("/", "--") / f"{event.id}.json"
-        
+        event_file_path = (
+            date_output_path / model_id.replace("/", "--") / f"{event.id}.json"
+        )
+
         if file_exists_in_storage(event_file_path, force_rewrite=force_rewrite_cache):
             # File exists and we're not forcing rewrite, so load existing result
-            logger.info(f"Loading existing event result for {event.title} for model {model_id} from {event_file_path}")
+            logger.info(
+                f"Loading existing event result for {event.title} for model {model_id} from {event_file_path}"
+            )
             existing_content = read_from_storage(event_file_path)
             try:
-                event_decisions = EventInvestmentDecisions.model_validate_json(existing_content)
-            except (ValidationError) as e:
-                logger.error(f"Failed to parse existing event result (Pydantic error): {e}. Re-processing event.")
+                event_decisions = EventInvestmentDecisions.model_validate_json(
+                    existing_content
+                )
+            except ValidationError as e:
+                logger.error(
+                    f"Failed to parse existing event result (Pydantic error): {e}. Re-processing event."
+                )
                 # Fall through to process the event normally
                 event_decisions = None
 
             if isinstance(event_decisions, EventInvestmentDecisions):
                 all_event_decisions.append(event_decisions)
                 continue
-                
+
         logger.info(f"Processing event: {event.title}")
         event_decisions = _process_event_investment(
             model=model,
@@ -255,10 +267,10 @@ def _process_single_model(
             date_output_path=date_output_path,
             timestamp_for_saving=timestamp_for_saving,
         )
-        
+
         if event_decisions is None:
             continue
-        
+
         event_content = event_decisions.model_dump_json(indent=2)
         write_to_storage(event_file_path, event_content)
         logger.info(f"Saved event result to {event_file_path}")
@@ -303,6 +315,5 @@ def run_agent_investments(
             force_rewrite_cache=force_rewrite_cache,
         )
         results.append(model_result)
-
 
     return results

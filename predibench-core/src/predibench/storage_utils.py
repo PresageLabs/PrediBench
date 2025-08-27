@@ -231,22 +231,23 @@ def file_exists_in_storage(file_path: Path, force_rewrite: bool = False) -> bool
     """
     if force_rewrite:
         return False
-    
+
     # Ensure the path is relative to DATA_PATH
     if not file_path.is_relative_to(DATA_PATH):
         raise ValueError(f"Path {file_path} is not relative to DATA_PATH {DATA_PATH}")
 
     relative_path = file_path.relative_to(DATA_PATH)
     blob_name = str(relative_path)
-    
+
     # Check bucket if available
     if has_bucket_read_access():
         bucket = get_bucket()
         blob = bucket.blob(blob_name)
         return blob.exists()
-    
-    # Check local 
-    return file_path.exists()    
+
+    # Check local
+    return file_path.exists()
+
 
 if __name__ == "__main__":
     print(has_bucket_write_access())
