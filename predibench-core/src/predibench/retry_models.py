@@ -24,7 +24,12 @@ T = TypeVar("T", bound=ApiModel)
 def is_rate_limit_error(exception):
     """Check if the exception is a rate limit error."""
     error_str = str(exception).lower()
-    return "429" in error_str or "rate limit" in error_str or "too many requests" in error_str or "rate_limit" in error_str
+    return (
+        "429" in error_str
+        or "rate limit" in error_str
+        or "too many requests" in error_str
+        or "rate_limit" in error_str
+    )
 
 
 def add_retry_logic(base_class: Type[T]) -> Type[T]:

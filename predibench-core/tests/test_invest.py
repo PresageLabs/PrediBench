@@ -44,5 +44,6 @@ def test_invest_backward():
         assert hasattr(result[0], "model_id")
         assert hasattr(result[0], "target_date")
 
+
 if __name__ == "__main__":
     test_invest_backward()

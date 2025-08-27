@@ -69,20 +69,22 @@ class Stats(BaseModel):
 @lru_cache(maxsize=1)
 def load_model_results_from_google() -> list[ModelInvestmentDecisions]:
     # Has bucket access, load directly from GCP bucket
-    
+
     model_results = []
     bucket = get_bucket()
     blobs = bucket.list_blobs(prefix="")
-    
+
     for blob in blobs:
-        if blob.name.endswith('.json') and '/' in blob.name:
-            parts = blob.name.split('/')
+        if blob.name.endswith(".json") and "/" in blob.name:
+            parts = blob.name.split("/")
             if "events_cache" in blob.name:
                 continue
             if len(parts) == 2:  # date/model_timestamp.json format
                 try:
                     json_content = blob.download_as_text()
-                    model_result = ModelInvestmentDecisions.model_validate_json(json_content)
+                    model_result = ModelInvestmentDecisions.model_validate_json(
+                        json_content
+                    )
                     model_results.append(model_result)
                 except Exception as e:
                     print(f"Error reading {blob.name}: {e}")
@@ -92,10 +94,6 @@ def load_model_results_from_google() -> list[ModelInvestmentDecisions]:
     model_results.sort(key=lambda x: x.target_date)
     return model_results
 
-@lru_cache(maxsize=1)
-def load_dataset_from_huggingface():
-    dataset = load_dataset(AGENT_CHOICES_REPO, split="train")
-    return dataset.to_pandas().sort_values("date")
 
 @lru_cache(maxsize=1)
 def load_agent_choices():
@@ -120,7 +118,7 @@ def get_events_by_ids(event_ids: tuple[str, ...]) -> list[Event]:
 def calculate_real_performance():
     """Calculate real PnL and performance metrics exactly like gradio app"""
     model_results = load_agent_choices()
-    
+
     # Handle fallback case where we still get a DataFrame from HuggingFace
     if isinstance(model_results, pd.DataFrame):
         agent_choices_df = model_results
@@ -150,15 +148,15 @@ def calculate_real_performance():
     else:
         # Working with Pydantic models from GCP
         print(f"Loaded {len(model_results)} model results from GCP")
-        
+
         # Filter by timestamp (use current time as proxy since we don't have upload timestamp in Pydantic models)
         today_date = datetime.today()
-        
+
         positions = []
         for model_result in model_results:
             agent_name = model_result.model_id
             date = model_result.target_date
-            
+
             for event_decision in model_result.event_investment_decisions:
                 for market_decision in event_decision.market_investment_decisions:
                     positions.append(
@@ -169,7 +167,7 @@ def calculate_real_performance():
                             "agent_name": agent_name,
                         }
                     )
-        
+
         positions_df = pd.DataFrame.from_records(positions)
         print(f"Created {len(positions_df)} position records")
 
@@ -214,6 +212,7 @@ def calculate_real_performance():
 
     print(f"Calculated performance for {len(agents_performance)} agents")
     return agents_performance
+
 
 # Generate leaderboard from real data only
 @lru_cache(maxsize=1)
@@ -262,7 +261,7 @@ def get_events_that_received_predictions() -> list[Event]:
     """Get events based that models ran predictions on"""
     # Load agent choices to see what markets they've been betting on
     data = load_agent_choices()
-    
+
     # Handle fallback case where we still get a DataFrame from HuggingFace
     if isinstance(data, pd.DataFrame):
         event_ids = tuple(data["event_id"].unique())
@@ -278,11 +277,6 @@ def get_events_that_received_predictions() -> list[Event]:
 
 
 # API Endpoints
-@app.get("/")
-async def root():
-    return {"message": "Polymarket LLM Benchmark API", "version": "1.0.0"}
-
-
 @app.get("/api/leaderboard", response_model=list[LeaderboardEntry])
 async def get_leaderboard_endpoint():
     """Get the current leaderboard with LLM performance data"""
@@ -340,24 +334,12 @@ async def get_stats():
     )
 
 
-@app.get("/api/model/{model_id}", response_model=LeaderboardEntry)
-async def get_model_details(model_id: str):
-    """Get detailed information for a specific model"""
-    leaderboard = get_leaderboard()
-    model = next((entry for entry in leaderboard if entry.id == model_id), None)
-
-    if not model:
-        return {"error": "Model not found"}
-
-    return model
-
-
 @lru_cache(maxsize=1)
 def get_positions_df():
     # Calculate market-level data
     data = load_agent_choices()
     today_date = datetime.today()
-    
+
     # Handle fallback case where we still get a DataFrame from HuggingFace
     if isinstance(data, pd.DataFrame):
         agent_choices_df = data
@@ -385,7 +367,7 @@ def get_positions_df():
         for model_result in data:
             agent_name = model_result.model_id
             date = model_result.target_date
-            
+
             for event_decision in model_result.event_investment_decisions:
                 for market_decision in event_decision.market_investment_decisions:
                     positions.append(
@@ -396,7 +378,7 @@ def get_positions_df():
                             "agent_name": agent_name,
                         }
                     )
-    
+
     return pd.DataFrame.from_records(positions)
 
 
@@ -494,17 +476,6 @@ async def get_model_investment_details(agent_id: str):
     return markets_data
 
 
-@app.get("/api/event/{event_id}")
-async def get_event_details(event_id: str):
-    """Get detailed information for a specific event including all its markets"""
-    events_list = get_events_by_ids((event_id,))
-
-    if not events_list:
-        return {"error": "Event not found"}
-
-    return events_list[0]
-
-
 @app.get("/api/event/{event_id}/market_prices")
 async def get_event_market_prices(event_id: str):
     """Get price history for all markets in an event"""
@@ -536,7 +507,7 @@ async def get_event_investment_decisions(event_id: str):
     """Get real investment choices for a specific event"""
     # Load agent choices data like in gradio app
     data = load_agent_choices()
-    
+
     # Handle fallback case where we still get a DataFrame from HuggingFace
     if isinstance(data, pd.DataFrame):
         df = data
@@ -572,7 +543,7 @@ async def get_event_investment_decisions(event_id: str):
     else:
         # Working with Pydantic models from GCP
         market_investments = []
-        
+
         # Get the latest prediction for each agent for this specific event ID
         agent_latest_predictions = {}
         for model_result in data:
@@ -580,9 +551,16 @@ async def get_event_investment_decisions(event_id: str):
             for event_decision in model_result.event_investment_decisions:
                 if event_decision.event_id == event_id:
                     # Use target_date as a proxy for "latest" (assuming newer dates are more recent)
-                    if agent_name not in agent_latest_predictions or model_result.target_date > agent_latest_predictions[agent_name][0].target_date:
-                        agent_latest_predictions[agent_name] = (model_result, event_decision)
-        
+                    if (
+                        agent_name not in agent_latest_predictions
+                        or model_result.target_date
+                        > agent_latest_predictions[agent_name][0].target_date
+                    ):
+                        agent_latest_predictions[agent_name] = (
+                            model_result,
+                            event_decision,
+                        )
+
         # Extract market decisions from latest predictions
         for model_result, event_decision in agent_latest_predictions.values():
             for market_decision in event_decision.market_investment_decisions:
@@ -596,13 +574,8 @@ async def get_event_investment_decisions(event_id: str):
                         "date": model_result.target_date,
                     }
                 )
-    
+
     return market_investments
-
-
-@app.get("/api/health")
-async def health_check():
-    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 
 if __name__ == "__main__":
