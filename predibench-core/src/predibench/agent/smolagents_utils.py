@@ -125,9 +125,9 @@ def final_answer(
         market_decisions (list[dict]): List of market decisions. Each dict should contain:
             - market_id (str): The market ID
             - rationale (str): Reasoning for the decision
-            - odds (float): Your probability assessment (0.0 to 1.0) for the yes to the market
-            - bet (float): Your bet (-1.0 to 1.0) for the market : if you estimate the yes to be overvalued/undervalued, place your bet accordingly!
-            - confidence (float): Your confidence in the decision (0.0 to 1.0)
+            - odds (float): Your probability assessment (0.0 to 1.0) for the main outcome of the market (usually the "Yes" outcome)
+            - bet (float): Your bet (-1.0 to 1.0) for the market : if you estimate the main outcome (usually the "Yes" outcome) to be overvalued/undervalued, place your bet accordingly!
+            - confidence (float): Your confidence in your decision (0.0 to 1.0)
         unallocated_capital (float): Fraction of capital not allocated to any bet (0.0 to 1.0)
     """
     # Check market decisions - raise errors if incorrect

@@ -87,20 +87,28 @@ def _process_event_investment(
             "recent_prices": recent_prices,
             "current_price": current_price,
             "is_closed": is_closed,
+            "outcomes": [outcome.name for outcome in market.outcomes],
             "price_outcome_name": market.price_outcome_name or "Unknown outcome",
         }
         market_data[market.id] = market_info
 
     # Create summaries for all markets
     market_summaries = []
-
+    descriptions_already_used = set() # to avoid repeating the same description
     for market_info in market_data.values():
         outcome_name = market_info["price_outcome_name"]
+        description = market_info["description"]
+        if not description or description in descriptions_already_used:
+            description = ""
+        else:
+            descriptions_already_used.add(description)
+            description = f"Description: {description}"
 
         summary = f"""
 Market ID: {market_info["id"]}
 Question: {market_info["question"]}
-Description: {market_info["description"] or "No description"}
+{description}
+Outcomes: {", ".join(market_info["outcomes"])}
 Historical prices for the outcome "{outcome_name}":
 {market_info["recent_prices"]}
 Last available price for "{outcome_name}": {market_info["current_price"]}
@@ -108,27 +116,36 @@ Last available price for "{outcome_name}": {market_info["current_price"]}
         market_summaries.append(summary)
 
     full_question = f"""
-Date: {target_date.strftime("%B %d, %Y")}
+You are an expert prediction-market analyst and portfolio allocator on the prediction market platform Polymarket.
 
-Event: {event.title}
+**EVENT DETAILS:**
+- Date: {target_date.strftime("%B %d, %Y")}
+- Event: {event.title}
+- Platform: Polymarket
+- Available Markets: {len(market_data)} related markets
 
-You have access to {len(market_data)} markets related to this event. You must allocate your capital across these markets.
+**ANALYSIS REQUIREMENTS:**
+1. Use web search to gather current information about this event, be highly skeptical of sensationalized headlines or partisan sources
+2. Apply your internal knowledge critically
+3. Consider Polymarket-specific factors (user base, crypto market correlation, etc.)
 
-CAPITAL ALLOCATION RULES:
-- You have exactly 1.0 dollars to allocate. Negative bets can be done to short the market, but they still count in absolute value towards the 1.0 dollar allocation.
+
+**CAPITAL ALLOCATION RULES:**
+- The markets are usually "Yes" or "No" markets, but sometimes the outcomes can be different (two sports teams for instance).
+- You have exactly 1.0 dollars to allocate. Use the "bet" field to allocate your capital. Negative means you buy the opposite of the market (usually the "No" outcome), but they still count in absolute value towards the 1.0 dollar allocation.
 - For EACH market, specify your bet. Provide:
 1. market_id: The market ID
-2. rationale: Explanation for your decision
-3. odds: The odds you think the market will settle at
-4. bet: The amount you bet on this market (can be negative if you want to short the market, e.g. if it's overpriced)
+2. rationale: Explanation for your decision and why you think this market is mispriced (or correctly priced if skipping)
+3. odds: The odds you think the market will settle at (your true probability estimate)
+4. bet: The amount you bet on this market (can be negative if you want to buy the opposite of the market)
 5. confidence: Your confidence in this decision (0.0 to 1.0)
 - The sum of ALL (absolute value of bets) + unallocated_capital must equal 1.0
 - You can choose not to bet on markets with poor edges by setting bets summing to lower than 1 and a non-zero unallocated_capital
 
-AVAILABLE MARKETS:
+**AVAILABLE MARKETS:**
 {"".join(market_summaries)}
 
-Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, your unallocated_capital should be 0.5.
+Example: If you bet 0.3 in market A, -0.2 in market B (meaning you buy 0.2 of the "No" outcome), and nothing on market C, your unallocated_capital should be 0.5.
     """
 
     # Save prompt to file if date_output_path is provided
