@@ -13,7 +13,7 @@ from predibench.agent.dataclasses import (
     SingleModelDecision,
 )
 from predibench.logger_config import get_logger
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from smolagents import (
     ChatMessage,
     LiteLLMModel,
@@ -231,7 +231,11 @@ class ListMarketInvestmentDecisions(BaseModel):
     market_investment_decisions: list[MarketInvestmentDecision]
     unallocated_capital: float
 
-
+@retry(
+    stop=stop_after_attempt(2),
+    retry=retry_if_exception_type((ValidationError,)),
+    reraise=True,
+)
 def run_smolagents(
     model_info: ModelInfo,
     question: str,
