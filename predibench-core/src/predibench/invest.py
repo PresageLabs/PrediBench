@@ -65,6 +65,9 @@ def run_investments_for_specific_date(
     for model in models:
         if model.inference_provider == "openai":
             model.client = OpenAIModelWithRetry(model_id=model.model_id)
+        elif model.inference_provider == "anthropic":
+            # NOTE: Use bedrock in case
+            model.client = OpenAIModelWithRetry(model_id=model.model_id)
         elif model.open_weights:
             model.client = InferenceClientModelWithRetry(
                 model_id=model.model_id,
@@ -88,17 +91,23 @@ def run_investments_for_specific_date(
 if __name__ == "__main__":
     # Test with random model to verify new output format
     models = [
+        # ModelInfo(
+        #     model_id="o3-deep-research",
+        #     model_pretty_name="O3 Deep Research",
+        #     inference_provider="openai",
+        #     company_pretty_name="OpenAI",
+        # ),
+        # ModelInfo(
+        #     model_id="sonar-deep-research",
+        #     model_pretty_name="Sonar Deep Research",
+        #     inference_provider="perplexity",
+        #     company_pretty_name="Perplexity",
+        # ),
         ModelInfo(
-            model_id="o3-deep-research",
-            model_pretty_name="O3 Deep Research",
-            inference_provider="openai",
-            company_pretty_name="OpenAI",
-        ),
-        ModelInfo(
-            model_id="sonar-deep-research",
-            model_pretty_name="Sonar Deep Research",
-            inference_provider="perplexity",
-            company_pretty_name="Perplexity",
+            model_id="claude-4-sonnet",
+            model_pretty_name="Claude 4 Sonnet",
+            inference_provider="anthropic",
+            company_pretty_name="Anthropic",
         ),
     ]
 
