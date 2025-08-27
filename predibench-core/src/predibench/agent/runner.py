@@ -132,7 +132,7 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
 
     # Save prompt to file if date_output_path is provided
     model_result_path = model_info.get_model_result_path(target_date)
-    prompt_file = model_result_path / f"prompt_event_{event.id}.txt"
+    prompt_file = model_result_path / f"{event.id}_prompt_event.txt"
     write_to_storage(prompt_file, full_question)
     logger.info(f"Saved prompt to {prompt_file}")
 
