@@ -65,6 +65,8 @@ def run_investments_for_specific_date(
             model.client = LiteLLMModelWithRetryWait(
                 model_id="anthropic/" + model.model_id
             )
+        elif model.inference_provider == "google":
+            model.client = OpenAIModelWithRetry(model_id=model.model_id, api_base="https://generativelanguage.googleapis.com/v1beta/openai/", api_key=os.getenv("GEMINI_API_KEY"))
         elif model.open_weights:
             model.client = InferenceClientModelWithRetry(
                 model_id=model.model_id,
@@ -87,17 +89,19 @@ if __name__ == "__main__":
     # Test with random model to verify new output format
     models = [
         ModelInfo(
-            model_id="claude-sonnet-4-20250514",
-            model_pretty_name="Claude Sonnet 4",
-            inference_provider="anthropic",
-            company_pretty_name="Anthropic",
+            model_id="gemini-2.5-pro",
+            model_pretty_name="Gemini 2.5 Pro",
+            inference_provider="google",
+            company_pretty_name="Google",
+            open_weights=False,
         ),
-        ModelInfo(
-            model_id="claude-opus-4-1-20250805",
-            model_pretty_name="Claude Opus 4.1",
-            inference_provider="anthropic",
-            company_pretty_name="Anthropic",
-        ),
+        # ModelInfo(
+        #     model_id="gemini-2.5-flash",
+        #     model_pretty_name="Gemini 2.5 Flash",
+        #     inference_provider="google",
+        #     company_pretty_name="Google",
+        #     open_weights=False,
+        # ),
     ]
 
     results = run_investments_for_specific_date(
