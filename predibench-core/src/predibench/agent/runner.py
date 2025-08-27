@@ -1,3 +1,4 @@
+import json
 import os
 import time
 from datetime import date, datetime
@@ -33,29 +34,10 @@ load_dotenv()
 logger = get_logger(__name__)
 
 
-def save_model_result(
-    model_result: ModelInvestmentDecisions,
-    date_output_path: Path,
-    timestamp_for_saving: str,
-) -> None:
-    """Save model result to file."""
-
-    filename = f"{model_result.model_id.replace('/', '--')}_{timestamp_for_saving}.json"
-    filepath = date_output_path / filename
-
-    model_result.model_info.client = None
-    content = model_result.model_dump_json(indent=2)
-    write_to_storage(filepath, content)
-
-    logger.info(f"Saved model result to {filepath}")
-
-
 def _process_event_investment(
     model_info: ModelInfo,
     event: Event,
     target_date: date,
-    date_output_path: Path | None,
-    timestamp_for_saving: str,
     price_history_limit: int = 20,
 ) -> EventInvestmentDecisions | None:
     """Process investment decisions for all relevant markets."""
@@ -149,16 +131,11 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
     """
 
     # Save prompt to file if date_output_path is provided
-    if date_output_path:
-        model_id = model_info.model_id
-        prompt_file = (
-            date_output_path
-            / model_id.replace("/", "--")
-            / f"prompt_event_{event.id}_{timestamp_for_saving}.txt"
-        )
+    model_result_path = model_info.get_model_result_path(target_date)
+    prompt_file = model_result_path / f"{event.id}_prompt_event.txt"
+    write_to_storage(prompt_file, full_question)
+    logger.info(f"Saved prompt to {prompt_file}")
 
-        write_to_storage(prompt_file, full_question)
-        logger.info(f"Saved prompt to {prompt_file}")
 
     if model_info.model_id == "test_random":
         # Create random decisions for all markets with capital allocation constraint
@@ -230,13 +207,13 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
             return None
 
     full_response_json = complete_market_investment_decisions.full_response
-    if not isinstance(full_response_json, dict):
-        try:
-            full_response_json = (
-                complete_market_investment_decisions.full_response.dict()
-            )
-        except Exception as e:
-            raise e
+    
+
+    # Write full response to file
+    model_result_path = model_info.get_model_result_path(target_date)
+    full_response_file = model_result_path / f"{event.id}_full_response.json"
+    with open(full_response_file, 'w') as f:
+        json.dump(full_response_json, f, indent=2)
 
     timing.end_time = time.time()
     event_decisions = EventInvestmentDecisions(
@@ -245,7 +222,6 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
         event_description=event.description,
         market_investment_decisions=complete_market_investment_decisions.market_investment_decisions,
         unallocated_capital=complete_market_investment_decisions.unallocated_capital,
-        full_response=full_response_json,
         token_usage=complete_market_investment_decisions.token_usage,
         timing=timing,
     )
@@ -256,23 +232,18 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
 def _process_single_model(
     events: list[Event],
     target_date: date,
-    date_output_path: Path,
-    timestamp_for_saving: str,
     model_info: ModelInfo,
-    force_rewrite_cache: bool = False,
+    force_rewrite: bool = False,
 ) -> ModelInvestmentDecisions:
     """Process investments for all events for a model."""
     all_event_decisions = []
 
     for event in events:
         # Check if event file already exists for this model
-        event_file_path = (
-            date_output_path
-            / model_info.model_id.replace("/", "--")
-            / f"{event.id}.json"
-        )
+        model_result_path = model_info.get_model_result_path(target_date)
+        event_file_path = model_result_path / f"{event.id}_event_decisions.json"
 
-        if file_exists_in_storage(event_file_path, force_rewrite=force_rewrite_cache):
+        if file_exists_in_storage(event_file_path, force_rewrite=force_rewrite):
             # File exists and we're not forcing rewrite, so load existing result
             logger.info(
                 f"Loading existing event result for {event.title} for model {model_info.model_id} from {event_file_path}"
@@ -294,12 +265,10 @@ def _process_single_model(
                 continue
 
         logger.info(f"Processing event: {event.title}")
-        event_decisions = _process_event_investment(
+        event_decisions: EventInvestmentDecisions = _process_event_investment(
             model_info=model_info,
             event=event,
             target_date=target_date,
-            date_output_path=date_output_path,
-            timestamp_for_saving=timestamp_for_saving,
         )
 
         if event_decisions is None:
@@ -318,10 +287,7 @@ def _process_single_model(
         event_investment_decisions=all_event_decisions,
     )
 
-    save_model_result(
-        model_result=model_result,
-        date_output_path=date_output_path,
-        timestamp_for_saving=timestamp_for_saving,
+    model_result._save_model_result(
     )
     return model_result
 
@@ -330,9 +296,7 @@ def run_agent_investments(
     models: list[ModelInfo],
     events: list[Event],
     target_date: date,
-    date_output_path: Path,
-    timestamp_for_saving: str,
-    force_rewrite_cache: bool = False,
+    force_rewrite: bool = False,
 ) -> list[ModelInvestmentDecisions]:
     """Launch agent investments for events on a specific date."""
     logger.info(f"Running agent investments for {len(models)} models on {target_date}")
@@ -345,9 +309,7 @@ def run_agent_investments(
             model_info=model,
             events=events,
             target_date=target_date,
-            date_output_path=date_output_path,
-            timestamp_for_saving=timestamp_for_saving,
-            force_rewrite_cache=force_rewrite_cache,
+            force_rewrite=force_rewrite,
         )
         results.append(model_result)
 
