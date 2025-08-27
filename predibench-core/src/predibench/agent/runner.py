@@ -1,3 +1,4 @@
+import json
 import os
 import time
 from datetime import date, datetime
@@ -238,6 +239,14 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
         except Exception as e:
             raise e
 
+    # Write full response to file
+    if date_output_path:
+        output_dir = date_output_path / model_info.model_id
+        output_dir.mkdir(parents=True, exist_ok=True)
+        full_response_file = output_dir / f"{event.id}_full_response.json"
+        with open(full_response_file, 'w') as f:
+            json.dump(full_response_json, f, indent=2)
+
     timing.end_time = time.time()
     event_decisions = EventInvestmentDecisions(
         event_id=event.id,
@@ -245,7 +254,6 @@ Example: If you bet 0.3 on market A, 0.2 on market B, and nothing on market C, y
         event_description=event.description,
         market_investment_decisions=complete_market_investment_decisions.market_investment_decisions,
         unallocated_capital=complete_market_investment_decisions.unallocated_capital,
-        full_response=full_response_json,
         token_usage=complete_market_investment_decisions.token_usage,
         timing=timing,
     )

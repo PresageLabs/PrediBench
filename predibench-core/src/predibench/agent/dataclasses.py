@@ -31,7 +31,6 @@ class EventInvestmentDecisions(BaseModel):
         MarketInvestmentDecision
     ]  # Multiple markets per event
     unallocated_capital: float
-    full_response: Any
     token_usage: TokenUsage | None = None
     timing: Timing | None = None
 
