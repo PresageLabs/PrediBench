@@ -127,7 +127,7 @@ def final_answer(
             - rationale (str): Reasoning for the decision
             - odds (float): Your probability assessment (0.0 to 1.0) for the main outcome of the market (usually the "Yes" outcome)
             - bet (float): Your bet (-1.0 to 1.0) for the market : if you estimate the main outcome (usually the "Yes" outcome) to be overvalued/undervalued, place your bet accordingly!
-            - confidence (float): Your confidence in your decision (0.0 to 1.0)
+            - confidence (float): Your confidence in your decision (must be one of: 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
         unallocated_capital (float): Fraction of capital not allocated to any bet (0.0 to 1.0)
     """
     # Manual type checks for market_decisions
@@ -192,6 +192,13 @@ def final_answer(
         assert 0.0 <= decision_dict["confidence"] <= 1.0, (
             f"Your confidence must be between 0.0 and 1.0, got {decision_dict['confidence']} for market {decision_dict['market_id']}"
         )
+        
+        # Check that confidence is a discrete value (0.0, 0.1, 0.2, ..., 1.0)
+        valid_confidence_values = [i / 10.0 for i in range(11)]  # [0.0, 0.1, 0.2, ..., 1.0]
+        if decision_dict["confidence"] not in valid_confidence_values:
+            raise ValueError(
+                f"Confidence must be one of {valid_confidence_values}, got {decision_dict['confidence']} for market {decision_dict['market_id']}"
+            )
 
         model_decision = SingleModelDecision(
             rationale=decision_dict["rationale"],
@@ -305,7 +312,7 @@ def structure_final_answer(
         4. confidence_in_assessment: Your confidence level (0.0 to 1.0)
         5. direction: "buy_yes", "buy_no", or "nothing"
         6. amount: Fraction of capital to bet (0.0 to 1.0)
-        7. confidence: Your confidence in this decision (0.0 to 1.0)
+        7. confidence: Your confidence in this decision (must be one of: 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
 
         The sum of all amounts must not exceed 1.0.
     """)
