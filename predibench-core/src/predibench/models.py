@@ -71,6 +71,7 @@ MODELS_BY_PROVIDER = {
             inference_provider="fireworks-ai",
             company_pretty_name="DeepSeek",
             open_weights=True,
+            agent_type="toolcalling",
         ),
         ModelInfo(
             model_id="Qwen/Qwen3-Coder-480B-A35B-Instruct",
