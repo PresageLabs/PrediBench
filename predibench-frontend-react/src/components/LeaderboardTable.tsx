@@ -1,6 +1,7 @@
 import { ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 import type { LeaderboardEntry } from '../api'
+import { InfoTooltip } from './ui/info-tooltip'
 
 interface LeaderboardTableProps {
   leaderboard: LeaderboardEntry[]
@@ -37,8 +38,18 @@ export function LeaderboardTable({
             <thead className="bg-muted/30">
               <tr>
                 <th className="text-left py-4 px-6 font-semibold">Model Name</th>
-                <th className="text-right py-4 px-6 font-semibold">Total PnL</th>
-                <th className="text-right py-4 px-6 font-semibold">Brier Score</th>
+                <th className="text-right py-4 px-6 font-semibold">
+                  <div className="flex items-center justify-end">
+                    Total Profit
+                    <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
+                  </div>
+                </th>
+                <th className="text-right py-4 px-6 font-semibold">
+                  <div className="flex items-center justify-end">
+                    Brier Score
+                    <InfoTooltip content="A measure of prediction accuracy. Lower values indicate better calibration - how well the model's confidence matches actual outcomes (0 = perfect, 1 = worst)" />
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody>

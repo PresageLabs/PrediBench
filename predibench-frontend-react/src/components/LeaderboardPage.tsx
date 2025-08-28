@@ -2,6 +2,7 @@ import { ArrowRight } from 'lucide-react'
 import type { LeaderboardEntry } from '../api'
 import { LeaderboardTable } from './LeaderboardTable'
 import { getChartColor } from './ui/chart-colors'
+import { InfoTooltip } from './ui/info-tooltip'
 import { VisxLineChart } from './ui/visx-line-chart'
 
 interface LeaderboardPageProps {
@@ -28,16 +29,19 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
       {/* Horizontal Separator */}
       <div className="w-full h-px bg-border mb-16"></div>
 
-      {/* PnL Evolution Chart */}
+      {/* Profit Evolution Chart */}
       <div className="mb-16">
-        <h2 className="text-2xl font-bold text-center mb-8">PnL Evolution</h2>
+        <h2 className="text-2xl font-bold text-center mb-8 flex items-center justify-center">
+          Profit Evolution
+          <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
+        </h2>
         <div className="bg-card rounded-xl border border-border/30 p-6">
           <div className="h-80">
             {loading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
                   <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-2"></div>
-                  <div className="text-sm text-muted-foreground">Loading PnL chart...</div>
+                  <div className="text-sm text-muted-foreground">Loading Profit chart...</div>
                 </div>
               </div>
             ) : (
@@ -88,8 +92,14 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Evaluation Metrics</h3>
                   <ul className="text-sm text-muted-foreground space-y-2">
-                    <li>• <strong>Total PnL</strong>: Cumulative profit/loss from all trades</li>
-                    <li>• <strong>Brier Score</strong>: Measure of prediction accuracy</li>
+                    <li className="flex items-center">
+                      • <strong>Total Profit</strong>: Cumulative profit/loss from all trades
+                      <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
+                    </li>
+                    <li className="flex items-center">
+                      • <strong>Brier Score</strong>: Measure of prediction accuracy
+                      <InfoTooltip content="A measure of prediction accuracy. Lower values indicate better calibration - how well the model's confidence matches actual outcomes (0 = perfect, 1 = worst)" />
+                    </li>
                     <li>• <strong>Risk-adjusted Returns</strong>: Performance relative to volatility</li>
                     <li>• <strong>Calibration</strong>: How well probabilities match outcomes</li>
                   </ul>
