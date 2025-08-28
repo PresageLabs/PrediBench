@@ -42,6 +42,7 @@ MODEL_MAP = [
         inference_provider="fireworks-ai",
         company_pretty_name="OpenAI",
         open_weights=True,
+        agent_type="toolcalling",
     ),
     ModelInfo(
         model_id="openai/gpt-oss-20b",
@@ -49,6 +50,7 @@ MODEL_MAP = [
         inference_provider="fireworks-ai",
         company_pretty_name="OpenAI",
         open_weights=True,
+        agent_type="toolcalling",
     ),
     ModelInfo(
         model_id="deepseek-ai/DeepSeek-V3.1",
@@ -56,6 +58,7 @@ MODEL_MAP = [
         inference_provider="fireworks-ai",
         company_pretty_name="DeepSeek",
         open_weights=True,
+        agent_type="codeagent",
     ),
     ModelInfo(
         model_id="deepseek-ai/DeepSeek-R1",
@@ -63,6 +66,7 @@ MODEL_MAP = [
         inference_provider="fireworks-ai",
         company_pretty_name="DeepSeek",
         open_weights=True,
+        agent_type="codeagent",
     ),
     ModelInfo(
         model_id="Qwen/Qwen3-Coder-480B-A35B-Instruct",
@@ -70,6 +74,23 @@ MODEL_MAP = [
         inference_provider="fireworks-ai",
         company_pretty_name="Qwen",
         open_weights=True,
+        agent_type="codeagent",
+    ),
+    ModelInfo(
+        model_id="gemini-2.5-flash",
+        model_pretty_name="Gemini 2.5 Flash",
+        inference_provider="google",
+        company_pretty_name="Google",
+        open_weights=False,
+        agent_type="codeagent",
+    ),
+    ModelInfo(
+        model_id="gemini-2.5-pro",
+        model_pretty_name="Gemini 2.5 Pro",
+        inference_provider="google",
+        company_pretty_name="Google",
+        open_weights=False,
+        agent_type="codeagent",
     ),
     ModelInfo(
         model_id="sonar-deep-research",

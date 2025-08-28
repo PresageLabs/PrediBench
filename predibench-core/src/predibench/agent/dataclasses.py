@@ -2,7 +2,7 @@ from datetime import date, datetime
 from pathlib import Path
 from predibench.common import DATA_PATH, get_date_output_path
 from predibench.storage_utils import write_to_storage
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 from smolagents import Timing, TokenUsage
@@ -49,6 +49,7 @@ class ModelInfo(BaseModel):
     company_pretty_name: str
     open_weights: bool = False
     client: Any | None = None
+    agent_type: Literal["codeagent", "toolcalling"] = "toolcalling"
     
     def get_model_result_path(self, target_date: date) -> Path:
         """
