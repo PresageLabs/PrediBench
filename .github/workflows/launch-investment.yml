@@ -9,6 +9,7 @@ on:
         default: 'huggingface'
         type: choice
         options:
+          - events
           - xai
           - openai
           - huggingface
