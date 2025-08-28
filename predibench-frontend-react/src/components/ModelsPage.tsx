@@ -102,7 +102,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                               <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
                             </span>
                             <span className="flex items-center">
-                              Brier score: {((model.accuracy || 0) * 100).toFixed(0)}%
+                              Brier score: {((1 - model.avg_brier_score) * 100).toFixed(1)}%
                               <InfoTooltip content="A measure of prediction accuracy. Lower values indicate better calibration - how well the model's confidence matches actual outcomes (0 = perfect, 1 = worst)" />
                             </span>
                           </div>
@@ -140,102 +140,105 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                     Brier score:
                     <InfoTooltip content="A measure of prediction accuracy. Lower values indicate better calibration - how well the model's confidence matches actual outcomes (0 = perfect, 1 = worst)" />
                   </div>
-                  <div className="font-medium">{((selectedModelData.accuracy || 0) * 100).toFixed(0)}%</div>
-                </div>
+                  <div className="font-medium">{((1 - selectedModelData.avg_brier_score) * 100).toFixed(1)}%</div>
+                </div >
                 <div>
                   <span className="text-muted-foreground">Trades:</span>
                   <div className="font-medium">{selectedModelData.trades}</div>
                 </div>
-              </div>
-            </div>
+              </div >
+            </div >
 
             {/* Charts Section */}
-            {loading ? (
-              <div className="space-y-8">
-                {/* Price Evolution Chart Loading */}
-                <div className="mb-8">
-                  <h3 className="text-lg font-semibold mb-4">Price Evolution</h3>
-                  <div className="h-80 bg-muted/20 rounded-lg flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-2"></div>
-                      <div className="text-sm text-muted-foreground">Loading price data...</div>
+            {
+              loading ? (
+                <div className="space-y-8">
+                  {/* Price Evolution Chart Loading */}
+                  <div className="mb-8">
+                    <h3 className="text-lg font-semibold mb-4">Price Evolution</h3>
+                    <div className="h-80 bg-muted/20 rounded-lg flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-2"></div>
+                        <div className="text-sm text-muted-foreground">Loading price data...</div>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Profit Chart Loading */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Cumulative Profit</h3>
-                  <div className="h-80 bg-muted/20 rounded-lg flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-2"></div>
-                      <div className="text-sm text-muted-foreground">Loading profit data...</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : marketDetails && Object.keys(marketDetails).length > 0 ? (
-              <div className="space-y-8">
-                {/* Price Evolution Chart */}
-                <div className="mb-8">
-                  <h3 className="text-lg font-semibold mb-4">Price Evolution</h3>
-                  <div className="h-80">
-                    <VisxLineChart
-                      height={320}
-                      margin={{ left: 60, top: 35, bottom: 38, right: 27 }}
-                      yDomain={[0, 1]}
-                      series={Object.values(marketDetails).map((market, marketIndex) => ({
-                        dataKey: `price_${market.market_id}`,
-                        data: (market.prices || []).map(point => ({
-                          x: point.date,
-                          y: point.price
-                        })),
-                        stroke: getChartColor(marketIndex),
-                        name: market.question
-                      }))}
-                    />
-                  </div>
-                </div>
-
-                {/* Profit Chart */}
-                {Object.values(marketDetails).some(market => market.pnl_data && market.pnl_data.length > 0) && (
+                  {/* Profit Chart Loading */}
                   <div>
-                    <h3 className="text-lg font-semibold mb-4 flex items-center">
-                      Cumulative Profit
-                      <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
-                    </h3>
+                    <h3 className="text-lg font-semibold mb-4">Cumulative Profit</h3>
+                    <div className="h-80 bg-muted/20 rounded-lg flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-2"></div>
+                        <div className="text-sm text-muted-foreground">Loading profit data...</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : marketDetails && Object.keys(marketDetails).length > 0 ? (
+                <div className="space-y-8">
+                  {/* Price Evolution Chart */}
+                  <div className="mb-8">
+                    <h3 className="text-lg font-semibold mb-4">Price Evolution</h3>
                     <div className="h-80">
                       <VisxLineChart
                         height={320}
                         margin={{ left: 60, top: 35, bottom: 38, right: 27 }}
-                        series={Object.values(marketDetails)
-                          .filter(market => market.pnl_data && market.pnl_data.length > 0)
-                          .map((market, marketIndex) => ({
-                            dataKey: `pnl_${market.market_id}`,
-                            data: (market.pnl_data || []).map(point => {
-                              const positionData = market.positions?.find((p: { date: string }) => p.date === point.date)
-                              return {
-                                x: point.date,
-                                y: point.pnl,
-                                position: positionData?.position
-                              }
-                            }),
-                            stroke: getChartColor(marketIndex),
-                            name: market.question
-                          }))}
+                        yDomain={[0, 1]}
+                        series={Object.values(marketDetails).map((market, marketIndex) => ({
+                          dataKey: `price_${market.market_id}`,
+                          data: (market.prices || []).map(point => ({
+                            x: point.date,
+                            y: point.price
+                          })),
+                          stroke: getChartColor(marketIndex),
+                          name: market.question
+                        }))}
                       />
                     </div>
                   </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No market data available for this model.
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+
+                  {/* Profit Chart */}
+                  {Object.values(marketDetails).some(market => market.pnl_data && market.pnl_data.length > 0) && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4 flex items-center">
+                        Cumulative Profit
+                        <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
+                      </h3>
+                      <div className="h-80">
+                        <VisxLineChart
+                          height={320}
+                          margin={{ left: 60, top: 35, bottom: 38, right: 27 }}
+                          series={Object.values(marketDetails)
+                            .filter(market => market.pnl_data && market.pnl_data.length > 0)
+                            .map((market, marketIndex) => ({
+                              dataKey: `pnl_${market.market_id}`,
+                              data: (market.pnl_data || []).map(point => {
+                                const positionData = market.positions?.find((p: { date: string }) => p.date === point.date)
+                                return {
+                                  x: point.date,
+                                  y: point.pnl,
+                                  position: positionData?.position
+                                }
+                              }),
+                              stroke: getChartColor(marketIndex),
+                              name: market.question
+                            }))}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No market data available for this model.
+                </div>
+              )
+            }
+          </div >
+        </div >
+      )
+      }
+    </div >
   )
 }

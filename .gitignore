@@ -1,4 +1,16 @@
 data
 bucket
-__pycache__
-*.pyc
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+predibench-core/.env
+*/.env
+

@@ -5,10 +5,10 @@ export interface LeaderboardEntry {
   model: string
   final_cumulative_pnl: number
   trades: number
-  accuracy: number
   lastUpdated: string
   trend: 'up' | 'down' | 'stable'
   pnl_history: { date: string; value: number }[]
+  avg_brier_score: number
 }
 
 export interface MarketData {

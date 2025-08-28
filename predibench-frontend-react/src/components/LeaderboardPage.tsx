@@ -93,7 +93,7 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
                   <h3 className="text-lg font-semibold mb-3">Evaluation Metrics</h3>
                   <ul className="text-sm text-muted-foreground space-y-2">
                     <li className="flex items-center">
-                      • <strong>Total Profit</strong>: Cumulative profit/loss from all trades
+                      • <strong>Cumulative Profit</strong>: Cumulative profit/loss from all trades
                       <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
                     </li>
                     <li className="flex items-center">

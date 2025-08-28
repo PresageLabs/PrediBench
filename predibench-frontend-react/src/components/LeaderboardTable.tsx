@@ -1,7 +1,9 @@
-import { ChevronDown } from 'lucide-react'
-import { useState } from 'react'
+import { ArrowDown, ChevronDown } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import type { LeaderboardEntry } from '../api'
 import { InfoTooltip } from './ui/info-tooltip'
+
+type SortKey = 'pnl' | 'brier'
 
 interface LeaderboardTableProps {
   leaderboard: LeaderboardEntry[]
@@ -15,6 +17,37 @@ export function LeaderboardTable({
   initialVisibleModels = 10
 }: LeaderboardTableProps) {
   const [visibleModels, setVisibleModels] = useState(initialVisibleModels)
+  const [sortKey, setSortKey] = useState<SortKey>('pnl')
+
+  const sortedLeaderboard = useMemo(() => {
+    return [...leaderboard].sort((a, b) => {
+      switch (sortKey) {
+        case 'pnl':
+          // Primary sort by PnL (higher first)
+          const pnlDiff = b.final_cumulative_pnl - a.final_cumulative_pnl
+          // If PnL is very close (within 0.01), use Brier score as tie-breaker
+          if (Math.abs(pnlDiff) < 0.01) {
+            return (1 - b.avg_brier_score) - (1 - a.avg_brier_score) // Higher Brier score wins tie
+          }
+          return pnlDiff
+        case 'brier':
+          // Primary sort by Brier score (higher transformed score first)
+          const brierDiff = (1 - b.avg_brier_score) - (1 - a.avg_brier_score)
+          // If Brier scores are very close (within 0.001), use PnL as tie-breaker
+          if (Math.abs(brierDiff) < 0.001) {
+            return b.final_cumulative_pnl - a.final_cumulative_pnl // Higher PnL wins tie
+          }
+          return brierDiff
+        default:
+          return 0
+      }
+    })
+  }, [leaderboard, sortKey])
+
+  const handleSort = (key: SortKey) => {
+    setSortKey(key)
+  }
+
 
   const showMore = () => {
     setVisibleModels(prev => prev + 10)
@@ -39,16 +72,25 @@ export function LeaderboardTable({
               <tr>
                 <th className="text-left py-4 px-6 font-semibold">Model Name</th>
                 <th className="text-right py-4 px-6 font-semibold">
-                  <div className="flex items-center justify-end">
-                    Total Profit
+                  <button
+                    onClick={() => handleSort('pnl')}
+                    className="flex items-center justify-end space-x-1 w-full hover:text-primary transition-colors"
+                  >
+                    <span>Cumulative Profit</span>
+                    <ArrowDown className={`h-4 w-4 ${sortKey === 'pnl' ? 'text-primary' : 'opacity-40'}`} />
                     <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
-                  </div>
+                  </button>
                 </th>
                 <th className="text-right py-4 px-6 font-semibold">
-                  <div className="flex items-center justify-end">
-                    Brier Score
+                  <button
+                    onClick={() => handleSort('brier')}
+                    className="flex items-center justify-end space-x-1 w-full hover:text-primary transition-colors"
+                    title="Brier Score - Higher values indicate better prediction accuracy (1 - original Brier score)"
+                  >
+                    <span>Brier Score</span>
+                    <ArrowDown className={`h-4 w-4 ${sortKey === 'brier' ? 'text-primary' : 'opacity-40'}`} />
                     <InfoTooltip content="A measure of prediction accuracy. Lower values indicate better calibration - how well the model's confidence matches actual outcomes (0 = perfect, 1 = worst)" />
-                  </div>
+                  </button>
                 </th>
               </tr>
             </thead>
@@ -71,7 +113,7 @@ export function LeaderboardTable({
                   </tr>
                 ))
               ) : (
-                leaderboard.slice(0, visibleModels).map((model, index) => (
+                sortedLeaderboard.slice(0, visibleModels).map((model, index) => (
                   <tr key={model.id} className="border-t border-border/20 hover:bg-muted/20 transition-colors">
                     <td className="py-4 px-6">
                       <a
@@ -99,7 +141,7 @@ export function LeaderboardTable({
                     </td>
                     <td className="py-4 px-6 text-right font-medium">
                       <a href={`/models?selected=${model.id}`} className="block">
-                        {model.accuracy ? (1 - model.accuracy).toFixed(3) : 'N/A'}
+                        {model.avg_brier_score ? `${((1 - model.avg_brier_score) * 100).toFixed(1)}%` : 'N/A'}
                       </a>
                     </td>
                   </tr>
@@ -111,7 +153,7 @@ export function LeaderboardTable({
       </div>
 
       {/* Show More Button */}
-      {leaderboard.length > visibleModels && (
+      {sortedLeaderboard.length > visibleModels && (
         <div className="text-center mt-6">
           <button
             onClick={showMore}

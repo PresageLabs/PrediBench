@@ -6,6 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from predibench.brier import BrierScoreCalculator
 from predibench.logger_config import get_logger
 from predibench.polymarket_api import Market, MarketsRequestParameters
 
@@ -18,7 +19,7 @@ class PnlCalculator:
     def __init__(
         self,
         positions: pd.DataFrame,
-        prices: pd.DataFrame = None,
+        prices: pd.DataFrame,
         to_vol_target: bool = False,
         vol_targeting_window: str = "30D",
     ):
@@ -303,7 +304,9 @@ def validate_continuous_prices(prices_df: pd.DataFrame) -> None:
 
 
 def get_pnls(
-    positions_df: pd.DataFrame, end_date: date | None = None, write_plots: bool = False
+    positions_df: pd.DataFrame,
+    end_date: date | None = None,
+    write_plots: bool = False,
 ) -> dict[str, PnlCalculator]:
     """Builds Profit calculators for each agent in the positions dataframe.
 
@@ -346,7 +349,9 @@ def get_pnls(
         )
 
         pnl_calculator = get_pnl_calculator(
-            positions_agent_df, prices_df, positions_df["date"].unique()
+            positions_agent_df,
+            prices_df,
+            positions_df["date"].unique(),
         )
         pnl_calculators[agent_name] = pnl_calculator
 
