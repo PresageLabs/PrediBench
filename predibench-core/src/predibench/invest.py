@@ -79,17 +79,19 @@ def run_investments_for_specific_date(
                 model_id=model.model_id,
                 provider=model.inference_provider,
             )
+    
+    # Having no models could be useful to cache the events
+    if models:
+        results = run_agent_investments(
+            models=models,
+            events=selected_events,
+            target_date=target_date,
+            force_rewrite=force_rewrite,
+        )
 
-    results = run_agent_investments(
-        models=models,
-        events=selected_events,
-        target_date=target_date,
-        force_rewrite=force_rewrite,
-    )
+        logger.info("Investment analysis complete!")
 
-    logger.info("Investment analysis complete!")
-
-    return results
+        return results
 
 
 if __name__ == "__main__":
