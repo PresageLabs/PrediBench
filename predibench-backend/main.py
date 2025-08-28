@@ -25,10 +25,10 @@ def profile_time(func):
     """Decorator to profile function execution time"""
 
     @wraps(func)
-    async def async_wrapper(*args, **kwargs):
+    def async_wrapper(*args, **kwargs):
         start_time = time.time()
         try:
-            result = await func(*args, **kwargs)
+            result = func(*args, **kwargs)
             end_time = time.time()
             execution_time = end_time - start_time
             print(f"[PROFILE] {func.__name__} took {execution_time:.4f}s")
@@ -342,20 +342,20 @@ def get_events_that_received_predictions() -> list[Event]:
 # API Endpoints
 @app.get("/")
 @profile_time
-async def root():
+def root():
     return {"message": "Polymarket LLM Benchmark API", "version": "1.0.0"}
 
 
 @app.get("/api/leaderboard", response_model=list[LeaderboardEntry])
 @profile_time
-async def get_leaderboard_endpoint():
+def get_leaderboard_endpoint():
     """Get the current leaderboard with LLM performance data"""
     return get_leaderboard()
 
 
 @app.get("/api/events", response_model=list[Event])
 @profile_time
-async def get_events_endpoint(
+def get_events_endpoint(
     search: str = "",
     sort_by: str = "volume",
     order: str = "desc",
@@ -393,7 +393,7 @@ async def get_events_endpoint(
 
 @app.get("/api/stats", response_model=Stats)
 @profile_time
-async def get_stats():
+def get_stats():
     """Get overall benchmark statistics"""
     leaderboard = get_leaderboard()
 
@@ -408,7 +408,8 @@ async def get_stats():
 
 @app.get("/api/model/{model_id}", response_model=LeaderboardEntry)
 @profile_time
-async def get_model_details(model_id: str):
+@lru_cache(maxsize=16)
+def get_model_details(model_id: str):
     """Get detailed information for a specific model"""
     leaderboard = get_leaderboard()
     model = next((entry for entry in leaderboard if entry.id == model_id), None)
@@ -479,12 +480,12 @@ def get_all_markets_pnls():
 @lru_cache(maxsize=16)
 @app.get("/api/model/{agent_id}/pnl")
 @profile_time
-async def get_model_investment_details(agent_id: str):
-    """Get market-level position and Profit data for a specific model"""
+def get_model_investment_details(agent_id: str):
+    """Get market-level position and PnL data for a specific model"""
 
     pnl_calculators = get_all_markets_pnls()
 
-    # Get Profit calculator for this agent
+    # Get PnL calculator for this agent
     pnl_calculator = pnl_calculators[agent_id]
 
     # Filter for this specific agent
@@ -564,7 +565,7 @@ async def get_model_investment_details(agent_id: str):
 
 @app.get("/api/event/{event_id}")
 @profile_time
-async def get_event_details(event_id: str):
+def get_event_details(event_id: str):
     """Get detailed information for a specific event including all its markets"""
     events_list = get_events_by_ids((event_id,))
 
@@ -576,7 +577,8 @@ async def get_event_details(event_id: str):
 
 @app.get("/api/event/{event_id}/market_prices")
 @profile_time
-async def get_event_market_prices(event_id: str):
+@lru_cache(maxsize=32)
+def get_event_market_prices(event_id: str):
     """Get price history for all markets in an event"""
     events_list = get_events_by_ids((event_id,))
 
@@ -603,7 +605,7 @@ async def get_event_market_prices(event_id: str):
     response_model=list[dict],
 )
 @profile_time
-async def get_event_investment_decisions(event_id: str):
+def get_event_investment_decisions(event_id: str):
     """Get real investment choices for a specific event"""
     # Load agent choices data like in gradio app
     data = load_agent_choices()
