@@ -29,7 +29,7 @@ def test_pnl():
     assert positions.shape == (5, 1)
     assert not pnl_result.empty
 
-    # Expected PnL: 0.333333 + (-0.25) + 0.0 = 0.083333
+    # Expected Profit: 0.333333 + (-0.25) + 0.0 = 0.083333
     expected_final_pnl = 0.4169
     actual_final_pnl = pnl_result.sum(axis=1).cumsum().iloc[-1]
     np.testing.assert_allclose(actual_final_pnl, expected_final_pnl, atol=1e-4)

@@ -179,7 +179,7 @@ def get_pnl_wrapper(
 @profile_time
 @lru_cache(maxsize=1)
 def calculate_real_performance():
-    """Calculate real PnL and performance metrics exactly like gradio app"""
+    """Calculate real Profit and performance metrics exactly like gradio app"""
     model_results = load_agent_choices()
 
     # Handle fallback case where we still get a DataFrame from HuggingFace
@@ -243,7 +243,7 @@ def calculate_real_performance():
     for agent_name, pnl_calculator in pnl_calculators.items():
         daily_pnl = pnl_calculator.portfolio_daily_pnl
 
-        # Generate performance history from cumulative PnL
+        # Generate performance history from cumulative Profit
         cumulative_pnl = pnl_calculator.portfolio_cumulative_pnl
         pnl_history = []
         for date_idx, pnl_value in cumulative_pnl.items():
@@ -271,7 +271,7 @@ def calculate_real_performance():
             ],
         }
 
-        print(f"Agent {agent_name}: PnL={final_pnl:.3f}, Sharpe={sharpe_ratio:.3f}")
+        print(f"Agent {agent_name}: Profit={final_pnl:.3f}, Sharpe={sharpe_ratio:.3f}")
 
     print(f"Calculated performance for {len(agents_performance)} agents")
     return agents_performance
@@ -480,11 +480,11 @@ def get_all_markets_pnls():
 @app.get("/api/model/{agent_id}/pnl")
 @profile_time
 async def get_model_investment_details(agent_id: str):
-    """Get market-level position and PnL data for a specific model"""
+    """Get market-level position and Profit data for a specific model"""
 
     pnl_calculators = get_all_markets_pnls()
 
-    # Get PnL calculator for this agent
+    # Get Profit calculator for this agent
     pnl_calculator = pnl_calculators[agent_id]
 
     # Filter for this specific agent
@@ -544,7 +544,7 @@ async def get_model_investment_details(agent_id: str):
                 }
             )
 
-        # Get market-specific PnL
+        # Get market-specific Profit
         market_pnl = pnl_calculator.pnl[market_id].cumsum().fillna(0)
         pnl_data = []
         for date_idx, pnl_value in market_pnl.items():
