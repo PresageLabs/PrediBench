@@ -24,6 +24,7 @@ BACKWARD_MODE_MODELS = [
         inference_provider="fireworks-ai",
         company_pretty_name="Qwen",
         open_weights=True,
+        agent_type="codeagent",
     ),
         ModelInfo(
             model_id="openai/gpt-oss-120b",
@@ -31,6 +32,7 @@ BACKWARD_MODE_MODELS = [
             inference_provider="fireworks-ai",
             company_pretty_name="OpenAI",
             open_weights=True,
+            agent_type="toolcalling",
         ),
         ModelInfo(
         model_id="deepseek-ai/DeepSeek-V3.1",
@@ -38,6 +40,7 @@ BACKWARD_MODE_MODELS = [
         inference_provider="fireworks-ai",
         company_pretty_name="DeepSeek",
         open_weights=True,
+        agent_type="codeagent",
     ),
 ]
 
