@@ -26,6 +26,7 @@ from smolagents import (
 from tenacity import (
     retry,
     retry_if_exception_type,
+    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
 )
