@@ -176,42 +176,22 @@ def extract_decisions_data():
 
     decisions = []
 
-    # Handle fallback case where we still get a DataFrame from HuggingFace
-    if isinstance(model_results, pd.DataFrame):
-        agent_choices_df = model_results
-        today_date = datetime.today()
-        agent_choices_df = agent_choices_df[
-            agent_choices_df["timestamp_uploaded"] < today_date
-        ]
+    # Working with Pydantic models from GCP
+    for model_result in model_results:
+        agent_name = model_result.model_id
+        date = model_result.target_date
 
-        for _, row in agent_choices_df.iterrows():
-            for market_decision in json.loads(row["decisions_per_market"]):
+        for event_decision in model_result.event_investment_decisions:
+            for market_decision in event_decision.market_investment_decisions:
                 decisions.append(
                     {
-                        "date": row["date"],
-                        "market_id": market_decision["market_id"],
-                        "agent_name": row["agent_name"],
-                        "odds": market_decision["model_decision"]["odds"],
-                        "confidence": market_decision["model_decision"]["confidence"],
+                        "date": date,
+                        "market_id": market_decision.market_id,
+                        "agent_name": agent_name,
+                        "odds": market_decision.model_decision.odds,
+                        "confidence": market_decision.model_decision.confidence,
                     }
                 )
-    else:
-        # Working with Pydantic models from GCP
-        for model_result in model_results:
-            agent_name = model_result.model_id
-            date = model_result.target_date
-
-            for event_decision in model_result.event_investment_decisions:
-                for market_decision in event_decision.market_investment_decisions:
-                    decisions.append(
-                        {
-                            "date": date,
-                            "market_id": market_decision.market_id,
-                            "agent_name": agent_name,
-                            "odds": market_decision.model_decision.odds,
-                            "confidence": market_decision.model_decision.confidence,
-                        }
-                    )
 
     return pd.DataFrame.from_records(decisions)
 
@@ -232,57 +212,27 @@ def calculate_real_performance():
     """Calculate real Profit and performance metrics exactly like gradio app"""
     model_results = load_agent_choices()
 
-    # Handle fallback case where we still get a DataFrame from HuggingFace
-    if isinstance(model_results, pd.DataFrame):
-        agent_choices_df = model_results
-        print(f"Loaded {len(agent_choices_df)} agent choices (from HF fallback)")
+    # Working with Pydantic models from GCP
+    print(f"Loaded {len(model_results)} model results from GCP")
 
-        agent_choices_df["timestamp_uploaded"] = pd.to_datetime(
-            agent_choices_df["timestamp_uploaded"]
-        )
-        today_date = datetime.today()
-        agent_choices_df = agent_choices_df[
-            agent_choices_df["timestamp_uploaded"] < today_date
-        ]
-        print(f"After timestamp filter: {len(agent_choices_df)} records")
+    positions = []
+    for model_result in model_results:
+        agent_name = model_result.model_id
+        date = model_result.target_date
 
-        positions = []
-        for _, row in agent_choices_df.iterrows():
-            for market_decision in json.loads(row["decisions_per_market"]):
+        for event_decision in model_result.event_investment_decisions:
+            for market_decision in event_decision.market_investment_decisions:
                 positions.append(
                     {
-                        "date": row["date"],
-                        "market_id": market_decision["market_id"],
-                        "choice": market_decision["model_decision"]["bet"],
-                        "agent_name": row["agent_name"],
+                        "date": date,
+                        "market_id": market_decision.market_id,
+                        "choice": market_decision.model_decision.bet,
+                        "agent_name": agent_name,
                     }
                 )
-        positions_df = pd.DataFrame.from_records(positions)
-    else:
-        # Working with Pydantic models from GCP
-        print(f"Loaded {len(model_results)} model results from GCP")
 
-        # Filter by timestamp (use current time as proxy since we don't have upload timestamp in Pydantic models)
-        today_date = datetime.today()
-
-        positions = []
-        for model_result in model_results:
-            agent_name = model_result.model_id
-            date = model_result.target_date
-
-            for event_decision in model_result.event_investment_decisions:
-                for market_decision in event_decision.market_investment_decisions:
-                    positions.append(
-                        {
-                            "date": date,
-                            "market_id": market_decision.market_id,
-                            "choice": market_decision.model_decision.bet,
-                            "agent_name": agent_name,
-                        }
-                    )
-
-        positions_df = pd.DataFrame.from_records(positions)
-        print(f"Created {len(positions_df)} position records")
+    positions_df = pd.DataFrame.from_records(positions)
+    print(f"Created {len(positions_df)} position records")
 
     # positions_df = positions_df.pivot(index="date", columns="market_id", values="bet")
 
@@ -399,16 +349,12 @@ def get_events_that_received_predictions() -> list[Event]:
     # Load agent choices to see what markets they've been betting on
     data = load_agent_choices()
 
-    # Handle fallback case where we still get a DataFrame from HuggingFace
-    if isinstance(data, pd.DataFrame):
-        event_ids = tuple(data["event_id"].unique())
-    else:
-        # Working with Pydantic models from GCP
-        event_ids = set()
-        for model_result in data:
-            for event_decision in model_result.event_investment_decisions:
-                event_ids.add(event_decision.event_id)
-        event_ids = tuple(event_ids)
+    # Working with Pydantic models from GCP
+    event_ids = set()
+    for model_result in data:
+        for event_decision in model_result.event_investment_decisions:
+            event_ids.add(event_decision.event_id)
+    event_ids = tuple(event_ids)
 
     return get_events_by_ids(event_ids)
 
@@ -498,46 +444,23 @@ def get_model_details(model_id: str):
 def get_positions_df():
     # Calculate market-level data
     data = load_agent_choices()
-    today_date = datetime.today()
 
-    # Handle fallback case where we still get a DataFrame from HuggingFace
-    if isinstance(data, pd.DataFrame):
-        agent_choices_df = data
-        agent_choices_df["timestamp_uploaded"] = pd.to_datetime(
-            agent_choices_df["timestamp_uploaded"]
-        )
-        agent_choices_df = agent_choices_df[
-            agent_choices_df["timestamp_uploaded"] < today_date
-        ]
+    # Working with Pydantic models from GCP
+    positions = []
+    for model_result in data:
+        agent_name = model_result.model_id
+        date = model_result.target_date
 
-        positions = []
-        for _, row in agent_choices_df.iterrows():
-            for market_decision in json.loads(row["decisions_per_market"]):
+        for event_decision in model_result.event_investment_decisions:
+            for market_decision in event_decision.market_investment_decisions:
                 positions.append(
                     {
-                        "date": row["date"],
-                        "market_id": market_decision["market_id"],
-                        "choice": market_decision["model_decision"]["bet"],
-                        "agent_name": row["agent_name"],
+                        "date": date,
+                        "market_id": market_decision.market_id,
+                        "choice": market_decision.model_decision.bet,
+                        "agent_name": agent_name,
                     }
                 )
-    else:
-        # Working with Pydantic models from GCP
-        positions = []
-        for model_result in data:
-            agent_name = model_result.model_id
-            date = model_result.target_date
-
-            for event_decision in model_result.event_investment_decisions:
-                for market_decision in event_decision.market_investment_decisions:
-                    positions.append(
-                        {
-                            "date": date,
-                            "market_id": market_decision.market_id,
-                            "choice": market_decision.model_decision.bet,
-                            "agent_name": agent_name,
-                        }
-                    )
 
     return pd.DataFrame.from_records(positions)
 
@@ -684,74 +607,40 @@ def get_event_investment_decisions(event_id: str):
     # Load agent choices data like in gradio app
     data = load_agent_choices()
 
-    # Handle fallback case where we still get a DataFrame from HuggingFace
-    if isinstance(data, pd.DataFrame):
-        df = data
-        df["timestamp_uploaded"] = pd.to_datetime(df["timestamp_uploaded"])
+    # Working with Pydantic models from GCP
+    market_investments = []
 
-        # Look for the latest prediction for each agent for this specific event ID
-        event_predictions = (
-            df.loc[df["event_id"] == event_id].groupby("agent_name").tail(1).copy()
-        )
+    # Get the latest prediction for each agent for this specific event ID
+    agent_latest_predictions = {}
+    for model_result in data:
+        agent_name = model_result.model_id
+        for event_decision in model_result.event_investment_decisions:
+            if event_decision.event_id == event_id:
+                # Use target_date as a proxy for "latest" (assuming newer dates are more recent)
+                if (
+                    agent_name not in agent_latest_predictions
+                    or model_result.target_date
+                    > agent_latest_predictions[agent_name][0].target_date
+                ):
+                    agent_latest_predictions[agent_name] = (
+                        model_result,
+                        event_decision,
+                    )
 
-        # Process predictions and extract market decisions
-        market_investments = []
-
-        for _, row in event_predictions.iterrows():
-            # Parse the decisions_per_market JSON
-            decisions = json.loads(row["decisions_per_market"])
-
-            for market_decision in decisions:
-                market_id = market_decision["market_id"]
-                model_decision = market_decision["model_decision"]
-
-                # Create market investment result
-                market_investments.append(
-                    {
-                        "market_id": market_id,
-                        "agent_name": row["agent_name"],
-                        "bet": model_decision["bet"],
-                        "odds": model_decision["odds"],
-                        "confidence": model_decision["confidence"],
-                        "rationale": model_decision["rationale"],
-                        "date": row["date"],
-                    }
-                )
-    else:
-        # Working with Pydantic models from GCP
-        market_investments = []
-
-        # Get the latest prediction for each agent for this specific event ID
-        agent_latest_predictions = {}
-        for model_result in data:
-            agent_name = model_result.model_id
-            for event_decision in model_result.event_investment_decisions:
-                if event_decision.event_id == event_id:
-                    # Use target_date as a proxy for "latest" (assuming newer dates are more recent)
-                    if (
-                        agent_name not in agent_latest_predictions
-                        or model_result.target_date
-                        > agent_latest_predictions[agent_name][0].target_date
-                    ):
-                        agent_latest_predictions[agent_name] = (
-                            model_result,
-                            event_decision,
-                        )
-
-        # Extract market decisions from latest predictions
-        for model_result, event_decision in agent_latest_predictions.values():
-            for market_decision in event_decision.market_investment_decisions:
-                market_investments.append(
-                    {
-                        "market_id": market_decision.market_id,
-                        "agent_name": model_result.model_id,
-                        "bet": market_decision.model_decision.bet,
-                        "odds": market_decision.model_decision.odds,
-                        "confidence": market_decision.model_decision.confidence,
-                        "rationale": market_decision.model_decision.rationale,
-                        "date": model_result.target_date,
-                    }
-                )
+    # Extract market decisions from latest predictions
+    for model_result, event_decision in agent_latest_predictions.values():
+        for market_decision in event_decision.market_investment_decisions:
+            market_investments.append(
+                {
+                    "market_id": market_decision.market_id,
+                    "agent_name": model_result.model_id,
+                    "bet": market_decision.model_decision.bet,
+                    "odds": market_decision.model_decision.odds,
+                    "confidence": market_decision.model_decision.confidence,
+                    "rationale": market_decision.model_decision.rationale,
+                    "date": model_result.target_date,
+                }
+            )
 
     return market_investments
 
