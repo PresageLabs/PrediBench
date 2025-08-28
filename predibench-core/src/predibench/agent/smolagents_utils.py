@@ -51,7 +51,7 @@ class GoogleSearchTool(Tool):
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=10, max=60),
-        retry=retry_if_exception_type((Exception,)),
+        retry=retry_if_exception_type((requests.exceptions.RequestException,)),
         reraise=True,
     )
     def forward(self, query: str) -> str:
@@ -230,10 +230,22 @@ class CompleteMarketInvestmentDecisions(BaseModel):
 class ListMarketInvestmentDecisions(BaseModel):
     market_investment_decisions: list[MarketInvestmentDecision]
     unallocated_capital: float
+    
+def _should_retry(exception: Exception) -> bool:
+    """Check if the exception is a rate limit error."""
+    error_str = str(exception).lower()
+    return (
+        "BadRequest" in error_str
+        or "ValidationError" in error_str
+        or "ContextError" in error_str 
+        or "maximum context length" in error_str
+        or "context window" in error_str
+    )
+
 
 @retry(
     stop=stop_after_attempt(2),
-    retry=retry_if_exception_type((ValidationError,)),
+    retry=retry_if_exception(_should_retry),
     reraise=True,
 )
 def run_smolagents(
