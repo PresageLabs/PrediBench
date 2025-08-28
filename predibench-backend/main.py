@@ -9,8 +9,8 @@ import pandas as pd
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from predibench.agent.dataclasses import ModelInvestmentDecisions
-from predibench.pnl import PnlCalculator, get_pnls
 from predibench.brier import BrierScoreCalculator
+from predibench.pnl import PnlCalculator, get_pnls
 from predibench.polymarket_api import (
     Event,
     EventsRequestParameters,
@@ -169,12 +169,13 @@ def get_events_by_ids(event_ids: tuple[str, ...]) -> list[Event]:
     return events
 
 
+@lru_cache(maxsize=1)
 def extract_decisions_data():
     """Extract decisions data with odds and confidence from model results"""
     model_results = load_agent_choices()
-    
+
     decisions = []
-    
+
     # Handle fallback case where we still get a DataFrame from HuggingFace
     if isinstance(model_results, pd.DataFrame):
         agent_choices_df = model_results
@@ -182,7 +183,7 @@ def extract_decisions_data():
         agent_choices_df = agent_choices_df[
             agent_choices_df["timestamp_uploaded"] < today_date
         ]
-        
+
         for _, row in agent_choices_df.iterrows():
             for market_decision in json.loads(row["decisions_per_market"]):
                 decisions.append(
@@ -211,8 +212,9 @@ def extract_decisions_data():
                             "confidence": market_decision.model_decision.confidence,
                         }
                     )
-    
+
     return pd.DataFrame.from_records(decisions)
+
 
 @profile_time
 def get_pnl_wrapper(
@@ -287,7 +289,7 @@ def calculate_real_performance():
     pnl_calculators = get_pnl_wrapper(
         positions_df, write_plots=False, end_date=datetime.today()
     )
-    
+
     # Create BrierScoreCalculator instances for each agent
     decisions_df = extract_decisions_data()
     brier_calculators = {}
@@ -302,8 +304,10 @@ def calculate_real_performance():
         decisions_pivot_df = decisions_pivot_df.reindex(
             pnl_calculator.prices.index, method="ffill"
         )
-        brier_calculators[agent_name] = BrierScoreCalculator(decisions_pivot_df, pnl_calculator.prices)
-    
+        brier_calculators[agent_name] = BrierScoreCalculator(
+            decisions_pivot_df, pnl_calculator.prices
+        )
+
     agents_performance = {}
     for agent_name, pnl_calculator in pnl_calculators.items():
         brier_calculator = brier_calculators[agent_name]
@@ -338,7 +342,9 @@ def calculate_real_performance():
             "avg_brier_score": brier_calculator.avg_brier_score,
         }
 
-        print(f"Agent {agent_name}: PnL={final_pnl:.3f}, Sharpe={sharpe_ratio:.3f}, Brier={brier_calculator.avg_brier_score:.3f}")
+        print(
+            f"Agent {agent_name}: PnL={final_pnl:.3f}, Sharpe={sharpe_ratio:.3f}, Brier={brier_calculator.avg_brier_score:.3f}"
+        )
 
     print(f"Calculated performance for {len(agents_performance)} agents")
     return agents_performance
