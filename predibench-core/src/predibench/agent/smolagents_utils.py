@@ -16,6 +16,7 @@ from predibench.logger_config import get_logger
 from pydantic import BaseModel, ValidationError
 from smolagents import (
     ChatMessage,
+    CodeAgent,
     LiteLLMModel,
     TokenUsage,
     Tool,
@@ -25,6 +26,7 @@ from smolagents import (
 )
 from tenacity import (
     retry,
+    retry_if_exception,
     retry_if_exception_type,
     retry_if_exception,
     stop_after_attempt,
@@ -283,9 +285,21 @@ The final_answer tool must contain the arguments rationale and decision.
         VisitWebpageTool(),
         final_answer,
     ]
-    agent = ToolCallingAgent(
-        tools=tools, model=model_client, max_steps=max_steps, return_full_result=True
-    )
+    if model_info.agent_type == "codeagent":
+        agent = CodeAgent(
+            tools=tools, 
+            model=model_client, 
+            max_steps=max_steps, 
+            return_full_result=True,
+            additional_authorized_imports=["requests"],
+        )
+    else:  # toolcalling is default
+        agent = ToolCallingAgent(
+            tools=tools, 
+            model=model_client, 
+            max_steps=max_steps, 
+            return_full_result=True
+        )
 
     full_result = agent.run(prompt)
     return CompleteMarketInvestmentDecisions(
