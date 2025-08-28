@@ -16,6 +16,7 @@ MODEL_MAP = [
         model_pretty_name="Grok 4",
         inference_provider="xai",
         company_pretty_name="xAI",
+        agent_type="code",
     ),
     ModelInfo(
         model_id="gpt-5",
@@ -63,7 +64,7 @@ MODEL_MAP = [
         inference_provider="fireworks-ai",
         company_pretty_name="DeepSeek",
         open_weights=True,
-        agent_type="codeagent",
+        agent_type="code",
     ),
     ModelInfo(
         model_id="deepseek-ai/DeepSeek-R1",
@@ -71,7 +72,7 @@ MODEL_MAP = [
         inference_provider="fireworks-ai",
         company_pretty_name="DeepSeek",
         open_weights=True,
-        agent_type="codeagent",
+        agent_type="code",
     ),
     ModelInfo(
         model_id="Qwen/Qwen3-Coder-480B-A35B-Instruct",
@@ -79,7 +80,7 @@ MODEL_MAP = [
         inference_provider="fireworks-ai",
         company_pretty_name="Qwen",
         open_weights=True,
-        agent_type="codeagent",
+        agent_type="code",
     ),
     ModelInfo(
         model_id="meta-llama/Llama-4-Maverick-17B-128E-Instruct",
@@ -100,14 +101,14 @@ MODEL_MAP = [
         model_pretty_name="Gemini 2.5 Flash",
         inference_provider="google",
         company_pretty_name="Google",
-        agent_type="codeagent",
+        agent_type="code",
     ),
     ModelInfo(
         model_id="gemini-2.5-pro",
         model_pretty_name="Gemini 2.5 Pro",
         inference_provider="google",
         company_pretty_name="Google",
-        agent_type="codeagent",
+        agent_type="code",
     ),
     ModelInfo(
         model_id="sonar-deep-research",

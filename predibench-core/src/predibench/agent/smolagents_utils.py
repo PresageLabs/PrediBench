@@ -291,7 +291,7 @@ The final_answer tool must contain the arguments rationale and decision.
         VisitWebpageTool(),
         final_answer,
     ]
-    if model_info.agent_type == "codeagent":
+    if model_info.agent_type == "code":
         agent = CodeAgent(
             tools=tools,
             model=model_client,

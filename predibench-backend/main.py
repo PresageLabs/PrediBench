@@ -4,6 +4,8 @@ import time
 from datetime import datetime
 from functools import lru_cache, wraps
 
+from cache import AsyncLRU
+
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI
@@ -114,7 +116,7 @@ class Stats(BaseModel):
 
 # Real data loading functions
 @lru_cache(maxsize=1)
-def load_model_results_from_google() -> list[ModelInvestmentDecisions]:
+def load_investment_choices_from_google() -> list[ModelInvestmentDecisions]:
     # Has bucket access, load directly from GCP bucket
 
     model_results = []
@@ -122,11 +124,17 @@ def load_model_results_from_google() -> list[ModelInvestmentDecisions]:
     blobs = bucket.list_blobs(prefix="")
 
     for blob in blobs:
-        if blob.name.endswith(".json") and "/" in blob.name:
+        if (
+            blob.name.endswith(".json")
+            and "/" in blob.name
+            and "events.json" not in blob.name
+        ):
             parts = blob.name.split("/")
             if "events_cache" in blob.name:
                 continue
-            if len(parts) == 2:  # date/model_timestamp.json format
+            if (
+                len(parts) == 3 and parts[-1] == "model_investment_decisions.json"
+            ):  # NOTE: date/model/model_event_decisions.json format
                 try:
                     json_content = blob.download_as_text()
                     model_result = ModelInvestmentDecisions.model_validate_json(
@@ -145,7 +153,7 @@ def load_model_results_from_google() -> list[ModelInvestmentDecisions]:
 @lru_cache(maxsize=1)
 def load_agent_choices():
     """Load agent choices from GCP instead of HuggingFace dataset"""
-    return load_model_results_from_google()
+    return load_investment_choices_from_google()
 
 
 @lru_cache(maxsize=32)
@@ -570,7 +578,7 @@ async def get_event_details(event_id: str):
 
 @app.get("/api/event/{event_id}/market_prices")
 @profile_time
-@lru_cache(maxsize=16)
+@AsyncLRU(maxsize=16)
 async def get_event_market_prices(event_id: str):
     """Get price history for all markets in an event"""
     events_list = get_events_by_ids((event_id,))

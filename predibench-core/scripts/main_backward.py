@@ -1,14 +1,12 @@
 import os
 from datetime import date, timedelta
-from huggingface_hub import login
-from dotenv import load_dotenv
-from predibench.agent.dataclasses import ModelInfo
 
 import typer
-from predibench.common import DATA_PATH
+from dotenv import load_dotenv
+from huggingface_hub import login
+from predibench.agent.dataclasses import ModelInfo
 from predibench.invest import run_investments_for_specific_date
 from predibench.logger_config import get_logger
-from predibench.retry_models import InferenceClientModelWithRetry, OpenAIModelWithRetry
 
 logger = get_logger(__name__)
 
@@ -18,29 +16,29 @@ load_dotenv()
 login(os.getenv("HF_TOKEN"))
 
 BACKWARD_MODE_MODELS = [
-        ModelInfo(
+    ModelInfo(
         model_id="Qwen/Qwen3-Coder-480B-A35B-Instruct",
         model_pretty_name="Qwen3-Coder-480B-A35B-Instruct",
         inference_provider="fireworks-ai",
         company_pretty_name="Qwen",
         open_weights=True,
-        agent_type="codeagent",
+        agent_type="code",
     ),
-        ModelInfo(
-            model_id="openai/gpt-oss-120b",
-            model_pretty_name="GPT-OSS 120B",
-            inference_provider="fireworks-ai",
-            company_pretty_name="OpenAI",
-            open_weights=True,
-            agent_type="toolcalling",
-        ),
-        ModelInfo(
+    ModelInfo(
+        model_id="openai/gpt-oss-120b",
+        model_pretty_name="GPT-OSS 120B",
+        inference_provider="fireworks-ai",
+        company_pretty_name="OpenAI",
+        open_weights=True,
+        agent_type="toolcalling",
+    ),
+    ModelInfo(
         model_id="deepseek-ai/DeepSeek-V3.1",
         model_pretty_name="DeepSeek V3.1",
         inference_provider="fireworks-ai",
         company_pretty_name="DeepSeek",
         open_weights=True,
-        agent_type="codeagent",
+        agent_type="code",
     ),
 ]
 
@@ -65,12 +63,10 @@ def main(
     if days_since_sunday == 7:  # Today is Sunday
         days_since_sunday = 0
     most_recent_sunday = today - timedelta(days=days_since_sunday)
-    
+
     # Generate dates for the past weeks' Sundays, starting with the oldest
     dates_to_process = []
-    for week_offset in range(
-        weeks_back, 0, -1
-    ):  # Start from oldest to newest
+    for week_offset in range(weeks_back, 0, -1):  # Start from oldest to newest
         sunday_date = most_recent_sunday - timedelta(weeks=week_offset)
         dates_to_process.append(sunday_date)
 

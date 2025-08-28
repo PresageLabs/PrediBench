@@ -101,7 +101,7 @@ if __name__ == "__main__":
             inference_provider="fireworks-ai",
             company_pretty_name="DeepSeek",
             open_weights=True,
-            agent_type="codeagent",
+            agent_type="code",
         ),
         ModelInfo(
             model_id="deepseek-ai/DeepSeek-R1",
@@ -109,7 +109,7 @@ if __name__ == "__main__":
             inference_provider="fireworks-ai",
             company_pretty_name="DeepSeek",
             open_weights=True,
-            agent_type="codeagent",
+            agent_type="code",
         ),
         ModelInfo(
             model_id="Qwen/Qwen3-Coder-480B-A35B-Instruct",
@@ -117,7 +117,7 @@ if __name__ == "__main__":
             inference_provider="fireworks-ai",
             company_pretty_name="Qwen",
             open_weights=True,
-            agent_type="codeagent",
+            agent_type="code",
         ),
         ModelInfo(
             model_id="openai/gpt-oss-120b",
@@ -141,7 +141,7 @@ if __name__ == "__main__":
             inference_provider="google",
             company_pretty_name="Google",
             open_weights=False,
-            agent_type="codeagent",
+            agent_type="code",
         ),
         ModelInfo(
             model_id="gemini-2.5-pro",
@@ -149,7 +149,7 @@ if __name__ == "__main__":
             inference_provider="google",
             company_pretty_name="Google",
             open_weights=False,
-            agent_type="codeagent",
+            agent_type="code",
         ),
     ]
 

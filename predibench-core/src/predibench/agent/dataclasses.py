@@ -54,7 +54,7 @@ class ModelInfo(BaseModel):
     company_pretty_name: str
     open_weights: bool = False
     client: Any | None = None
-    agent_type: Literal["codeagent", "toolcalling"] = "toolcalling"
+    agent_type: Literal["code", "toolcalling"] = "toolcalling"
 
     def get_model_result_path(self, target_date: date) -> Path:
         """
@@ -81,7 +81,7 @@ class ModelInvestmentDecisions(BaseModel):
         filename = "model_investment_decisions.json"
         filepath = model_result_path / filename
 
-        content = self.model_dump_json(indent=2, exclude="model_info.client")
+        content = self.model_dump_json(indent=2, exclude={"model_info": {"client"}})
         write_to_storage(filepath, content)
 
         print(f"Saved model result to {filepath}")

@@ -18,6 +18,7 @@ dependencies = [
     "tenacity>=8.0.0",
     "coloredlogs>=15.0.0",
     "predibench",
+    "async-cache",
 ]
 
 [tool.uv.sources]
