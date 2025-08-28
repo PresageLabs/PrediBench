@@ -23,6 +23,7 @@ from tenacity import (
 from predibench.logger_config import get_logger
 
 litellm.drop_params = True
+# NOTE: this is needed for grok 4, because it doesn't support "stop" parameter.
 
 logger = get_logger(__name__)
 
