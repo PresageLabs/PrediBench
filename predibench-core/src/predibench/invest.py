@@ -41,7 +41,7 @@ def run_investments_for_specific_date(
     cache_file_path = get_date_output_path(target_date)
     cache_file_path = cache_file_path / "events.json"
 
-    if file_exists_in_storage(cache_file_path, force_rewrite=force_rewrite):
+    if file_exists_in_storage(cache_file_path, force_rewrite=False): # IT is very unconvenient to override and lose the events
         logger.info(f"Loading events from cache: {cache_file_path}")
         selected_events = load_events_from_file(cache_file_path)
     else:
@@ -159,6 +159,6 @@ if __name__ == "__main__":
         models=models,
         time_until_ending=timedelta(days=7 * 6),
         max_n_events=2,
-        target_date=date.today(),
-        force_rewrite=True,
+        target_date=date(2025, 8, 25),
+        
     )
