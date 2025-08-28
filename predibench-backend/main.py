@@ -103,6 +103,7 @@ class LeaderboardEntry(BaseModel):
     lastUpdated: str
     trend: str
     pnl_history: list[DataPoint]
+    avg_brier_score: float
 
 
 class Stats(BaseModel):
@@ -167,13 +168,59 @@ def get_events_by_ids(event_ids: tuple[str, ...]) -> list[Event]:
     return events
 
 
+def extract_decisions_data():
+    """Extract decisions data with odds and confidence from model results"""
+    model_results = load_agent_choices()
+    
+    decisions = []
+    
+    # Handle fallback case where we still get a DataFrame from HuggingFace
+    if isinstance(model_results, pd.DataFrame):
+        agent_choices_df = model_results
+        today_date = datetime.today()
+        agent_choices_df = agent_choices_df[
+            agent_choices_df["timestamp_uploaded"] < today_date
+        ]
+        
+        for _, row in agent_choices_df.iterrows():
+            for market_decision in json.loads(row["decisions_per_market"]):
+                decisions.append(
+                    {
+                        "date": row["date"],
+                        "market_id": market_decision["market_id"],
+                        "agent_name": row["agent_name"],
+                        "odds": market_decision["model_decision"]["odds"],
+                        "confidence": market_decision["model_decision"]["confidence"],
+                    }
+                )
+    else:
+        # Working with Pydantic models from GCP
+        for model_result in model_results:
+            agent_name = model_result.model_id
+            date = model_result.target_date
+
+            for event_decision in model_result.event_investment_decisions:
+                for market_decision in event_decision.market_investment_decisions:
+                    decisions.append(
+                        {
+                            "date": date,
+                            "market_id": market_decision.market_id,
+                            "agent_name": agent_name,
+                            "odds": market_decision.model_decision.odds,
+                            "confidence": market_decision.model_decision.confidence,
+                        }
+                    )
+    
+    return pd.DataFrame.from_records(decisions)
+
 @profile_time
 def get_pnl_wrapper(
     positions_df: pd.DataFrame,
     write_plots: bool = False,
     end_date: datetime | None = None,
 ) -> dict[str, PnlCalculator]:
-    return get_pnls(positions_df, write_plots, end_date)
+    decisions_df = extract_decisions_data()
+    return get_pnls(positions_df, write_plots, end_date, decisions_df)
 
 
 @profile_time

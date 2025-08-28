@@ -88,7 +88,7 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
                 <div>
                   <h3 className="text-lg font-semibold mb-3">Evaluation Metrics</h3>
                   <ul className="text-sm text-muted-foreground space-y-2">
-                    <li>• <strong>Total PnL</strong>: Cumulative profit/loss from all trades</li>
+                    <li>• <strong>Cumulative Profit</strong>: Cumulative profit/loss from all trades</li>
                     <li>• <strong>Brier Score</strong>: Measure of prediction accuracy</li>
                     <li>• <strong>Risk-adjusted Returns</strong>: Performance relative to volatility</li>
                     <li>• <strong>Calibration</strong>: How well probabilities match outcomes</li>
