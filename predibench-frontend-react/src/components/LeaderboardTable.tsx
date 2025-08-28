@@ -1,6 +1,7 @@
-import { ChevronDown, ArrowDown } from 'lucide-react'
-import { useState, useMemo } from 'react'
+import { ArrowDown, ChevronDown } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import type { LeaderboardEntry } from '../api'
+import { InfoTooltip } from './ui/info-tooltip'
 
 type SortKey = 'pnl' | 'brier'
 
@@ -77,6 +78,7 @@ export function LeaderboardTable({
                   >
                     <span>Cumulative Profit</span>
                     <ArrowDown className={`h-4 w-4 ${sortKey === 'pnl' ? 'text-primary' : 'opacity-40'}`} />
+                    <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
                   </button>
                 </th>
                 <th className="text-right py-4 px-6 font-semibold">
@@ -87,6 +89,7 @@ export function LeaderboardTable({
                   >
                     <span>Brier Score</span>
                     <ArrowDown className={`h-4 w-4 ${sortKey === 'brier' ? 'text-primary' : 'opacity-40'}`} />
+                    <InfoTooltip content="A measure of prediction accuracy. Lower values indicate better calibration - how well the model's confidence matches actual outcomes (0 = perfect, 1 = worst)" />
                   </button>
                 </th>
               </tr>

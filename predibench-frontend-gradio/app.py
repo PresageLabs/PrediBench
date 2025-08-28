@@ -64,7 +64,7 @@ def add_rationale_markers(
 
 
 def calculate_pnl_and_performance(positions_df: pd.DataFrame):
-    """Calculate real PnL and performance metrics for each agent using historical market data"""
+    """Calculate real Profit and performance metrics for each agent using historical market data"""
     positions_df = positions_df.loc[positions_df["date"] > date(2025, 7, 19)]
     pnl_calculators = get_pnls(
         positions_df, write_plots=False, end_date=datetime.today()
@@ -106,7 +106,7 @@ def create_leaderboard(performance_data):
         leaderboard_data.append(
             {
                 "Agent": agent.replace("smolagent_", "").replace("--", "/"),
-                "Final cumulative PnL": f"{metrics['final_cumulative_pnl']:.3f}",
+                "Final cumulative Profit": f"{metrics['final_cumulative_pnl']:.3f}",
                 "Annualized Sharpe Ratio": f"{metrics['annualized_sharpe_ratio']:.3f}",
                 "Long Positions": metrics["long_positions"],
                 "Short Positions": metrics["short_positions"],
@@ -114,9 +114,11 @@ def create_leaderboard(performance_data):
             }
         )
 
-    # Sort by cumulative PnL
+    # Sort by cumulative Profit
     leaderboard_df = pd.DataFrame(leaderboard_data)
-    leaderboard_df["PnL_numeric"] = leaderboard_df["Final cumulative PnL"].astype(float)
+    leaderboard_df["PnL_numeric"] = leaderboard_df["Final cumulative Profit"].astype(
+        float
+    )
     leaderboard_df = leaderboard_df.sort_values("PnL_numeric", ascending=False)
     leaderboard_df = leaderboard_df.drop("PnL_numeric", axis=1)
 
@@ -124,12 +126,12 @@ def create_leaderboard(performance_data):
 
 
 def create_pnl_plot(performance_data):
-    """Create interactive PnL plot"""
+    """Create interactive Profit plot"""
     fig = go.Figure()
 
     colors = px.colors.qualitative.Set1
 
-    # Sort agents by descending final PnL
+    # Sort agents by descending final Profit
     sorted_agents = sorted(
         performance_data.keys(),
         key=lambda agent: performance_data[agent]["final_cumulative_pnl"],
@@ -144,7 +146,7 @@ def create_pnl_plot(performance_data):
         daily_cumulative_pnl = metrics["daily_cumulative_pnl"]
         dates = metrics["dates"]
 
-        # Calculate cumulative PnL over time
+        # Calculate cumulative Profit over time
         plot_dates = [dates[0]] + dates if dates else [datetime.now()]
 
         fig.add_trace(
@@ -156,14 +158,14 @@ def create_pnl_plot(performance_data):
                 mode="lines+markers",
                 hovertemplate="<b>%{fullData.name}</b><br>"
                 + "Date: %{x}<br>"
-                + "Cumulative PnL: %{y:.2f}<br>"
+                + "Cumulative Profit: %{y:.2f}<br>"
                 + "<extra></extra>",
             )
         )
 
     fig.update_layout(
         xaxis_title="Date",
-        yaxis_title="Cumulative PnL",
+        yaxis_title="Cumulative Profit",
         hovermode="x unified",
         height=500,
         showlegend=True,
@@ -197,7 +199,7 @@ with gr.Blocks(title="PrediBench Leaderboard", theme=gr.themes.Soft()) as demo:
 
             pnl_plot = gr.Plot(
                 value=create_pnl_plot(performance_data),
-                label="Cumulative PnL Over Time",
+                label="Cumulative Profit Over Time",
             )
 
         with gr.TabItem("🔍 Portfolio Details"):
@@ -215,7 +217,7 @@ with gr.Blocks(title="PrediBench Leaderboard", theme=gr.themes.Soft()) as demo:
                 value=performance_data[list(performance_data.keys())[0]]["figure"]
                 if performance_data
                 else None,
-                label="Cumulative PnL Over Time",
+                label="Cumulative Profit Over Time",
             )
 
             # Update portfolio plot when agent selection changes

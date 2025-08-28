@@ -229,7 +229,7 @@ def get_pnl_wrapper(
 @profile_time
 @lru_cache(maxsize=1)
 def calculate_real_performance():
-    """Calculate real PnL and performance metrics exactly like gradio app"""
+    """Calculate real Profit and performance metrics exactly like gradio app"""
     model_results = load_agent_choices()
 
     # Handle fallback case where we still get a DataFrame from HuggingFace
@@ -313,7 +313,7 @@ def calculate_real_performance():
         brier_calculator = brier_calculators[agent_name]
         daily_pnl = pnl_calculator.portfolio_daily_pnl
 
-        # Generate performance history from cumulative PnL
+        # Generate performance history from cumulative Profit
         cumulative_pnl = pnl_calculator.portfolio_cumulative_pnl
         pnl_history = []
         for date_idx, pnl_value in cumulative_pnl.items():
@@ -343,7 +343,7 @@ def calculate_real_performance():
         }
 
         print(
-            f"Agent {agent_name}: PnL={final_pnl:.3f}, Sharpe={sharpe_ratio:.3f}, Brier={brier_calculator.avg_brier_score:.3f}"
+            f"Agent {agent_name}: Profit={final_pnl:.3f}, Sharpe={sharpe_ratio:.3f}, Brier={brier_calculator.avg_brier_score:.3f}"
         )
 
     print(f"Calculated performance for {len(agents_performance)} agents")
@@ -619,7 +619,7 @@ def get_model_investment_details(agent_id: str):
                 }
             )
 
-        # Get market-specific PnL
+        # Get market-specific Profit
         market_pnl = pnl_calculator.pnl[market_id].cumsum().fillna(0)
         pnl_data = []
         for date_idx, pnl_value in market_pnl.items():

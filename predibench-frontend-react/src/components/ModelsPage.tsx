@@ -1,10 +1,11 @@
+import * as Select from '@radix-ui/react-select'
+import { Check, ChevronDown } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import * as Select from '@radix-ui/react-select'
-import { ChevronDown, Check } from 'lucide-react'
 import type { LeaderboardEntry, ModelMarketDetails } from '../api'
 import { apiService } from '../api'
 import { getChartColor } from './ui/chart-colors'
+import { InfoTooltip } from './ui/info-tooltip'
 import { VisxLineChart } from './ui/visx-line-chart'
 
 interface ModelsPageProps {
@@ -64,7 +65,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
       {/* Header with title and model selection */}
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold">Inspect model performance</h1>
-        
+
         <Select.Root value={selectedModel} onValueChange={handleModelSelect}>
           <Select.Trigger className="inline-flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 min-w-[300px]">
             <Select.Value placeholder="Select a model">
@@ -86,19 +87,24 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                   >
                     <Select.ItemText>
                       <div className="flex items-center space-x-3">
-                        <div className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold ${
-                          index === 0 ? 'bg-gradient-to-br from-yellow-100 to-yellow-50 text-yellow-800 dark:from-yellow-900/20 dark:to-yellow-800/20 dark:text-yellow-300' :
+                        <div className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold ${index === 0 ? 'bg-gradient-to-br from-yellow-100 to-yellow-50 text-yellow-800 dark:from-yellow-900/20 dark:to-yellow-800/20 dark:text-yellow-300' :
                           index === 1 ? 'bg-gradient-to-br from-slate-100 to-slate-50 text-slate-800 dark:from-slate-900/20 dark:to-slate-800/20 dark:text-slate-300' :
-                          index === 2 ? 'bg-gradient-to-br from-amber-100 to-amber-50 text-amber-800 dark:from-amber-900/20 dark:to-amber-800/20 dark:text-amber-300' :
-                          'bg-gradient-to-br from-gray-100 to-gray-50 text-gray-800 dark:from-gray-900/20 dark:to-gray-800/20 dark:text-gray-300'
-                        }`}>
+                            index === 2 ? 'bg-gradient-to-br from-amber-100 to-amber-50 text-amber-800 dark:from-amber-900/20 dark:to-amber-800/20 dark:text-amber-300' :
+                              'bg-gradient-to-br from-gray-100 to-gray-50 text-gray-800 dark:from-gray-900/20 dark:to-gray-800/20 dark:text-gray-300'
+                          }`}>
                           {index + 1}
                         </div>
                         <div>
                           <div className="font-medium">{model.model}</div>
                           <div className="text-xs text-muted-foreground grid grid-cols-2 gap-2 mt-1">
-                            <span>PnL: {model.final_cumulative_pnl.toFixed(1)}</span>
-                            <span>Brier: {((1 - model.avg_brier_score) * 100).toFixed(1)}%</span>
+                            <span className="flex items-center">
+                              Profit: {model.final_cumulative_pnl.toFixed(1)}
+                              <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
+                            </span>
+                            <span className="flex items-center">
+                              Brier score: {((1 - model.avg_brier_score) * 100).toFixed(1)}%
+                              <InfoTooltip content="A measure of prediction accuracy. Lower values indicate better calibration - how well the model's confidence matches actual outcomes (0 = perfect, 1 = worst)" />
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -123,104 +129,116 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
               <h2 className="text-xl font-semibold mb-4">{selectedModelData.model}</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                 <div>
-                  <span className="text-muted-foreground">Final PnL:</span>
+                  <div className="flex items-center text-muted-foreground">
+                    Final Profit:
+                    <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
+                  </div>
                   <div className="font-medium">{selectedModelData.final_cumulative_pnl.toFixed(1)}</div>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Brier Score:</span>
+                  <div className="flex items-center text-muted-foreground">
+                    Brier score:
+                    <InfoTooltip content="A measure of prediction accuracy. Lower values indicate better calibration - how well the model's confidence matches actual outcomes (0 = perfect, 1 = worst)" />
+                  </div>
                   <div className="font-medium">{((1 - selectedModelData.avg_brier_score) * 100).toFixed(1)}%</div>
-                </div>
+                </div >
                 <div>
                   <span className="text-muted-foreground">Trades:</span>
                   <div className="font-medium">{selectedModelData.trades}</div>
                 </div>
-              </div>
-            </div>
+              </div >
+            </div >
 
             {/* Charts Section */}
-            {loading ? (
-              <div className="space-y-8">
-                {/* Price Evolution Chart Loading */}
-                <div className="mb-8">
-                  <h3 className="text-lg font-semibold mb-4">Price Evolution</h3>
-                  <div className="h-80 bg-muted/20 rounded-lg flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-2"></div>
-                      <div className="text-sm text-muted-foreground">Loading price data...</div>
+            {
+              loading ? (
+                <div className="space-y-8">
+                  {/* Price Evolution Chart Loading */}
+                  <div className="mb-8">
+                    <h3 className="text-lg font-semibold mb-4">Price Evolution</h3>
+                    <div className="h-80 bg-muted/20 rounded-lg flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-2"></div>
+                        <div className="text-sm text-muted-foreground">Loading price data...</div>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* PnL Chart Loading */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Cumulative PnL</h3>
-                  <div className="h-80 bg-muted/20 rounded-lg flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-2"></div>
-                      <div className="text-sm text-muted-foreground">Loading PnL data...</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : marketDetails && Object.keys(marketDetails).length > 0 ? (
-              <div className="space-y-8">
-                {/* Price Evolution Chart */}
-                <div className="mb-8">
-                  <h3 className="text-lg font-semibold mb-4">Price Evolution</h3>
-                  <div className="h-80">
-                    <VisxLineChart
-                      height={320}
-                      margin={{ left: 60, top: 35, bottom: 38, right: 27 }}
-                      yDomain={[0, 1]}
-                      series={Object.values(marketDetails).map((market, marketIndex) => ({
-                        dataKey: `price_${market.market_id}`,
-                        data: (market.prices || []).map(point => ({
-                          x: point.date,
-                          y: point.price
-                        })),
-                        stroke: getChartColor(marketIndex),
-                        name: market.question
-                      }))}
-                    />
-                  </div>
-                </div>
-
-                {/* PnL Chart */}
-                {Object.values(marketDetails).some(market => market.pnl_data && market.pnl_data.length > 0) && (
+                  {/* Profit Chart Loading */}
                   <div>
-                    <h3 className="text-lg font-semibold mb-4">Cumulative PnL</h3>
+                    <h3 className="text-lg font-semibold mb-4">Cumulative Profit</h3>
+                    <div className="h-80 bg-muted/20 rounded-lg flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-2"></div>
+                        <div className="text-sm text-muted-foreground">Loading profit data...</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : marketDetails && Object.keys(marketDetails).length > 0 ? (
+                <div className="space-y-8">
+                  {/* Price Evolution Chart */}
+                  <div className="mb-8">
+                    <h3 className="text-lg font-semibold mb-4">Price Evolution</h3>
                     <div className="h-80">
                       <VisxLineChart
                         height={320}
                         margin={{ left: 60, top: 35, bottom: 38, right: 27 }}
-                        series={Object.values(marketDetails)
-                          .filter(market => market.pnl_data && market.pnl_data.length > 0)
-                          .map((market, marketIndex) => ({
-                            dataKey: `pnl_${market.market_id}`,
-                            data: (market.pnl_data || []).map(point => {
-                              const positionData = market.positions?.find((p: { date: string }) => p.date === point.date)
-                              return {
-                                x: point.date,
-                                y: point.pnl,
-                                position: positionData?.position
-                              }
-                            }),
-                            stroke: getChartColor(marketIndex),
-                            name: market.question
-                          }))}
+                        yDomain={[0, 1]}
+                        series={Object.values(marketDetails).map((market, marketIndex) => ({
+                          dataKey: `price_${market.market_id}`,
+                          data: (market.prices || []).map(point => ({
+                            x: point.date,
+                            y: point.price
+                          })),
+                          stroke: getChartColor(marketIndex),
+                          name: market.question
+                        }))}
                       />
                     </div>
                   </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No market data available for this model.
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+
+                  {/* Profit Chart */}
+                  {Object.values(marketDetails).some(market => market.pnl_data && market.pnl_data.length > 0) && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4 flex items-center">
+                        Cumulative Profit
+                        <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
+                      </h3>
+                      <div className="h-80">
+                        <VisxLineChart
+                          height={320}
+                          margin={{ left: 60, top: 35, bottom: 38, right: 27 }}
+                          series={Object.values(marketDetails)
+                            .filter(market => market.pnl_data && market.pnl_data.length > 0)
+                            .map((market, marketIndex) => ({
+                              dataKey: `pnl_${market.market_id}`,
+                              data: (market.pnl_data || []).map(point => {
+                                const positionData = market.positions?.find((p: { date: string }) => p.date === point.date)
+                                return {
+                                  x: point.date,
+                                  y: point.pnl,
+                                  position: positionData?.position
+                                }
+                              }),
+                              stroke: getChartColor(marketIndex),
+                              name: market.question
+                            }))}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No market data available for this model.
+                </div>
+              )
+            }
+          </div >
+        </div >
+      )
+      }
+    </div >
   )
 }

@@ -87,7 +87,7 @@ class PnlCalculator:
             )
             return pnls
         else:
-            logger.debug("PnL calculation debug info")
+            logger.debug("Profit calculation debug info")
             logger.debug(f"Returns head:\n{self.returns.head()}")
             logger.debug(f"Positions head:\n{self.positions.head()}")
             pnls = pd.concat(
@@ -107,21 +107,21 @@ class PnlCalculator:
             fig = px.line(
                 x=self.portfolio_cumulative_pnl.index,
                 y=self.portfolio_cumulative_pnl,
-                labels={"x": "Date", "y": "Cumulative PnL"},
+                labels={"x": "Date", "y": "Cumulative Profit"},
             )
             fig.data[0].update(mode="markers+lines")
             fig.update_layout(
                 xaxis_title="Date",
-                yaxis_title="Cumulative PnL",
+                yaxis_title="Cumulative Profit",
             )
             return fig
         else:
-            # Create subplots: Prices on top, PnL on bottom (equal height)
+            # Create subplots: Prices on top, Profit on bottom (equal height)
             fig = make_subplots(
                 rows=2,
                 cols=1,
                 row_heights=[0.5, 0.5],  # Equal height for both subplots
-                subplot_titles=("Price Evolution", "Cumulative PnL"),
+                subplot_titles=("Price Evolution", "Cumulative Profit"),
                 vertical_spacing=0.08,
             )
 
@@ -187,7 +187,7 @@ class PnlCalculator:
                             col=1,
                         )
 
-                # Add PnL trace to subplot 2 (bottom)
+                # Add Profit trace to subplot 2 (bottom)
                 fig.add_trace(
                     go.Scatter(
                         x=cumulative_pnl_market.index,
@@ -205,7 +205,7 @@ class PnlCalculator:
             fig.update_xaxes(title_text="Date", row=2, col=1)
             fig.update_yaxes(title_text="Price", row=1, col=1)
             fig.update_yaxes(
-                title_text="Cumulative PnL", tickformat=".1f", row=2, col=1
+                title_text="Cumulative Profit", tickformat=".1f", row=2, col=1
             )
             fig.update_layout(
                 legend_title="Stock",
@@ -309,7 +309,7 @@ def get_pnls(
     write_plots: bool = False,
     decisions_df: pd.DataFrame = None,
 ) -> dict[str, PnlCalculator]:
-    """Builds PnL calculators for each agent in the positions dataframe.
+    """Builds Profit calculators for each agent in the positions dataframe.
 
     Args:
         positions_df: DataFrame with positions data, with columns [agent_name, market_id, date]

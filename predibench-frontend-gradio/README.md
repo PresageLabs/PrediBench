@@ -16,7 +16,7 @@ Interactive leaderboard and performance dashboard for AI agent predictions on Po
 
 ## Features
 
-- 🏆 **Leaderboard Tab**: Rankings by PnL, Sharpe ratio, win rate
+- 🏆 **Leaderboard Tab**: Rankings by Profit, Sharpe ratio, win rate
 - 📈 **Performance Tab**: Interactive charts with agent selection
 - 🔄 **Daily Refresh**: Loads latest data from HuggingFace datasets
 - 📱 **Responsive UI**: Clean Gradio interface
