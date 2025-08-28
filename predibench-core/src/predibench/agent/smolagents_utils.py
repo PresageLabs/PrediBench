@@ -12,6 +12,7 @@ from predibench.agent.dataclasses import (
     ModelInfo,
     SingleModelDecision,
 )
+from predibench.agent.runner import BET_DESCRIPTION
 from predibench.logger_config import get_logger
 from pydantic import BaseModel
 from smolagents import (
@@ -234,17 +235,15 @@ def final_answer(
 
     return validated_decisions, unallocated_capital
 
-
-class CompleteMarketInvestmentDecisions(BaseModel):
+class ListMarketInvestmentDecisions(BaseModel):
     market_investment_decisions: list[MarketInvestmentDecision]
     unallocated_capital: float
+
+class CompleteMarketInvestmentDecisions(ListMarketInvestmentDecisions):
     full_response: Any
     token_usage: TokenUsage | None = None
 
 
-class ListMarketInvestmentDecisions(BaseModel):
-    market_investment_decisions: list[MarketInvestmentDecision]
-    unallocated_capital: float
 
 
 def _should_retry(exception: Exception) -> bool:
@@ -327,16 +326,9 @@ def structure_final_answer(
         {research_output}
         
         You must provide a list of market decisions. Each decision should include:
-        1. market_id: The ID of the market
-        2. reasoning: Your reasoning for this decision
-        3. probability_assessment: Your probability assessment (0.0 to 1.0)
-        4. confidence_in_assessment: Your confidence level (0.0 to 1.0)
-        5. direction: "buy_yes", "buy_no", or "nothing"
-        6. amount: Fraction of capital to bet (0.0 to 1.0)
-        7. confidence: Your confidence in this decision (must be one of: 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
-
-        The sum of all amounts must not exceed 1.0.
-    """)
+        {BET_DESCRIPTION}
+        - The sum of ALL (absolute value of bets) + unallocated_capital must equal 1.0  
+        """)
     structured_output = structured_model.generate(
         [ChatMessage(role="user", content=structured_prompt)],
         response_format={
