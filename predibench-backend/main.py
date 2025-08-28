@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from predibench.agent.dataclasses import ModelInvestmentDecisions
 from predibench.pnl import PnlCalculator, get_pnls
+from predibench.brier import BrierScoreCalculator
 from predibench.polymarket_api import (
     Event,
     EventsRequestParameters,
@@ -220,7 +221,7 @@ def get_pnl_wrapper(
     end_date: datetime | None = None,
 ) -> dict[str, PnlCalculator]:
     decisions_df = extract_decisions_data()
-    return get_pnls(positions_df, write_plots, end_date, decisions_df)
+    return get_pnls(positions_df, end_date, write_plots, decisions_df)
 
 
 @profile_time
@@ -286,8 +287,26 @@ def calculate_real_performance():
     pnl_calculators = get_pnl_wrapper(
         positions_df, write_plots=False, end_date=datetime.today()
     )
+    
+    # Create BrierScoreCalculator instances for each agent
+    decisions_df = extract_decisions_data()
+    brier_calculators = {}
+    for agent_name, pnl_calculator in pnl_calculators.items():
+        # Filter decisions for this agent
+        agent_decisions = decisions_df[decisions_df["agent_name"] == agent_name]
+        # Convert to pivot format
+        decisions_pivot_df = agent_decisions.pivot(
+            index="date", columns="market_id", values="odds"
+        )
+        # Align with PnL calculator's price data
+        decisions_pivot_df = decisions_pivot_df.reindex(
+            pnl_calculator.prices.index, method="ffill"
+        )
+        brier_calculators[agent_name] = BrierScoreCalculator(decisions_pivot_df, pnl_calculator.prices)
+    
     agents_performance = {}
     for agent_name, pnl_calculator in pnl_calculators.items():
+        brier_calculator = brier_calculators[agent_name]
         daily_pnl = pnl_calculator.portfolio_daily_pnl
 
         # Generate performance history from cumulative PnL
@@ -316,9 +335,10 @@ def calculate_real_performance():
                 d.strftime("%Y-%m-%d")
                 for d in pnl_calculator.portfolio_cumulative_pnl.index.tolist()
             ],
+            "avg_brier_score": brier_calculator.avg_brier_score,
         }
 
-        print(f"Agent {agent_name}: PnL={final_pnl:.3f}, Sharpe={sharpe_ratio:.3f}")
+        print(f"Agent {agent_name}: PnL={final_pnl:.3f}, Sharpe={sharpe_ratio:.3f}, Brier={brier_calculator.avg_brier_score:.3f}")
 
     print(f"Calculated performance for {len(agents_performance)} agents")
     return agents_performance
@@ -360,6 +380,7 @@ def get_leaderboard() -> list[LeaderboardEntry]:
             lastUpdated=datetime.now().strftime("%Y-%m-%d"),
             trend=trend,
             pnl_history=metrics["pnl_history"],
+            avg_brier_score=metrics["avg_brier_score"],
         )
         leaderboard.append(entry)
 

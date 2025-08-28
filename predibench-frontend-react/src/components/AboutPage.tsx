@@ -20,6 +20,35 @@ export function AboutPage() {
           </p>
         </div>
 
+        {/* Evaluation Metrics Section */}
+        <div className="bg-card border border-border rounded-lg p-8 space-y-6">
+          <h2 className="text-2xl font-semibold text-center">Evaluation Metrics</h2>
+          
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-primary">Cumulative Profit & Loss (PnL)</h3>
+              <p className="text-muted-foreground text-sm">
+                Measures the financial performance of each model's predictions by tracking the cumulative 
+                profit or loss from all trading positions. Higher values indicate better financial performance.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-primary">Brier Score</h3>
+              <p className="text-muted-foreground text-sm">
+                A proper scoring rule that measures the accuracy of probabilistic predictions. 
+                The original Brier score is calculated as the mean squared difference between predicted 
+                probabilities and actual outcomes: <code className="bg-muted px-1 rounded text-xs">(prediction - outcome)²</code>
+              </p>
+              <p className="text-muted-foreground text-sm">
+                <strong>In PrediBench:</strong> We display <code className="bg-muted px-1 rounded text-xs">1 - Brier Score</code> 
+                so that higher values indicate better prediction accuracy, making it consistent with other metrics 
+                where higher is better. Perfect predictions score 1.0, while random guessing scores around 0.75.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Preview Content */}
         <div className="grid md:grid-cols-2 gap-8">
           <div className="space-y-4">

@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objs as go
 from predibench.pnl import PnlCalculator
+from predibench.brier import BrierScoreCalculator
 
 
 def test_pnl():
@@ -22,7 +23,15 @@ def test_pnl():
     prices.iloc[3, 0] = 0.8
     prices.iloc[4, 0] = 0.6
 
+    # Create dummy decisions data for testing
+    decisions = pd.DataFrame(
+        data=[0.6, 0.5, 0.7, 0.8, 0.7],
+        index=date_range,
+        columns=["Will Lewis Hamilton be the 2025 Drivers Champion?"],
+    )
+
     pnl_calculator = PnlCalculator(positions, prices)
+    brier_calculator = BrierScoreCalculator(decisions, prices)
 
     pnl_result = pnl_calculator.calculate_pnl()
 
@@ -51,7 +60,15 @@ def test_pnl_nan_positions():
         columns=["TestAsset"],
     )
 
+    # Create dummy decisions data for testing
+    decisions = pd.DataFrame(
+        data=[0.5, 0.6, 0.4, 0.3, 0.5, 0.6, 0.4],
+        index=date_range,
+        columns=["TestAsset"],
+    )
+
     pnl_calculator = PnlCalculator(positions, prices)
+    brier_calculator = BrierScoreCalculator(decisions, prices)
     pnl_result = pnl_calculator.calculate_pnl()
 
     expected_daily_pnl = [0.0, 0.10, 0.095238, 0.136364, -0.052632, 0.0, 0.0]
@@ -82,7 +99,15 @@ def test_pnl_plot():
         columns=["TestAsset"],
     )
 
+    # Create dummy decisions data for testing
+    decisions = pd.DataFrame(
+        data=[0.5, 0.6, 0.4, 0.3, 0.5, 0.6, 0.4],
+        index=date_range,
+        columns=["TestAsset"],
+    )
+
     pnl_calculator = PnlCalculator(positions, prices)
+    brier_calculator = BrierScoreCalculator(decisions, prices)
     figure = pnl_calculator.plot_pnl(stock_details=True)
     assert figure is not None
 

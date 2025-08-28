@@ -6,6 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from predibench.brier import BrierScoreCalculator
 from predibench.logger_config import get_logger
 from predibench.polymarket_api import Market, MarketsRequestParameters
 
@@ -18,10 +19,9 @@ class PnlCalculator:
     def __init__(
         self,
         positions: pd.DataFrame,
-        prices: pd.DataFrame = None,
+        prices: pd.DataFrame,
         to_vol_target: bool = False,
         vol_targeting_window: str = "30D",
-        decisions_df: pd.DataFrame = None,
     ):
         """
         positions: Daily positions: pd.DataFrame with columns as markets and index as dates. A position noted with date D as index is the position at the end of day D, which will be impacted by returns of day D+1
@@ -29,7 +29,6 @@ class PnlCalculator:
         prices: Price data: pd.DataFrame with columns as markets and index as dates
         to_vol_target: bool, if True, will target volatility
         vol_targeting_window: str, window for volatility targeting
-        decisions_df: DataFrame with model decisions including odds and confidence, with columns [market_id, odds, confidence] and index as dates
         """
         self.positions = positions
         self.returns = prices.pct_change(periods=1).copy()
@@ -37,7 +36,6 @@ class PnlCalculator:
         self._assert_index_is_date(self.returns)
         self.prices = prices
         self._assert_index_is_date(self.prices)
-        self.decisions_df = decisions_df
         self.to_vol_target = to_vol_target
         self.vol_targeting_window = vol_targeting_window
         self.pnl = self.calculate_pnl()
@@ -48,10 +46,6 @@ class PnlCalculator:
         self.portfolio_mean_pnl = self.portfolio_daily_pnl.mean()
         self.portfolio_std_pnl = self.portfolio_daily_pnl.std()
         self.portfolio_sum_pnl = self.portfolio_daily_pnl.sum()
-        
-        # Calculate Brier scores
-        self.brier_scores = self.calculate_brier_scores()
-        self.avg_brier_score = self.brier_scores.mean().mean()
 
     def _assert_index_is_date(self, df: pd.DataFrame):
         assert all(isinstance(idx, date) for idx in df.index), (
@@ -107,30 +101,6 @@ class PnlCalculator:
                 axis="columns",
             )
             return pnls
-    
-    def calculate_brier_scores(self):
-        """
-        Calculate Brier scores for each market based on model predictions (odds) vs actual outcomes (final prices).
-        Brier Score = (prediction - outcome)^2
-        Lower scores are better (0 is perfect, 1 is worst possible).
-        """
-        # Get the latest price for each market as the outcome (0 or 1)
-        final_prices = self.prices.iloc[-1]  # Last available price
-        
-        # Create a DataFrame to store Brier scores
-        brier_scores_df = pd.DataFrame(index=self.decisions_df.index, columns=self.prices.columns)
-        
-        for market_id in self.prices.columns:
-            # Get the outcome (final market price, should be close to 0 or 1)
-            outcome = final_prices[market_id]
-            
-            # Get model predictions (odds) for this market over time
-            predictions = self.decisions_df[market_id]
-            
-            # Calculate Brier score: (prediction - outcome)^2
-            brier_scores_df[market_id] = (predictions - outcome) ** 2
-            
-        return brier_scores_df.dropna(how='all')
 
     def plot_pnl(self, stock_details: bool = False):
         if not stock_details:
@@ -314,7 +284,6 @@ class PnlCalculator:
                 "Maximum Drawdown": [self.max_drawdown()],
                 "Calmar Ratio": [self.compute_calmar_ratio()],
                 "Turnover (%)": [self.turnover()],
-                "Average Brier Score": [self.avg_brier_score],
             },
             columns=["Value"],
             orient="index",
@@ -335,7 +304,10 @@ def validate_continuous_prices(prices_df: pd.DataFrame) -> None:
 
 
 def get_pnls(
-    positions_df: pd.DataFrame, end_date: date | None = None, write_plots: bool = False, decisions_df: pd.DataFrame = None
+    positions_df: pd.DataFrame,
+    end_date: date | None = None,
+    write_plots: bool = False,
+    decisions_df: pd.DataFrame = None,
 ) -> dict[str, PnlCalculator]:
     """Builds PnL calculators for each agent in the positions dataframe.
 
@@ -381,10 +353,17 @@ def get_pnls(
         # Filter decisions for this agent
         agent_decisions_df = None
         if decisions_df is not None:
-            agent_decisions_df = decisions_df[decisions_df["agent_name"] == agent_name] if "agent_name" in decisions_df.columns else decisions_df
-        
+            agent_decisions_df = (
+                decisions_df[decisions_df["agent_name"] == agent_name]
+                if "agent_name" in decisions_df.columns
+                else decisions_df
+            )
+
         pnl_calculator = get_pnl_calculator(
-            positions_agent_df, prices_df, positions_df["date"].unique(), agent_decisions_df
+            positions_agent_df,
+            prices_df,
+            positions_df["date"].unique(),
+            agent_decisions_df,
         )
         pnl_calculators[agent_name] = pnl_calculator
 
@@ -425,17 +404,7 @@ def get_pnl_calculator(
         f"  Investment positions: {(positions_agent_df != 0.0).sum().sum()} out of {positions_agent_df.size} possible"
     )
 
-    # Prepare decisions data for the calculator
-    decisions_pivot_df = None
-    if decisions_df is not None:
-        # Convert decisions DataFrame to have date as index and market_id as columns
-        decisions_pivot_df = decisions_df.pivot(
-            index="date", columns="market_id", values="odds"
-        )
-        # Align with the positions index
-        decisions_pivot_df = decisions_pivot_df.reindex(positions_agent_df.index, method="ffill")
-    
-    return PnlCalculator(positions_agent_df, prices_df, decisions_df=decisions_pivot_df)
+    return PnlCalculator(positions_agent_df, prices_df)
 
 
 def get_historical_returns(

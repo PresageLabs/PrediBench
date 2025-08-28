@@ -98,7 +98,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                           <div className="font-medium">{model.model}</div>
                           <div className="text-xs text-muted-foreground grid grid-cols-2 gap-2 mt-1">
                             <span>PnL: {model.final_cumulative_pnl.toFixed(1)}</span>
-                            <span>Acc: {((model.accuracy || 0) * 100).toFixed(0)}%</span>
+                            <span>Brier: {((1 - model.avg_brier_score) * 100).toFixed(1)}%</span>
                           </div>
                         </div>
                       </div>
@@ -127,8 +127,8 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                   <div className="font-medium">{selectedModelData.final_cumulative_pnl.toFixed(1)}</div>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Accuracy:</span>
-                  <div className="font-medium">{((selectedModelData.accuracy || 0) * 100).toFixed(0)}%</div>
+                  <span className="text-muted-foreground">Brier Score:</span>
+                  <div className="font-medium">{((1 - selectedModelData.avg_brier_score) * 100).toFixed(1)}%</div>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Trades:</span>
