@@ -4,8 +4,6 @@ import time
 from datetime import datetime
 from functools import lru_cache, wraps
 
-from cache import AsyncLRU
-
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI
@@ -578,7 +576,6 @@ async def get_event_details(event_id: str):
 
 @app.get("/api/event/{event_id}/market_prices")
 @profile_time
-@AsyncLRU(maxsize=16)
 async def get_event_market_prices(event_id: str):
     """Get price history for all markets in an event"""
     events_list = get_events_by_ids((event_id,))
