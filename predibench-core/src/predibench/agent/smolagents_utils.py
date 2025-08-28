@@ -13,7 +13,7 @@ from predibench.agent.dataclasses import (
     SingleModelDecision,
 )
 from predibench.logger_config import get_logger
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 from smolagents import (
     ChatMessage,
     CodeAgent,
@@ -28,7 +28,6 @@ from tenacity import (
     retry,
     retry_if_exception,
     retry_if_exception_type,
-    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
 )
@@ -126,30 +125,36 @@ def final_answer(
 
     Args:
         market_decisions (list[dict]): List of market decisions. Each dict should contain:
-            - market_id (str): The market ID
-            - rationale (str): Reasoning for the decision
-            - odds (float): Your probability assessment (0.0 to 1.0) for the main outcome of the market (usually the "Yes" outcome)
-            - bet (float): Your bet (-1.0 to 1.0) for the market : if you estimate the main outcome (usually the "Yes" outcome) to be overvalued/undervalued, place your bet accordingly!
-            - confidence (float): Your confidence in your decision (must be one of: 0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
+            1. market_id (str): The market ID
+            2. rationale (str): Explanation for your decision and why you think this market is mispriced (or correctly priced if skipping). Write at least a few sentences. If you take a strong bet, make sure to highlight the facts you know/value that the market doesn't.
+            3. odds (float, 0 to 1): The odds you think the market will settle at (your true probability estimate)
+            4. confidence (int, 0 to 10): Your confidence in the odds and your bet. Should be between 0 (absolute uncertainty, you shouldn't bet if you're not confident) and 10 (absolute certainty, then you can bet high).
+            5. bet (float, -1 to 1): The amount in dollars that you bet on this market (can be negative if you want to buy the opposite of the market)
         unallocated_capital (float): Fraction of capital not allocated to any bet (0.0 to 1.0)
     """
     # Manual type checks for market_decisions
     if not isinstance(market_decisions, list):
-        raise TypeError(f"market_decisions must be a list, got {type(market_decisions).__name__}")
-    
+        raise TypeError(
+            f"market_decisions must be a list, got {type(market_decisions).__name__}"
+        )
+
     if not market_decisions or len(market_decisions) == 0:
         raise ValueError(
             "No market decisions provided - at least one market decision is required"
         )
-    
+
     for i, decision in enumerate(market_decisions):
         if not isinstance(decision, dict):
-            raise TypeError(f"market_decisions[{i}] must be a dict, got {type(decision).__name__}")
-    
+            raise TypeError(
+                f"market_decisions[{i}] must be a dict, got {type(decision).__name__}"
+            )
+
     # Manual type checks for unallocated_capital
     if not isinstance(unallocated_capital, (int, float)):
-        raise TypeError(f"unallocated_capital must be a float or int, got {type(unallocated_capital).__name__}")
-    
+        raise TypeError(
+            f"unallocated_capital must be a float or int, got {type(unallocated_capital).__name__}"
+        )
+
     try:
         unallocated_capital = float(unallocated_capital)
     except (ValueError, TypeError) as e:
@@ -192,15 +197,15 @@ def final_answer(
         assert 0.0 <= decision_dict["odds"] <= 1.0, (
             f"Your estimated odds must be between 0.0 and 1.0, got {decision_dict['odds']} for market {decision_dict['market_id']}"
         )
-        assert 0.0 <= decision_dict["confidence"] <= 1.0, (
-            f"Your confidence must be between 0.0 and 1.0, got {decision_dict['confidence']} for market {decision_dict['market_id']}"
-        )
-        
-        # Check that confidence is a discrete value (0.0, 0.1, 0.2, ..., 1.0)
-        valid_confidence_values = [i / 10.0 for i in range(11)]  # [0.0, 0.1, 0.2, ..., 1.0]
-        if decision_dict["confidence"] not in valid_confidence_values:
-            raise ValueError(
-                f"Confidence must be one of {valid_confidence_values}, got {decision_dict['confidence']} for market {decision_dict['market_id']}"
+        try:
+            assert int(decision_dict["confidence"]) == float(
+                decision_dict["confidence"]
+            )
+            decision_dict["confidence"] = int(decision_dict["confidence"])
+            assert 0 <= decision_dict["confidence"] <= 10
+        except Exception:
+            raise TypeError(
+                f"Your confidence must be between an integer 0 and 10, got {decision_dict['confidence']} for market {decision_dict['market_id']}"
             )
 
         model_decision = SingleModelDecision(
@@ -240,14 +245,15 @@ class CompleteMarketInvestmentDecisions(BaseModel):
 class ListMarketInvestmentDecisions(BaseModel):
     market_investment_decisions: list[MarketInvestmentDecision]
     unallocated_capital: float
-    
+
+
 def _should_retry(exception: Exception) -> bool:
     """Check if the exception is a rate limit error."""
     error_str = str(exception).lower()
     return (
         "BadRequest" in error_str
         or "ValidationError" in error_str
-        or "ContextError" in error_str 
+        or "ContextError" in error_str
         or "maximum context length" in error_str
         or "context window" in error_str
     )
@@ -287,18 +293,18 @@ The final_answer tool must contain the arguments rationale and decision.
     ]
     if model_info.agent_type == "codeagent":
         agent = CodeAgent(
-            tools=tools, 
-            model=model_client, 
-            max_steps=max_steps, 
+            tools=tools,
+            model=model_client,
+            max_steps=max_steps,
             return_full_result=True,
             additional_authorized_imports=["requests"],
         )
     else:  # toolcalling is default
         agent = ToolCallingAgent(
-            tools=tools, 
-            model=model_client, 
-            max_steps=max_steps, 
-            return_full_result=True
+            tools=tools,
+            model=model_client,
+            max_steps=max_steps,
+            return_full_result=True,
         )
 
     full_result = agent.run(prompt)

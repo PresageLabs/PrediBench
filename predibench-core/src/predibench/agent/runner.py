@@ -2,7 +2,6 @@ import json
 import os
 import time
 from datetime import date, datetime
-from pathlib import Path
 
 import numpy as np
 from dotenv import load_dotenv
@@ -32,6 +31,12 @@ from smolagents import Timing
 load_dotenv()
 
 logger = get_logger(__name__)
+
+BET_DESCRIPTION = """1. market_id (str): The market ID
+2. rationale (str): Explanation for your decision and why you think this market is mispriced (or correctly priced if skipping). Write at least a few sentences. If you take a strong bet, make sure to highlight the facts you know/value that the market doesn't.
+3. odds (float, 0 to 1): The odds you think the market will settle at (your true probability estimate)
+4. confidence (int, 0 to 10): Your confidence in the odds and your bet. Should be between 0 (absolute uncertainty, you shouldn't bet if you're not confident) and 10 (absolute certainty, then you can bet high).
+5. bet (float, -1 to 1): The amount in dollars that you bet on this market (can be negative if you want to buy the opposite of the market)"""
 
 
 def _process_event_investment(
@@ -94,7 +99,7 @@ def _process_event_investment(
 
     # Create summaries for all markets
     market_summaries = []
-    descriptions_already_used = set() # to avoid repeating the same description
+    descriptions_already_used = set()  # to avoid repeating the same description
     for market_info in market_data.values():
         outcome_name = market_info["price_outcome_name"]
         description = market_info["description"]
@@ -134,11 +139,8 @@ You are an expert prediction-market analyst and portfolio allocator on the predi
 - The markets are usually "Yes" or "No" markets, but sometimes the outcomes can be different (two sports teams for instance).
 - You have exactly 1.0 dollars to allocate. Use the "bet" field to allocate your capital. Negative means you buy the opposite of the market (usually the "No" outcome), but they still count in absolute value towards the 1.0 dollar allocation.
 - For EACH market, specify your bet. Provide:
-1. market_id: The market ID
-2. rationale: Explanation for your decision and why you think this market is mispriced (or correctly priced if skipping)
-3. odds: The odds you think the market will settle at (your true probability estimate)
-4. bet: The amount you bet on this market (can be negative if you want to buy the opposite of the market)
-5. confidence: Your confidence in this decision (0.0 to 1.0)
+{BET_DESCRIPTION}
+
 - The sum of ALL (absolute value of bets) + unallocated_capital must equal 1.0
 - You can choose not to bet on markets with poor edges by setting bets summing to lower than 1 and a non-zero unallocated_capital
 
@@ -153,7 +155,6 @@ Example: If you bet 0.3 in market A, -0.2 in market B (meaning you buy 0.2 of th
     prompt_file = model_result_path / f"{event.id}_prompt_event.txt"
     write_to_storage(prompt_file, full_question)
     logger.info(f"Saved prompt to {prompt_file}")
-
 
     if model_info.model_id == "test_random":
         # Create random decisions for all markets with capital allocation constraint
@@ -174,7 +175,7 @@ Example: If you bet 0.3 in market A, -0.2 in market B (meaning you buy 0.2 of th
                 rationale=f"Random decision for testing market {market_info['id']}",
                 odds=np.random.uniform(0.1, 0.9),
                 bet=amount,
-                confidence=np.random.uniform(0.1, 0.9),
+                confidence=np.random.choice(list(range(1, 10))),
             )
             market_decision = MarketInvestmentDecision(
                 market_id=market_info["id"],
@@ -226,12 +227,11 @@ Example: If you bet 0.3 in market A, -0.2 in market B (meaning you buy 0.2 of th
             return None
 
     full_response_json = complete_market_investment_decisions.full_response
-    
 
     # Write full response to file
     model_result_path = model_info.get_model_result_path(target_date)
     full_response_file = model_result_path / f"{event.id}_full_response.json"
-    with open(full_response_file, 'w') as f:
+    with open(full_response_file, "w") as f:
         json.dump(full_response_json, f, indent=2)
 
     timing.end_time = time.time()
@@ -306,8 +306,7 @@ def _process_single_model(
         event_investment_decisions=all_event_decisions,
     )
 
-    model_result._save_model_result(
-    )
+    model_result._save_model_result()
     return model_result
 
 

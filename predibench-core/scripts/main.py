@@ -2,7 +2,6 @@ from datetime import date, timedelta
 
 import typer
 from predibench.agent.dataclasses import ModelInfo
-from predibench.common import DATA_PATH
 from predibench.invest import run_investments_for_specific_date
 from predibench.logger_config import get_logger
 
@@ -12,6 +11,12 @@ app = typer.Typer()
 
 
 MODEL_MAP = [
+    ModelInfo(
+        model_id="grok-4-0709",
+        model_pretty_name="Grok 4",
+        inference_provider="xai",
+        company_pretty_name="xAI",
+    ),
     ModelInfo(
         model_id="gpt-5",
         model_pretty_name="GPT-5",
@@ -77,11 +82,24 @@ MODEL_MAP = [
         agent_type="codeagent",
     ),
     ModelInfo(
+        model_id="meta-llama/Llama-4-Maverick-17B-128E-Instruct",
+        model_pretty_name="Llama 4 Maverick",
+        inference_provider="fireworks-ai",
+        company_pretty_name="Meta",
+        open_weights=True,
+    ),
+    ModelInfo(
+        model_id="meta-llama/Llama-4-Scout-17B-16E-Instruct",
+        model_pretty_name="Llama 4 Scout",
+        inference_provider="fireworks-ai",
+        company_pretty_name="Meta",
+        open_weights=True,
+    ),
+    ModelInfo(
         model_id="gemini-2.5-flash",
         model_pretty_name="Gemini 2.5 Flash",
         inference_provider="google",
         company_pretty_name="Google",
-        open_weights=False,
         agent_type="codeagent",
     ),
     ModelInfo(
@@ -89,7 +107,6 @@ MODEL_MAP = [
         model_pretty_name="Gemini 2.5 Pro",
         inference_provider="google",
         company_pretty_name="Google",
-        open_weights=False,
         agent_type="codeagent",
     ),
     ModelInfo(
@@ -103,6 +120,19 @@ MODEL_MAP = [
         model_pretty_name="O3 Deep Research",
         inference_provider="openai",
         company_pretty_name="OpenAI",
+    ),
+    # NOTE: add Claude, Grok
+    ModelInfo(
+        model_id="claude-sonnet-4-20250514",
+        model_pretty_name="Claude Sonnet 4",
+        inference_provider="anthropic",
+        company_pretty_name="Anthropic",
+    ),
+    ModelInfo(
+        model_id="claude-opus-4-1-20250805",
+        model_pretty_name="Claude Opus 4.1",
+        inference_provider="anthropic",
+        company_pretty_name="Anthropic",
     ),
 ]
 
@@ -139,7 +169,7 @@ def main(
         target_date=date.today(),
         time_until_ending=timedelta(days=days_ahead),
         max_n_events=max_events,
-        output_path=DATA_PATH,
+        # output_path=DATA_PATH,
     )
 
     logger.info(f"Analysis completed. Results: {results}")
