@@ -21,6 +21,8 @@ def main(
 
     if provider == "all":
         models = MODEL_MAP
+    elif provider == "events":
+        models = []
     elif provider in MODELS_BY_PROVIDER:
         models = MODELS_BY_PROVIDER[provider]
 
