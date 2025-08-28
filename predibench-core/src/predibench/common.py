@@ -10,6 +10,10 @@ DATA_PATH.mkdir(parents=True, exist_ok=True)
 
 BASE_URL_POLYMARKET = "https://gamma-api.polymarket.com"
 
+DEFAULT_MAX_EVENTS = 10
+DEFAULT_DAYS_AHEAD = 7 * 6
+DEFAULT_WEEKS_BACK = 7
+
 def get_date_output_path(target_date: date) -> Path:
     """
     Get the path to the date output for a given target date.

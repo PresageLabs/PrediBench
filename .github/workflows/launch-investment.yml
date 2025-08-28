@@ -2,58 +2,65 @@ name: Launch Investment Analysis
 
 on:
   workflow_dispatch:
+    inputs:
+      provider:
+        description: 'Provider to run'
+        required: false
+        default: 'huggingface'
+        type: choice
+        options:
+          - xai
+          - openai
+          - huggingface
+          - google
+          - perplexity
+          - anthropic
+
 
 concurrency:
-  group: investment-analysis
+  group: investment-analysis-${{ github.event.inputs.provider || 'scheduled' }}
   cancel-in-progress: true
 
 jobs:
-  test:
+  manual-run:
     runs-on: ubuntu-latest
-    
+    if: github.event_name == 'workflow_dispatch'
+
     steps:
-    - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Authenticate to Google Cloud
-      uses: google-github-actions/auth@v2
-      with:
-        credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
-    
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
 
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v2
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.13'
-    
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      
-    - name: Install dependencies
-      run: |
-        cd predibench-core
-        uv sync
-        
-    - name: Test GCP bucket write access
-      env:
-        BUCKET_PREDIBENCH: ${{ secrets.BUCKET_PREDIBENCH }}
-      run: |
-        cd predibench-core
-        uv run python src/predibench/storage_utils.py
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
 
-        
-    - name: Run investment analysis with all models
-      env:
-        BUCKET_PREDIBENCH: ${{ secrets.BUCKET_PREDIBENCH }}
-        HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
-        SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
-      run: |
-        cd predibench-core
-        uv run python scripts/main.py all
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
 
-  
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: |
+          cd predibench-core
+          uv sync
+
+      - name: Run investment analysis
+        env:
+          BUCKET_PREDIBENCH: ${{ secrets.BUCKET_PREDIBENCH }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+        run: |
+          cd predibench-core
+          uv run python scripts/main.py ${{ github.event.inputs.provider }} \
+
