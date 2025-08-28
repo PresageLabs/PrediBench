@@ -12,7 +12,6 @@ from predibench.agent.dataclasses import (
     ModelInfo,
     SingleModelDecision,
 )
-from predibench.agent.runner import BET_DESCRIPTION
 from predibench.logger_config import get_logger
 from pydantic import BaseModel
 from smolagents import (
@@ -35,6 +34,11 @@ from tenacity import (
 
 logger = get_logger(__name__)
 
+BET_DESCRIPTION = """1. market_id (str): The market ID
+2. rationale (str): Explanation for your decision and why you think this market is mispriced (or correctly priced if skipping). Write at least a few sentences. If you take a strong bet, make sure to highlight the facts you know/value that the market doesn't.
+3. odds (float, 0 to 1): The odds you think the market will settle at (your true probability estimate)
+4. confidence (int, 0 to 10): Your confidence in the odds and your bet. Should be between 0 (absolute uncertainty, you shouldn't bet if you're not confident) and 10 (absolute certainty, then you can bet high).
+5. bet (float, -1 to 1): The amount in dollars that you bet on this market (can be negative if you want to buy the opposite of the market)"""
 
 class GoogleSearchTool(Tool):
     name = "web_search"

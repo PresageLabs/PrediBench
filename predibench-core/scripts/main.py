@@ -13,7 +13,7 @@ app = typer.Typer()
 
 @app.command()
 def main(
-    provider: str = typer.Argument(..., help="Name of the provider to run models for"),
+    provider: str = typer.Argument("huggingface", help="Name of the provider to run models for"),
     max_events: int = typer.Option(DEFAULT_MAX_EVENTS, help="Maximum number of events to analyze"),
     days_ahead: int = typer.Option(DEFAULT_DAYS_AHEAD, help="Days until event ending"),
 ):
@@ -21,6 +21,8 @@ def main(
 
     if provider == "all":
         models = MODEL_MAP
+    elif provider == "events":
+        models = []
     elif provider in MODELS_BY_PROVIDER:
         models = MODELS_BY_PROVIDER[provider]
 
