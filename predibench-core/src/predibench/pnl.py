@@ -307,7 +307,6 @@ def get_pnls(
     positions_df: pd.DataFrame,
     end_date: date | None = None,
     write_plots: bool = False,
-    decisions_df: pd.DataFrame = None,
 ) -> dict[str, PnlCalculator]:
     """Builds Profit calculators for each agent in the positions dataframe.
 
@@ -315,7 +314,6 @@ def get_pnls(
         positions_df: DataFrame with positions data, with columns [agent_name, market_id, date]
         write_plots: bool, if True, will write plots to the current directory
         end_date: cutoff date
-        decisions_df: DataFrame with model decisions including odds and confidence
     """
     # Validate that we have continuous returns data
     markets = {}
@@ -350,20 +348,10 @@ def get_pnls(
             "A this stage, dataframe should not be empty!"
         )
 
-        # Filter decisions for this agent
-        agent_decisions_df = None
-        if decisions_df is not None:
-            agent_decisions_df = (
-                decisions_df[decisions_df["agent_name"] == agent_name]
-                if "agent_name" in decisions_df.columns
-                else decisions_df
-            )
-
         pnl_calculator = get_pnl_calculator(
             positions_agent_df,
             prices_df,
             positions_df["date"].unique(),
-            agent_decisions_df,
         )
         pnl_calculators[agent_name] = pnl_calculator
 
@@ -374,7 +362,6 @@ def get_pnl_calculator(
     positions_agent_df: pd.DataFrame,
     prices_df: pd.DataFrame,
     investment_dates: list,
-    decisions_df: pd.DataFrame = None,
 ) -> PnlCalculator:
     # Convert positions_agent_df to have date as index, question as columns, and choice as values
     positions_agent_df = positions_agent_df.pivot(

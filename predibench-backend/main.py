@@ -202,8 +202,7 @@ def get_pnl_wrapper(
     write_plots: bool = False,
     end_date: datetime | None = None,
 ) -> dict[str, PnlCalculator]:
-    decisions_df = extract_decisions_data()
-    return get_pnls(positions_df, end_date, write_plots, decisions_df)
+    return get_pnls(positions_df, end_date, write_plots)
 
 
 @profile_time
