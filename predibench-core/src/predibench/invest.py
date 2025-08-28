@@ -13,6 +13,7 @@ from predibench.market_selection import choose_events
 from predibench.polymarket_data import load_events_from_file
 from predibench.retry_models import (
     InferenceClientModelWithRetry,
+    LiteLLMModelWithRetry,
     OpenAIModelWithRetry,
     add_retry_logic,
 )
@@ -65,8 +66,14 @@ def run_investments_for_specific_date(
             model.client = LiteLLMModelWithRetryWait(
                 model_id="anthropic/" + model.model_id
             )
+        elif model.inference_provider == "xai":
+            model.client = LiteLLMModelWithRetry(model_id="xai/" + model.model_id)
         elif model.inference_provider == "google":
-            model.client = OpenAIModelWithRetry(model_id=model.model_id, api_base="https://generativelanguage.googleapis.com/v1beta/openai/", api_key=os.getenv("GEMINI_API_KEY"))
+            model.client = OpenAIModelWithRetry(
+                model_id=model.model_id,
+                api_base="https://generativelanguage.googleapis.com/v1beta/openai/",
+                api_key=os.getenv("GEMINI_API_KEY"),
+            )
         elif model.open_weights:
             model.client = InferenceClientModelWithRetry(
                 model_id=model.model_id,
@@ -88,62 +95,62 @@ def run_investments_for_specific_date(
 if __name__ == "__main__":
     # Test with random model to verify new output format
     models = [
-    ModelInfo(
-        model_id="deepseek-ai/DeepSeek-V3.1",
-        model_pretty_name="DeepSeek V3.1",
-        inference_provider="fireworks-ai",
-        company_pretty_name="DeepSeek",
-        open_weights=True,
-        agent_type="codeagent",
-    ),
-    ModelInfo(
-        model_id="deepseek-ai/DeepSeek-R1",
-        model_pretty_name="DeepSeek R1",
-        inference_provider="fireworks-ai",
-        company_pretty_name="DeepSeek",
-        open_weights=True,
-        agent_type="codeagent",
-    ),
-    ModelInfo(
-        model_id="Qwen/Qwen3-Coder-480B-A35B-Instruct",
-        model_pretty_name="Qwen3-Coder-480B-A35B-Instruct",
-        inference_provider="fireworks-ai",
-        company_pretty_name="Qwen",
-        open_weights=True,
-        agent_type="codeagent",
-    ),
-    ModelInfo(
-        model_id="openai/gpt-oss-120b",
-        model_pretty_name="GPT-OSS 120B",
-        inference_provider="fireworks-ai",
-        company_pretty_name="OpenAI",
-        open_weights=True,
-        agent_type="toolcalling",
-    ),
-    ModelInfo(
-        model_id="openai/gpt-oss-20b",
-        model_pretty_name="GPT-OSS 20B",
-        inference_provider="fireworks-ai",
-        company_pretty_name="OpenAI",
-        open_weights=True,
-        agent_type="toolcalling",
-    ),
-    ModelInfo(
-        model_id="gemini-2.5-flash",
-        model_pretty_name="Gemini 2.5 Flash",
-        inference_provider="google",
-        company_pretty_name="Google",
-        open_weights=False,
-        agent_type="codeagent",
-    ),
-    ModelInfo(
-        model_id="gemini-2.5-pro",
-        model_pretty_name="Gemini 2.5 Pro",
-        inference_provider="google",
-        company_pretty_name="Google",
-        open_weights=False,
-        agent_type="codeagent",
-    ),
+        ModelInfo(
+            model_id="deepseek-ai/DeepSeek-V3.1",
+            model_pretty_name="DeepSeek V3.1",
+            inference_provider="fireworks-ai",
+            company_pretty_name="DeepSeek",
+            open_weights=True,
+            agent_type="codeagent",
+        ),
+        ModelInfo(
+            model_id="deepseek-ai/DeepSeek-R1",
+            model_pretty_name="DeepSeek R1",
+            inference_provider="fireworks-ai",
+            company_pretty_name="DeepSeek",
+            open_weights=True,
+            agent_type="codeagent",
+        ),
+        ModelInfo(
+            model_id="Qwen/Qwen3-Coder-480B-A35B-Instruct",
+            model_pretty_name="Qwen3-Coder-480B-A35B-Instruct",
+            inference_provider="fireworks-ai",
+            company_pretty_name="Qwen",
+            open_weights=True,
+            agent_type="codeagent",
+        ),
+        ModelInfo(
+            model_id="openai/gpt-oss-120b",
+            model_pretty_name="GPT-OSS 120B",
+            inference_provider="fireworks-ai",
+            company_pretty_name="OpenAI",
+            open_weights=True,
+            agent_type="toolcalling",
+        ),
+        ModelInfo(
+            model_id="openai/gpt-oss-20b",
+            model_pretty_name="GPT-OSS 20B",
+            inference_provider="fireworks-ai",
+            company_pretty_name="OpenAI",
+            open_weights=True,
+            agent_type="toolcalling",
+        ),
+        ModelInfo(
+            model_id="gemini-2.5-flash",
+            model_pretty_name="Gemini 2.5 Flash",
+            inference_provider="google",
+            company_pretty_name="Google",
+            open_weights=False,
+            agent_type="codeagent",
+        ),
+        ModelInfo(
+            model_id="gemini-2.5-pro",
+            model_pretty_name="Gemini 2.5 Pro",
+            inference_provider="google",
+            company_pretty_name="Google",
+            open_weights=False,
+            agent_type="codeagent",
+        ),
     ]
 
     results = run_investments_for_specific_date(

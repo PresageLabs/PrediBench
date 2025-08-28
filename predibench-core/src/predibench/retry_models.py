@@ -2,6 +2,7 @@ import logging
 import time
 from typing import Generator, Type, TypeVar
 
+import litellm
 from smolagents import ChatMessage, ChatMessageStreamDelta, Tool
 from smolagents.models import (
     AmazonBedrockModel,
@@ -20,6 +21,8 @@ from tenacity import (
 )
 
 from predibench.logger_config import get_logger
+
+litellm.drop_params = True
 
 logger = get_logger(__name__)
 
