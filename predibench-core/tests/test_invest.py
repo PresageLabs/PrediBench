@@ -21,7 +21,7 @@ def test_invest():
         models=models,
         time_until_ending=timedelta(days=7 * 6),
         max_n_events=2,
-        target_date=date(2025, 8, 25),
+        target_date=date(2025, 8, 24),
     )
 
 def test_invest_without_cache():
