@@ -1,5 +1,6 @@
 import json
 import os
+import logging
 import textwrap
 from datetime import date
 from typing import Any
@@ -30,6 +31,8 @@ from tenacity import (
     retry_if_exception_type,
     stop_after_attempt,
     wait_exponential,
+    before_sleep_log,
+    after_log,
 )
 
 logger = get_logger(__name__)
@@ -256,6 +259,7 @@ def _should_retry(exception: Exception) -> bool:
     error_str = str(exception).lower()
     return (
         "BadRequest" in error_str
+        or "Bad Request" in error_str
         or "ValidationError" in error_str
         or "ContextError" in error_str
         or "maximum context length" in error_str
@@ -266,7 +270,9 @@ def _should_retry(exception: Exception) -> bool:
 @retry(
     stop=stop_after_attempt(2),
     retry=retry_if_exception(_should_retry),
-    reraise=True,
+    before_sleep=before_sleep_log(logger, logging.ERROR),
+    after=after_log(logger, logging.ERROR),
+    reraise=False,
 )
 def run_smolagents(
     model_info: ModelInfo,

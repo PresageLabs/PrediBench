@@ -5,6 +5,7 @@ from predibench.common import DATA_PATH
 from predibench.logger_config import get_logger
 from predibench.market_selection import choose_events
 from predibench.polymarket_data import load_events_from_file, save_events_to_file
+from predibench.storage_utils import file_exists_in_storage, delete_from_storage
 
 logger = get_logger(__name__)
 
@@ -60,8 +61,8 @@ def test_choose_events_event_caching_e2e():
     cache_file = DATA_PATH / "test_events_cache.json"
     save_events_to_file(selected_events, cache_file)
 
-    # Verify file was created
-    assert cache_file.exists(), f"Cache file was not created: {cache_file}"
+    # Verify file was created - file_exists_in_storage works for both modes
+    assert file_exists_in_storage(cache_file), f"Cache file was not created: {cache_file}"
 
     # Step 3: Load events from file
     loaded_events = load_events_from_file(cache_file)
@@ -144,9 +145,8 @@ def test_choose_events_event_caching_e2e():
                     f"Prices should be None for market {orig_market.id}"
                 )
 
-    # Step 5: Cleanup
-    if cache_file.exists():
-        cache_file.unlink()
+    # Step 5: Cleanup - delete_from_storage works for both modes
+    delete_from_storage(cache_file)
 
 
 def test_choose_events_backward():

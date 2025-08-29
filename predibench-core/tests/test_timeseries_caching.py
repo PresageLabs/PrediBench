@@ -2,7 +2,7 @@ import json
 from datetime import datetime, timezone
 
 from predibench.polymarket_api import MarketsRequestParameters, _HistoricalTimeSeriesRequestParameters
-from predibench.storage_utils import delete_from_storage, read_from_storage
+from predibench.storage_utils import delete_from_storage, read_from_storage, file_exists_in_storage
 
 
 def test_cached_timeseries_functionality():
@@ -42,7 +42,7 @@ def test_cached_timeseries_functionality():
     timeseries1 = ts_request.get_cached_token_timeseries()
     assert timeseries1 is not None
     assert len(timeseries1) > 0
-    assert cache_path.exists(), "Cache file should be created"
+    assert file_exists_in_storage(cache_path), "Cache file should be created"
     
     # Test 2: Second call should use cached data
     timeseries2 = ts_request.get_cached_token_timeseries()
@@ -102,7 +102,7 @@ def test_closed_market_caching():
     # Test 1: First call should fetch and cache data
     timeseries1 = ts_request.get_cached_token_timeseries()
     if timeseries1 is not None and len(timeseries1) > 0:
-        assert cache_path.exists(), "Cache file should be created"
+        assert file_exists_in_storage(cache_path), "Cache file should be created"
         
         # Check if the market was marked as closed based on its last price data
         cache_data = json.loads(read_from_storage(cache_path))
