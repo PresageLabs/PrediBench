@@ -4,27 +4,9 @@ from predibench.common import DATA_PATH
 from predibench.invest import run_investments_for_specific_date
 from predibench.models import ModelInfo
 
+import time
 
 def test_invest():
-    models = [
-        ModelInfo(
-            model_id="openai/gpt-oss-120b",
-            model_pretty_name="GPT-OSS 120B",
-            inference_provider="fireworks-ai",
-            company_pretty_name="OpenAI",
-            open_weights=True,
-            agent_type="toolcalling",
-        ),
-    ]
-
-    results = run_investments_for_specific_date(
-        models=models,
-        time_until_ending=timedelta(days=7 * 6),
-        max_n_events=2,
-        target_date=date(2025, 8, 24),
-    )
-
-def test_invest_without_cache():
     models = [
         ModelInfo(
             model_id="openai/gpt-oss-120b",
@@ -45,6 +27,25 @@ def test_invest_without_cache():
         force_rewrite=True,
     )
 
+    models = [
+        ModelInfo(
+            model_id="openai/gpt-oss-120b",
+            model_pretty_name="GPT-OSS 120B",
+            inference_provider="fireworks-ai",
+            company_pretty_name="OpenAI",
+            open_weights=True,
+            agent_type="toolcalling",
+        ),
+    ]
+    start_time = time.time()
+    results = run_investments_for_specific_date(
+        models=models,
+        time_until_ending=timedelta(days=7 * 6),
+        max_n_events=2,
+        target_date=date(2025, 8, 24),
+    )
+    end_time = time.time()
+    assert end_time - start_time < 3
     assert isinstance(result, list)
     if len(result) > 0:
         assert hasattr(result[0], "model_id")
@@ -54,4 +55,4 @@ def test_invest_without_cache():
 
 if __name__ == "__main__":
     test_invest()
-    test_invest_without_cache()
+    
