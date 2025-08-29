@@ -22,6 +22,16 @@ logger = get_logger(__name__)
 
 BUCKET_ENV_VAR = "BUCKET_PREDIBENCH"
 
+# Automatically determine storage mode based on bucket availability
+def _get_storage_mode() -> bool:
+    """Determine if we should use bucket storage based on environment variable."""
+    if BUCKET_ENV_VAR not in os.environ:
+        logger.info(f"Bucket environment variable {BUCKET_ENV_VAR} not set. Using local storage mode.")
+        return False
+    return True
+
+STORAGE_MODE_BUCKET = _get_storage_mode()
+
 try:
     bucket_json_key = os.getenv("BUCKET_JSON_KEY")
     if bucket_json_key:
@@ -136,21 +146,23 @@ def _write_file_to_bucket_or_data_dir(file_path: Path, blob_name: str) -> bool:
 
 def _write_to_bucket_or_data_dir(content: str, blob_name: str) -> bool:
     """
-    Write content to a file in bucket if available, and also save locally for debugging.
+    Write content to either bucket or local storage based on STORAGE_MODE_BUCKET.
     """
-    # Always save locally for debugging
-    local_path = DATA_PATH / blob_name
-    local_path.parent.mkdir(parents=True, exist_ok=True)
-    local_path.write_text(content)
-
-    # Also upload to bucket if available
-    if has_bucket_write_access():
-        bucket = get_bucket()
-        blob = bucket.blob(blob_name)
-        blob.upload_from_string(content)
-        print(f"✅ Uploaded {blob_name} to bucket and saved locally")
+    if STORAGE_MODE_BUCKET:
+        # Use bucket storage only
+        if has_bucket_write_access():
+            bucket = get_bucket()
+            blob = bucket.blob(blob_name)
+            blob.upload_from_string(content)
+            print(f"✅ Uploaded {blob_name} to bucket")
+        else:
+            raise RuntimeError(f"Bucket storage mode enabled but GCP access not available. Set {BUCKET_ENV_VAR} environment variable or check GCP credentials.")
     else:
-        print(f"✅ Saved {blob_name} locally only (no bucket access)")
+        # Use local storage only
+        local_path = DATA_PATH / blob_name
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        local_path.write_text(content)
+        print(f"✅ Saved {blob_name} locally")
 
     return True
 
@@ -176,20 +188,23 @@ def write_to_storage(file_path: Path, content: str) -> bool:
 
 def _read_file_from_bucket_or_data_dir(blob_name: str) -> str:
     """
-    Read a file from local data directory first, then from bucket if not found.
+    Read a file from either bucket or local storage based on STORAGE_MODE_BUCKET.
     """
-    # Try local first
-    local_path = DATA_PATH / blob_name
-    if local_path.exists():
-        return local_path.read_text()
-
-    # If not found locally, try bucket
-    if has_bucket_read_access():
-        bucket = get_bucket()
-        blob = bucket.blob(blob_name)
-        return blob.download_as_text()
+    if STORAGE_MODE_BUCKET:
+        # Use bucket storage only
+        if has_bucket_read_access():
+            bucket = get_bucket()
+            blob = bucket.blob(blob_name)
+            return blob.download_as_text()
+        else:
+            raise RuntimeError(f"Bucket storage mode enabled but GCP access not available. Set {BUCKET_ENV_VAR} environment variable or check GCP credentials.")
     else:
-        raise FileNotFoundError(f"File not found locally or in bucket: {blob_name}")
+        # Use local storage only
+        local_path = DATA_PATH / blob_name
+        if local_path.exists():
+            return local_path.read_text()
+        else:
+            raise FileNotFoundError(f"File not found locally: {blob_name}")
 
 
 def read_from_storage(file_path: Path) -> str:
@@ -216,7 +231,7 @@ def read_from_storage(file_path: Path) -> str:
 
 def file_exists_in_storage(file_path: Path, force_rewrite: bool = False) -> bool:
     """
-    Check if a file exists in storage (GCP bucket or local data directory).
+    Check if a file exists in storage based on STORAGE_MODE_BUCKET.
 
     Args:
         file_path: Path object that must be relative to DATA_PATH
@@ -237,19 +252,22 @@ def file_exists_in_storage(file_path: Path, force_rewrite: bool = False) -> bool
     relative_path = file_path.relative_to(DATA_PATH)
     blob_name = str(relative_path)
 
-    # Check bucket if available
-    if has_bucket_read_access():
-        bucket = get_bucket()
-        blob = bucket.blob(blob_name)
-        return blob.exists()
-
-    # Check local
-    return file_path.exists()
+    if STORAGE_MODE_BUCKET:
+        # Check bucket only
+        if has_bucket_read_access():
+            bucket = get_bucket()
+            blob = bucket.blob(blob_name)
+            return blob.exists()
+        else:
+            raise RuntimeError(f"Bucket storage mode enabled but GCP access not available. Set {BUCKET_ENV_VAR} environment variable or check GCP credentials.")
+    else:
+        # Check local only
+        return file_path.exists()
 
 
 def delete_from_storage(file_path: Path) -> bool:
     """
-    Delete a file from storage (GCP bucket and local data directory).
+    Delete a file from storage based on STORAGE_MODE_BUCKET.
 
     Args:
         file_path: Path object that must be relative to DATA_PATH
@@ -266,23 +284,24 @@ def delete_from_storage(file_path: Path) -> bool:
 
     relative_path = file_path.relative_to(DATA_PATH)
     blob_name = str(relative_path)
-    
-    deleted = False
 
-    # Delete from bucket if available
-    if has_bucket_write_access():
-        bucket = get_bucket()
-        blob = bucket.blob(blob_name)
-        if blob.exists():
-            blob.delete()
-            deleted = True
-
-    # Delete from local
-    if file_path.exists():
-        file_path.unlink()
-        deleted = True
-
-    return deleted
+    if STORAGE_MODE_BUCKET:
+        # Delete from bucket only
+        if has_bucket_write_access():
+            bucket = get_bucket()
+            blob = bucket.blob(blob_name)
+            if blob.exists():
+                blob.delete()
+                return True
+            return False
+        else:
+            raise RuntimeError(f"Bucket storage mode enabled but GCP access not available. Set {BUCKET_ENV_VAR} environment variable or check GCP credentials.")
+    else:
+        # Delete from local only
+        if file_path.exists():
+            file_path.unlink()
+            return True
+        return False
 
 
 if __name__ == "__main__":
