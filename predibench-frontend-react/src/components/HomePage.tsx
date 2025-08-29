@@ -1,7 +1,7 @@
-import { ArrowRight } from 'lucide-react'
 import type { Event, LeaderboardEntry } from '../api'
 import { FeaturedEvents } from './FeaturedEvents'
 import { LeaderboardTable } from './LeaderboardTable'
+import { RedirectButton } from './ui/redirect-button'
 
 interface HomePageProps {
   leaderboard: LeaderboardEntry[]
@@ -26,13 +26,9 @@ export function HomePage({ leaderboard, events, loading = false }: HomePageProps
           initialVisibleModels={10}
         />
         <div className="text-center mt-6">
-          <a
-            href="/leaderboard"
-            className="inline-flex items-center space-x-2 text-foreground hover:shadow-lg transition-all duration-200 font-medium border border-border rounded-lg px-6 py-3 hover:border-primary/50"
-          >
-            <span>Detailed leaderboard and profit curves</span>
-            <ArrowRight className="h-4 w-4" />
-          </a>
+          <RedirectButton href="/leaderboard">
+            Detailed leaderboard and profit curves
+          </RedirectButton>
         </div>
       </div>
 
@@ -50,13 +46,9 @@ export function HomePage({ leaderboard, events, loading = false }: HomePageProps
             at understanding complex market dynamics.
           </p>
           <div className="text-center">
-            <a
-              href="/about"
-              className="inline-flex items-center space-x-2 text-foreground hover:shadow-lg transition-all duration-200 font-medium border border-border rounded-lg px-6 py-3 hover:border-primary/50"
-            >
-              <span>More detail on the benchmark</span>
-              <ArrowRight className="h-4 w-4" />
-            </a>
+            <RedirectButton href="/about">
+              More detail on the benchmark
+            </RedirectButton>
           </div>
         </div>
       </div>

@@ -1,8 +1,8 @@
-import { ArrowRight } from 'lucide-react'
 import type { LeaderboardEntry } from '../api'
 import { LeaderboardTable } from './LeaderboardTable'
 import { getChartColor } from './ui/chart-colors'
 import { InfoTooltip } from './ui/info-tooltip'
+import { RedirectButton } from './ui/redirect-button'
 import { VisxLineChart } from './ui/visx-line-chart'
 
 interface LeaderboardPageProps {
@@ -117,13 +117,9 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
               </div>
 
               <div className="text-center">
-                <a
-                  href="/about"
-                  className="inline-flex items-center space-x-2 text-foreground hover:shadow-lg transition-all duration-200 font-medium border border-border rounded-lg px-6 py-3 hover:border-primary/50"
-                >
-                  <span>More detail on the benchmark</span>
-                  <ArrowRight className="h-4 w-4" />
-                </a>
+                <RedirectButton href="/about">
+                  More detail on the benchmark
+                </RedirectButton>
               </div>
             </div>
           </div>

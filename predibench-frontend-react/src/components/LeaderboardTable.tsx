@@ -2,6 +2,7 @@ import { ArrowDown, ChevronDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { LeaderboardEntry } from '../api'
 import { InfoTooltip } from './ui/info-tooltip'
+import { RedirectButton } from './ui/redirect-button'
 
 type SortKey = 'pnl' | 'brier'
 
@@ -71,24 +72,24 @@ export function LeaderboardTable({
             <thead className="bg-muted/30">
               <tr>
                 <th className="text-left py-4 px-6 font-semibold">Model Name</th>
-                <th className="text-right py-4 px-6 font-semibold">
+                <th className="text-center py-4 px-6 font-semibold">
                   <button
                     onClick={() => handleSort('pnl')}
-                    className="flex items-center justify-end space-x-1 w-full hover:text-primary transition-colors"
+                    className="flex items-center justify-center space-x-1 w-full hover:text-primary transition-colors"
                   >
+                    <ArrowDown className={`h-4 w-4 ${sortKey === 'cumulative_profit' ? 'text-primary' : 'opacity-40'}`} />
                     <span>Cumulative Profit</span>
-                    <ArrowDown className={`h-4 w-4 ${sortKey === 'pnl' ? 'text-primary' : 'opacity-40'}`} />
                     <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
                   </button>
                 </th>
-                <th className="text-right py-4 px-6 font-semibold">
+                <th className="text-center py-4 px-6 font-semibold">
                   <button
                     onClick={() => handleSort('brier')}
-                    className="flex items-center justify-end space-x-1 w-full hover:text-primary transition-colors"
+                    className="flex items-center justify-center space-x-1 w-full hover:text-primary transition-colors"
                     title="Brier Score - Higher values indicate better prediction accuracy (1 - original Brier score)"
                   >
+                    <ArrowDown className={`h-4 w-4 ${sortKey === 'brier_score' ? 'text-primary' : 'opacity-40'}`} />
                     <span>Brier Score</span>
-                    <ArrowDown className={`h-4 w-4 ${sortKey === 'brier' ? 'text-primary' : 'opacity-40'}`} />
                     <InfoTooltip content="A measure of prediction accuracy. Lower values indicate better calibration - how well the model's confidence matches actual outcomes (0 = perfect, 1 = worst)" />
                   </button>
                 </th>
@@ -104,11 +105,11 @@ export function LeaderboardTable({
                         <div className="h-4 bg-gray-200 rounded animate-pulse w-32"></div>
                       </div>
                     </td>
-                    <td className="py-4 px-6 text-right">
-                      <div className="h-4 bg-gray-200 rounded animate-pulse w-16 ml-auto"></div>
+                    <td className="py-4 px-6 text-center">
+                      <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
                     </td>
-                    <td className="py-4 px-6 text-right">
-                      <div className="h-4 bg-gray-200 rounded animate-pulse w-16 ml-auto"></div>
+                    <td className="py-4 px-6 text-center">
+                      <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
                     </td>
                   </tr>
                 ))
@@ -132,14 +133,14 @@ export function LeaderboardTable({
                         </span>
                       </a>
                     </td>
-                    <td className="py-4 px-6 text-right font-medium">
+                    <td className="py-4 px-6 text-center font-medium">
                       <a href={`/models?selected=${model.id}`} className="block">
                         <span className={model.final_cumulative_pnl >= 0 ? 'text-green-600' : 'text-red-600'}>
                           ${model.final_cumulative_pnl.toFixed(1)}
                         </span>
                       </a>
                     </td>
-                    <td className="py-4 px-6 text-right font-medium">
+                    <td className="py-4 px-6 text-center font-medium">
                       <a href={`/models?selected=${model.id}`} className="block">
                         {model.avg_brier_score ? `${((1 - model.avg_brier_score) * 100).toFixed(1)}%` : 'N/A'}
                       </a>
@@ -155,13 +156,12 @@ export function LeaderboardTable({
       {/* Show More Button */}
       {sortedLeaderboard.length > visibleModels && (
         <div className="text-center mt-6">
-          <button
+          <RedirectButton
             onClick={showMore}
-            className="inline-flex items-center space-x-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+            icon={<ChevronDown className="h-4 w-4" />}
           >
-            <ChevronDown className="h-4 w-4" />
-            <span>Show more</span>
-          </button>
+            Show more
+          </RedirectButton>
         </div>
       )}
     </div>
