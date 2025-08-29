@@ -1,5 +1,5 @@
 import * as Select from '@radix-ui/react-select'
-import { Check, ChevronDown } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { LeaderboardEntry, ModelMarketDetails } from '../api'
@@ -77,8 +77,14 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
           </Select.Trigger>
 
           <Select.Portal>
-            <Select.Content className="overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
-              <Select.Viewport className="p-1">
+            <Select.Content
+              className="overflow-hidden rounded-lg border border-border bg-popover shadow-lg z-50"
+              position="popper"
+              side="bottom"
+              align="start"
+              sideOffset={4}
+            >
+              <Select.Viewport className="p-1 max-h-[70vh] overflow-y-auto">
                 {leaderboard.map((model, index) => (
                   <Select.Item
                     key={model.id}
@@ -96,22 +102,12 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                         </div>
                         <div>
                           <div className="font-medium">{model.model}</div>
-                          <div className="text-xs text-muted-foreground grid grid-cols-2 gap-2 mt-1">
-                            <span className="flex items-center">
-                              Profit: {model.final_cumulative_pnl.toFixed(1)}
-                              <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
-                            </span>
-                            <span className="flex items-center">
-                              Brier score: {((1 - model.avg_brier_score) * 100).toFixed(1)}%
-                              <InfoTooltip content="A measure of prediction accuracy. Lower values indicate better calibration - how well the model's confidence matches actual outcomes (0 = perfect, 1 = worst)" />
-                            </span>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Profit: ${model.final_cumulative_pnl.toFixed(1)} | Brier score: {((1 - model.avg_brier_score) * 100).toFixed(1)}%
                           </div>
                         </div>
                       </div>
                     </Select.ItemText>
-                    <Select.ItemIndicator className="absolute right-2">
-                      <Check size={14} />
-                    </Select.ItemIndicator>
                   </Select.Item>
                 ))}
               </Select.Viewport>

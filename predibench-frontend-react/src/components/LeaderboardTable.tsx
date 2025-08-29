@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import type { LeaderboardEntry } from '../api'
 import { InfoTooltip } from './ui/info-tooltip'
 
-type SortKey = 'pnl' | 'brier'
+type SortKey = 'cumulative_profit' | 'brier_score'
 
 interface LeaderboardTableProps {
   leaderboard: LeaderboardEntry[]
@@ -17,12 +17,12 @@ export function LeaderboardTable({
   initialVisibleModels = 10
 }: LeaderboardTableProps) {
   const [visibleModels, setVisibleModels] = useState(initialVisibleModels)
-  const [sortKey, setSortKey] = useState<SortKey>('pnl')
+  const [sortKey, setSortKey] = useState<SortKey>('cumulative_profit')
 
   const sortedLeaderboard = useMemo(() => {
     return [...leaderboard].sort((a, b) => {
       switch (sortKey) {
-        case 'pnl':
+        case 'cumulative_profit':
           // Primary sort by PnL (higher first)
           const pnlDiff = b.final_cumulative_pnl - a.final_cumulative_pnl
           // If PnL is very close (within 0.01), use Brier score as tie-breaker
@@ -30,7 +30,7 @@ export function LeaderboardTable({
             return (1 - b.avg_brier_score) - (1 - a.avg_brier_score) // Higher Brier score wins tie
           }
           return pnlDiff
-        case 'brier':
+        case 'brier_score':
           // Primary sort by Brier score (higher transformed score first)
           const brierDiff = (1 - b.avg_brier_score) - (1 - a.avg_brier_score)
           // If Brier scores are very close (within 0.001), use PnL as tie-breaker
@@ -73,22 +73,22 @@ export function LeaderboardTable({
                 <th className="text-left py-4 px-6 font-semibold">Model Name</th>
                 <th className="text-right py-4 px-6 font-semibold">
                   <button
-                    onClick={() => handleSort('pnl')}
+                    onClick={() => handleSort('cumulative_profit')}
                     className="flex items-center justify-end space-x-1 w-full hover:text-primary transition-colors"
                   >
                     <span>Cumulative Profit</span>
-                    <ArrowDown className={`h-4 w-4 ${sortKey === 'pnl' ? 'text-primary' : 'opacity-40'}`} />
+                    <ArrowDown className={`h-4 w-4 ${sortKey === 'cumulative_profit' ? 'text-primary' : 'opacity-40'}`} />
                     <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
                   </button>
                 </th>
                 <th className="text-right py-4 px-6 font-semibold">
                   <button
-                    onClick={() => handleSort('brier')}
+                    onClick={() => handleSort('brier_score')}
                     className="flex items-center justify-end space-x-1 w-full hover:text-primary transition-colors"
                     title="Brier Score - Higher values indicate better prediction accuracy (1 - original Brier score)"
                   >
                     <span>Brier Score</span>
-                    <ArrowDown className={`h-4 w-4 ${sortKey === 'brier' ? 'text-primary' : 'opacity-40'}`} />
+                    <ArrowDown className={`h-4 w-4 ${sortKey === 'brier_score' ? 'text-primary' : 'opacity-40'}`} />
                     <InfoTooltip content="A measure of prediction accuracy. Lower values indicate better calibration - how well the model's confidence matches actual outcomes (0 = perfect, 1 = worst)" />
                   </button>
                 </th>

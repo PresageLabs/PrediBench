@@ -18,7 +18,7 @@ login(os.getenv("HF_TOKEN"))
 BACKWARD_MODE_MODELS = [
     ModelInfo(
         model_id="Qwen/Qwen3-Coder-480B-A35B-Instruct",
-        model_pretty_name="Qwen3-Coder-480B-A35B-Instruct",
+        model_pretty_name="Qwen3 Coder 480B",
         inference_provider="fireworks-ai",
         company_pretty_name="Qwen",
         open_weights=True,

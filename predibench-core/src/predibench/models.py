@@ -69,7 +69,14 @@ MODELS_BY_PROVIDER = {
         ),
         ModelInfo(
             model_id="Qwen/Qwen3-Coder-480B-A35B-Instruct",
-            model_pretty_name="Qwen3-Coder-480B-A35B-Instruct",
+            model_pretty_name="Qwen3 Coder 480B",
+            inference_provider="fireworks-ai",
+            company_pretty_name="Qwen",
+            open_weights=True,
+        ),
+        ModelInfo(
+            model_id="Qwen/Qwen3-235B-A22B-Instruct-2507",
+            model_pretty_name="Qwen3 235B",
             inference_provider="fireworks-ai",
             company_pretty_name="Qwen",
             open_weights=True,
@@ -141,7 +148,7 @@ MODEL_MAP = [model for models in MODELS_BY_PROVIDER.values() for model in models
 BACKWARD_MODE_MODELS = [
     ModelInfo(
         model_id="Qwen/Qwen3-Coder-480B-A35B-Instruct",
-        model_pretty_name="Qwen3-Coder-480B-A35B-Instruct",
+        model_pretty_name="Qwen3 Coder 480B",
         inference_provider="fireworks-ai",
         company_pretty_name="Qwen",
         open_weights=True,

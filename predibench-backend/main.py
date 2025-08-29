@@ -1,4 +1,3 @@
-import json
 import os
 import time
 from datetime import datetime
@@ -178,7 +177,7 @@ def extract_decisions_data():
 
     # Working with Pydantic models from GCP
     for model_result in model_results:
-        agent_name = model_result.model_id
+        model_name = model_result.model_info.model_pretty_name
         date = model_result.target_date
 
         for event_decision in model_result.event_investment_decisions:
@@ -187,7 +186,8 @@ def extract_decisions_data():
                     {
                         "date": date,
                         "market_id": market_decision.market_id,
-                        "agent_name": agent_name,
+                        "model_name": model_name,
+                        "model_id": model_result.model_id,
                         "odds": market_decision.model_decision.odds,
                         "confidence": market_decision.model_decision.confidence,
                     }
@@ -216,7 +216,7 @@ def calculate_real_performance():
 
     positions = []
     for model_result in model_results:
-        agent_name = model_result.model_id
+        model_name = model_result.model_info.model_pretty_name
         date = model_result.target_date
 
         for event_decision in model_result.event_investment_decisions:
@@ -226,7 +226,7 @@ def calculate_real_performance():
                         "date": date,
                         "market_id": market_decision.market_id,
                         "choice": market_decision.model_decision.bet,
-                        "agent_name": agent_name,
+                        "model_name": model_name,
                     }
                 )
 
@@ -242,9 +242,9 @@ def calculate_real_performance():
     # Create BrierScoreCalculator instances for each agent
     decisions_df = extract_decisions_data()
     brier_calculators = {}
-    for agent_name, pnl_calculator in pnl_calculators.items():
+    for model_name, pnl_calculator in pnl_calculators.items():
         # Filter decisions for this agent
-        agent_decisions = decisions_df[decisions_df["agent_name"] == agent_name]
+        agent_decisions = decisions_df[decisions_df["model_name"] == model_name]
         # Convert to pivot format
         decisions_pivot_df = agent_decisions.pivot(
             index="date", columns="market_id", values="odds"
@@ -253,13 +253,13 @@ def calculate_real_performance():
         decisions_pivot_df = decisions_pivot_df.reindex(
             pnl_calculator.prices.index, method="ffill"
         )
-        brier_calculators[agent_name] = BrierScoreCalculator(
+        brier_calculators[model_name] = BrierScoreCalculator(
             decisions_pivot_df, pnl_calculator.prices
         )
 
     agents_performance = {}
-    for agent_name, pnl_calculator in pnl_calculators.items():
-        brier_calculator = brier_calculators[agent_name]
+    for model_name, pnl_calculator in pnl_calculators.items():
+        brier_calculator = brier_calculators[model_name]
         daily_pnl = pnl_calculator.portfolio_daily_pnl
 
         # Generate performance history from cumulative Profit
@@ -278,8 +278,8 @@ def calculate_real_performance():
             else 0
         )
 
-        agents_performance[agent_name] = {
-            "agent_name": agent_name,
+        agents_performance[model_name] = {
+            "model_name": model_name,
             "final_cumulative_pnl": final_pnl,
             "annualized_sharpe_ratio": sharpe_ratio,
             "pnl_history": pnl_history,
@@ -292,7 +292,7 @@ def calculate_real_performance():
         }
 
         print(
-            f"Agent {agent_name}: Profit={final_pnl:.3f}, Sharpe={sharpe_ratio:.3f}, Brier={brier_calculator.avg_brier_score:.3f}"
+            f"Agent {model_name}: Profit={final_pnl:.3f}, Sharpe={sharpe_ratio:.3f}, Brier={brier_calculator.avg_brier_score:.3f}"
         )
 
     print(f"Calculated performance for {len(agents_performance)} agents")
@@ -305,7 +305,7 @@ def get_leaderboard() -> list[LeaderboardEntry]:
     real_performance = calculate_real_performance()
 
     leaderboard = []
-    for _, (agent_name, metrics) in enumerate(
+    for _, (model_name, metrics) in enumerate(
         sorted(
             real_performance.items(),
             key=lambda x: x[1]["final_cumulative_pnl"],
@@ -327,8 +327,8 @@ def get_leaderboard() -> list[LeaderboardEntry]:
             trend = "stable"
 
         entry = LeaderboardEntry(
-            id=agent_name,
-            model=agent_name.replace("smolagent_", "").replace("--", "/"),
+            id=model_name,
+            model=model_name,
             final_cumulative_pnl=metrics["final_cumulative_pnl"],
             trades=0,
             profit=0,
@@ -447,7 +447,7 @@ def get_positions_df():
     # Working with Pydantic models from GCP
     positions = []
     for model_result in data:
-        agent_name = model_result.model_id
+        model_name = model_result.model_info.model_pretty_name
         date = model_result.target_date
 
         for event_decision in model_result.event_investment_decisions:
@@ -457,7 +457,7 @@ def get_positions_df():
                         "date": date,
                         "market_id": market_decision.market_id,
                         "choice": market_decision.model_decision.bet,
-                        "agent_name": agent_name,
+                        "model_name": model_name,
                     }
                 )
 
@@ -486,7 +486,7 @@ def get_model_investment_details(agent_id: str):
 
     # Filter for this specific agent
     positions_df = get_positions_df()
-    agent_positions = positions_df[positions_df["agent_name"] == agent_id]
+    agent_positions = positions_df[positions_df["model_name"] == agent_id]
 
     if agent_positions.empty:
         return {"markets": []}
@@ -612,16 +612,16 @@ def get_event_investment_decisions(event_id: str):
     # Get the latest prediction for each agent for this specific event ID
     agent_latest_predictions = {}
     for model_result in data:
-        agent_name = model_result.model_id
+        model_name = model_result.model_info.model_pretty_name
         for event_decision in model_result.event_investment_decisions:
             if event_decision.event_id == event_id:
                 # Use target_date as a proxy for "latest" (assuming newer dates are more recent)
                 if (
-                    agent_name not in agent_latest_predictions
+                    model_name not in agent_latest_predictions
                     or model_result.target_date
-                    > agent_latest_predictions[agent_name][0].target_date
+                    > agent_latest_predictions[model_name][0].target_date
                 ):
-                    agent_latest_predictions[agent_name] = (
+                    agent_latest_predictions[model_name] = (
                         model_result,
                         event_decision,
                     )
@@ -632,7 +632,8 @@ def get_event_investment_decisions(event_id: str):
             market_investments.append(
                 {
                     "market_id": market_decision.market_id,
-                    "agent_name": model_result.model_id,
+                    "model_name": model_result.model_info.model_pretty_name,
+                    "model_id": model_result.model_id,
                     "bet": market_decision.model_decision.bet,
                     "odds": market_decision.model_decision.odds,
                     "confidence": market_decision.model_decision.confidence,
