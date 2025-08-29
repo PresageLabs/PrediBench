@@ -42,7 +42,7 @@ def run_investments_for_specific_date(
     cache_file_path = cache_file_path / "events.json"
 
     if file_exists_in_storage(
-        cache_file_path, force_rewrite=True
+        cache_file_path, force_rewrite=False
     ):  # IT is very unconvenient to override and lose the events
         logger.info(f"Loading events from cache: {cache_file_path}")
         selected_events = load_events_from_file(cache_file_path)
