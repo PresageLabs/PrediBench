@@ -6,7 +6,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from predibench.brier import BrierScoreCalculator
 from predibench.logger_config import get_logger
 from predibench.polymarket_api import Market, MarketsRequestParameters
 
@@ -311,7 +310,7 @@ def get_pnls(
     """Builds Profit calculators for each agent in the positions dataframe.
 
     Args:
-        positions_df: DataFrame with positions data, with columns [agent_name, market_id, date]
+        positions_df: DataFrame with positions data, with columns [model_name, market_id, date]
         write_plots: bool, if True, will write plots to the current directory
         end_date: cutoff date
     """
@@ -333,11 +332,11 @@ def get_pnls(
     validate_continuous_prices(prices_df)
 
     pnl_calculators = {}
-    for agent_name in positions_df["agent_name"].unique():
-        print("AGENT NAME", agent_name)
+    for model_name in positions_df["model_name"].unique():
+        print("AGENT NAME", model_name)
         positions_agent_df = positions_df[
-            positions_df["agent_name"] == agent_name
-        ].drop(columns=["agent_name"])
+            positions_df["model_name"] == model_name
+        ].drop(columns=["model_name"])
         positions_agent_df = positions_agent_df.loc[
             positions_agent_df["date"].isin(positions_df["date"].unique())
         ]
@@ -353,7 +352,7 @@ def get_pnls(
             prices_df,
             positions_df["date"].unique(),
         )
-        pnl_calculators[agent_name] = pnl_calculator
+        pnl_calculators[model_name] = pnl_calculator
 
     return pnl_calculators
 

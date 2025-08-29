@@ -22,7 +22,7 @@ interface PriceData {
 
 interface MarketInvestmentDecision {
   market_id: string
-  agent_name: string
+  model_name: string
   bet: number
   odds: number
   rationale: string
@@ -222,7 +222,7 @@ export function EventDetail({ event }: EventDetailProps) {
                   <tr className="border-b border-border">
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground"></th>
                     {/* Create column headers for each unique model */}
-                    {[...new Set(investmentDecisions.map(decision => decision.agent_name))].map(modelName => (
+                    {[...new Set(investmentDecisions.map(decision => decision.model_name))].map(modelName => (
                       <th key={modelName} className="text-center py-3 px-4 text-sm font-medium text-muted-foreground">
                         {modelName}
                       </th>
@@ -233,8 +233,8 @@ export function EventDetail({ event }: EventDetailProps) {
                   {/* Bet row */}
                   <tr className="border-b border-border bg-muted/50">
                     <td className="py-3 px-4 font-medium text-sm">Bet</td>
-                    {[...new Set(investmentDecisions.map(decision => decision.agent_name))].map(modelName => {
-                      const decision = investmentDecisions.find(d => d.agent_name === modelName)
+                    {[...new Set(investmentDecisions.map(decision => decision.model_name))].map(modelName => {
+                      const decision = investmentDecisions.find(d => d.model_name === modelName)
                       return (
                         <td key={modelName} className="py-3 px-4 text-center">
                           {decision && (
@@ -253,8 +253,8 @@ export function EventDetail({ event }: EventDetailProps) {
                   {/* Confidence row */}
                   <tr>
                     <td className="py-3 px-4 font-medium text-sm">Confidence</td>
-                    {[...new Set(investmentDecisions.map(decision => decision.agent_name))].map(modelName => {
-                      const decision = investmentDecisions.find(d => d.agent_name === modelName)
+                    {[...new Set(investmentDecisions.map(decision => decision.model_name))].map(modelName => {
+                      const decision = investmentDecisions.find(d => d.model_name === modelName)
                       return (
                         <td key={modelName} className="py-3 px-4 text-center text-sm text-muted-foreground">
                           {decision && `${(decision.odds * 100).toFixed(0)}%`}
