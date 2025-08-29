@@ -28,7 +28,4 @@ jobs:
       env:
         HF_TOKEN: ${{ secrets.HF_TOKEN }}
       run: |
-        cd predibench-core && uv run python -m pytest tests/ \
-          --ignore=tests/test_invest.py \
-          -v \
-          --tb=short
+        cd predibench-core && uv run python -m pytest tests/
