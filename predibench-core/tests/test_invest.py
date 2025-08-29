@@ -23,6 +23,25 @@ def test_invest():
         assert hasattr(result[0], "model_id")
         assert hasattr(result[0], "target_date")
 
+def test_invest_without_cache():
+    models = [
+        InferenceClientModel(model_id="openai/gpt-oss-120b"),
+    ]
+    target_date = date(2025, 7, 16)
+
+    result = run_investments_for_specific_date(
+        time_until_ending=timedelta(days=21),
+        max_n_events=1,
+        models=models,
+        target_date=target_date,
+        force_rewrite=True,
+    )
+
+    assert isinstance(result, list)
+    if len(result) > 0:
+        assert hasattr(result[0], "model_id")
+        assert hasattr(result[0], "target_date")
+
 
 
 if __name__ == "__main__":
