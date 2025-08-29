@@ -30,7 +30,7 @@ export function Layout({ children, currentPage }: LayoutProps) {
                 🤞 PrediBench
               </a>
               <p className="text-sm text-muted-foreground hidden md:block">
-                LLMs bet on the future!
+                LLMs bet on the future
               </p>
             </div>
 
