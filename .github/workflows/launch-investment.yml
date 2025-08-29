@@ -6,13 +6,16 @@ on:
       provider:
         description: 'Provider to run'
         required: false
-        default: 'huggingface'
+        default: 'huggingface-openai'
         type: choice
         options:
           - events
           - xai
           - openai
-          - huggingface
+          - huggingface-openai
+          - huggingface-qwen
+          - huggingface-deepseek
+          - huggingface-meta
           - google
           - perplexity
           - anthropic

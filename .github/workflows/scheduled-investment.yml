@@ -59,7 +59,10 @@ jobs:
         provider:
           - xai
           - openai
-          - huggingface
+          - huggingface-openai
+          - huggingface-qwen
+          - huggingface-deepseek
+          - huggingface-meta
           - google
           - perplexity
           - anthropic

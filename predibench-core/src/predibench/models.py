@@ -35,7 +35,7 @@ MODELS_BY_PROVIDER = {
             company_pretty_name="OpenAI",
         ),
     ],
-    "huggingface": [
+    "huggingface-openai": [
         ModelInfo(
             model_id="openai/gpt-oss-120b",
             model_pretty_name="GPT-OSS 120B",
@@ -44,6 +44,8 @@ MODELS_BY_PROVIDER = {
             open_weights=True,
             agent_type="toolcalling",
         ),
+    ],
+    "huggingface-qwen": [
         ModelInfo(
             model_id="Qwen/Qwen3-Coder-480B-A35B-Instruct",
             model_pretty_name="Qwen3 Coder 480B",
@@ -58,6 +60,8 @@ MODELS_BY_PROVIDER = {
             company_pretty_name="Qwen",
             open_weights=True,
         ),
+    ],
+    "huggingface-deepseek": [
         ModelInfo(
             model_id="deepseek-ai/DeepSeek-V3.1",
             model_pretty_name="DeepSeek V3.1",
@@ -72,6 +76,8 @@ MODELS_BY_PROVIDER = {
             company_pretty_name="DeepSeek",
             open_weights=True,
         ),
+    ],
+    "huggingface-meta": [
         ModelInfo(
             model_id="meta-llama/Llama-4-Maverick-17B-128E-Instruct",
             model_pretty_name="Llama 4 Maverick",
