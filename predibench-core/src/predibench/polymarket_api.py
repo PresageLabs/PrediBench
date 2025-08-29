@@ -329,7 +329,7 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
                 cached_timeseries = self._deserialize_timeseries(cached_data)
                 
                 # Check if cached data covers the required date range
-                if self._is_cache_up_to_date(cached_timeseries):
+                if self._is_cache_up_to_date(cached_data=cached_data, cached_timeseries=cached_timeseries):
                     return cached_timeseries
                 else:
                     logger.info(f"Cache for {self.clob_token_id} is outdated, updating...")
@@ -447,21 +447,14 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
         
         return pd.Series(series_data, index=timestamps)
 
-    def _is_cache_up_to_date(self, cached_timeseries: pd.Series) -> bool:
-        """Check if cached timeseries covers the required date range."""
+    def _is_cache_up_to_date(self, cached_timeseries: pd.Series, cached_data: dict | None = None) -> bool:
+        """Check if cached timeseries covers the required date range or if market is closed."""
         if cached_timeseries is None or len(cached_timeseries) == 0:
             return False
         
-        # Determine the target datetime - use end_datetime if specified, otherwise now
-        target_datetime = (
-            self.end_datetime 
-            if self.end_datetime is not None 
-            else datetime.now(timezone.utc)
-        )
-        
-        # Ensure target_datetime has timezone info
-        if target_datetime.tzinfo is None:
-            target_datetime = target_datetime.replace(tzinfo=timezone.utc)
+        # Check if market is closed - if so, cache is always up to date
+        if cached_data and cached_data.get("is_closed", False):
+            return True
         
         # Get the latest cached timestamp
         max_cached_timestamp = cached_timeseries.index.max()
@@ -470,8 +463,26 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
         if hasattr(max_cached_timestamp, 'tzinfo') and max_cached_timestamp.tzinfo is None:
             max_cached_timestamp = max_cached_timestamp.replace(tzinfo=timezone.utc)
         
-        # Check if the target datetime is covered by the cached data (with some tolerance)
-        return target_datetime <= max_cached_timestamp
+        # Get today's date in UTC
+        today_utc = datetime.now(timezone.utc).date()
+        
+        # Check if the latest value is from the same day as today (in UTC)
+        max_cached_date = max_cached_timestamp.date()
+        if max_cached_date == today_utc:
+            return True
+        
+        # If we have an end_datetime specified, check if it's covered by the cached data
+        if self.end_datetime is not None:
+            target_datetime = self.end_datetime
+            # Ensure target_datetime has timezone info
+            if target_datetime.tzinfo is None:
+                target_datetime = target_datetime.replace(tzinfo=timezone.utc)
+            
+            # Check if the target datetime is covered by the cached data
+            return target_datetime <= max_cached_timestamp
+        
+        # If no end_datetime specified and latest data is not from today, cache is outdated
+        return False
     
     def _check_if_market_closed(self, timeseries: pd.Series) -> bool:
         """Check if market is closed based on last price being older than 2 days."""
