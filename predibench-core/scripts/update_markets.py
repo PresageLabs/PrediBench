@@ -60,25 +60,21 @@ def update_market(clob_token_id: str) -> bool:
     Returns:
         True if successfully updated, False otherwise
     """
-    try:
-        ts_request = _HistoricalTimeSeriesRequestParameters(
-            clob_token_id=clob_token_id,
-            end_datetime=None  # Update to current time
-        )
-        
-        # This will fetch fresh data and update the cache
-        timeseries = ts_request.update_cached_token_timeseries()
-        
-        if timeseries is not None:
-            logger.info(f"✅ Successfully updated market {clob_token_id}")
-            return True
-        else:
-            logger.warning(f"⚠️ No timeseries data returned for market {clob_token_id}")
-            return False
-            
-    except Exception as e:
-        logger.error(f"❌ Failed to update market {clob_token_id}: {e}")
+    ts_request = _HistoricalTimeSeriesRequestParameters(
+        clob_token_id=clob_token_id,
+        end_datetime=None  # Update to current time
+    )
+    
+    # This will fetch fresh data and update the cache
+    timeseries = ts_request.update_cached_token_timeseries()
+    
+    if timeseries is not None:
+        logger.info(f"✅ Successfully updated market {clob_token_id}")
+        return True
+    else:
+        logger.warning(f"⚠️ No timeseries data returned for market {clob_token_id}")
         return False
+
 
 def main():
     """Main function to update all cached markets."""
