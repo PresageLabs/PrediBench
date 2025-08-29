@@ -45,14 +45,6 @@ MODELS_BY_PROVIDER = {
             agent_type="toolcalling",
         ),
         ModelInfo(
-            model_id="openai/gpt-oss-20b",
-            model_pretty_name="GPT-OSS 20B",
-            inference_provider="fireworks-ai",
-            company_pretty_name="OpenAI",
-            open_weights=True,
-            agent_type="toolcalling",
-        ),
-        ModelInfo(
             model_id="deepseek-ai/DeepSeek-V3.1",
             model_pretty_name="DeepSeek V3.1",
             inference_provider="fireworks-ai",
