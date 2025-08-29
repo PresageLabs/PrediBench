@@ -2,7 +2,7 @@ name: Scheduled Investment Analysis
 
 on:
   schedule:
-    - cron: '0 8 * * *'  # Daily at 8 AM UTC
+    - cron: '0 6 * * *'  # Daily at 8 AM UTC
   workflow_dispatch:
 
 concurrency:
@@ -96,7 +96,7 @@ jobs:
           BUCKET_PREDIBENCH: ${{ secrets.BUCKET_PREDIBENCH }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.OPENAI_API_KEY_AYMERIC }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
           SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}

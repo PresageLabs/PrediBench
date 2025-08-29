@@ -14,7 +14,7 @@ from predibench.polymarket_data import load_events_from_file
 from predibench.retry_models import (
     InferenceClientModelWithRetry,
     LiteLLMModelWithRetry,
-    OpenAIModelWithRetry,
+    OpenAIModel,
     add_retry_logic,
 )
 from predibench.storage_utils import file_exists_in_storage
@@ -24,6 +24,7 @@ login(os.getenv("HF_TOKEN"))
 
 logger = get_logger(__name__)
 
+OpenAIModelWithRetry = add_retry_logic(OpenAIModel, wait_time=120)
 LiteLLMModelWithRetryWait = add_retry_logic(LiteLLMModel, wait_time=120)
 
 
