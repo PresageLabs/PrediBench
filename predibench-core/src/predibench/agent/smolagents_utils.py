@@ -272,7 +272,7 @@ def _should_retry(exception: Exception) -> bool:
     retry=retry_if_exception(_should_retry),
     before_sleep=before_sleep_log(logger, logging.ERROR),
     after=after_log(logger, logging.ERROR),
-    reraise=False,
+    reraise=True,
 )
 def run_smolagents(
     model_info: ModelInfo,
