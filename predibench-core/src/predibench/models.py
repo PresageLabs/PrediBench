@@ -29,12 +29,6 @@ MODELS_BY_PROVIDER = {
             company_pretty_name="OpenAI",
         ),
         ModelInfo(
-            model_id="gpt-4.1-mini",
-            model_pretty_name="GPT-4.1 Mini",
-            inference_provider="openai",
-            company_pretty_name="OpenAI",
-        ),
-        ModelInfo(
             model_id="o3-deep-research",
             model_pretty_name="O3 Deep Research",
             inference_provider="openai",
@@ -91,6 +85,13 @@ MODELS_BY_PROVIDER = {
             model_id="meta-llama/Llama-4-Scout-17B-16E-Instruct",
             model_pretty_name="Llama 4 Scout",
             inference_provider="fireworks-ai",
+            company_pretty_name="Meta",
+            open_weights=True,
+        ),
+        ModelInfo(
+            model_id="meta-llama/Llama-3.3-70B-Instruct",
+            model_pretty_name="Llama 3.3 70B",
+            inference_provider="groq",
             company_pretty_name="Meta",
             open_weights=True,
         ),
