@@ -40,6 +40,7 @@ BET_DESCRIPTION = """1. market_id (str): The market ID
 4. confidence (int, 0 to 10): Your confidence in the odds and your bet. Should be between 0 (absolute uncertainty, you shouldn't bet if you're not confident) and 10 (absolute certainty, then you can bet high).
 5. bet (float, -1 to 1): The amount in dollars that you bet on this market (can be negative if you want to buy the opposite of the market)"""
 
+
 class GoogleSearchTool(Tool):
     name = "web_search"
     description = """Performs Google web search and returns top results."""
@@ -239,15 +240,15 @@ def final_answer(
 
     return validated_decisions, unallocated_capital
 
+
 class ListMarketInvestmentDecisions(BaseModel):
     market_investment_decisions: list[MarketInvestmentDecision]
     unallocated_capital: float
 
+
 class CompleteMarketInvestmentDecisions(ListMarketInvestmentDecisions):
     full_response: Any
     token_usage: TokenUsage | None = None
-
-
 
 
 def _should_retry(exception: Exception) -> bool:
@@ -320,18 +321,22 @@ The final_answer tool must contain the arguments rationale and decision.
 
 
 def structure_final_answer(
-    research_output: str, structured_output_model_id: str = "gpt-4.1"
+    research_output: str,
+    structured_output_model_id: str = "huggingface/fireworks-ai/Qwen/Qwen3-Coder-30B-A3B-Instruct",
 ) -> tuple[list[MarketInvestmentDecision], float]:
     structured_model = LiteLLMModel(model_id=structured_output_model_id)
 
     structured_prompt = textwrap.dedent(f"""
         Based on the following research output, extract the investment decisions for each market:
         
+        <research_output>
         {research_output}
+        </research_output>
         
-        You must provide a list of market decisions. Each decision should include:
+        Your output should be list of market decisions. Each decision should include:
         {BET_DESCRIPTION}
-        - The sum of ALL (absolute value of bets) + unallocated_capital must equal 1.0  
+
+        Make sure to directly use elements from the research output: return each market decision exactly as is, do not add or change any element, extract everything as-is.
         """)
     structured_output = structured_model.generate(
         [ChatMessage(role="user", content=structured_prompt)],
@@ -352,7 +357,7 @@ def structure_final_answer(
             MarketInvestmentDecision(**decision)
             for decision in market_investment_decisions_json
         ],
-        unallocated_capital,
+        float(unallocated_capital),
     )
 
 
