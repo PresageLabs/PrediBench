@@ -304,7 +304,7 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
             pd.Series(
                 [point["p"] for point in data["history"]],
                 index=pd.to_datetime(
-                    [datetime.fromtimestamp(point["t"]) for point in data["history"]]
+                    [datetime.fromtimestamp(point["t"], tz=timezone.utc) for point in data["history"]]
                 ),
             )
             .sort_index()
@@ -312,7 +312,6 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
             .last()
             .ffill()
         )
-        timeseries.index = timeseries.index.tz_localize(timezone.utc)
 
         if self.end_datetime is not None:
             timeseries = timeseries.loc[timeseries.index <= self.end_datetime]
@@ -437,12 +436,11 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
         timestamps = []
         
         for item in data["data"]:
-            # Handle both old format (date) and new format (datetime)
-            if "datetime" in item:
-                timestamps.append(pd.to_datetime(item["datetime"]))
-            elif "date" in item:
-                # Legacy support for old date format
-                timestamps.append(pd.to_datetime(item["date"]))
+            timestamp = pd.to_datetime(item["datetime"])
+            # Ensure timezone info is UTC
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=timezone.utc)
+            timestamps.append(timestamp)
             series_data.append(item["value"])
         
         return pd.Series(series_data, index=timestamps)
