@@ -72,9 +72,9 @@ def calculate_pnl_and_performance(positions_df: pd.DataFrame):
 
     # Convert to the format expected by frontend
     agents_performance = {}
-    for agent in positions_df["agent_name"].unique():
+    for agent in positions_df["model_name"].unique():
         pnl_calculator = pnl_calculators[agent]
-        agent_data = positions_df[positions_df["agent_name"] == agent].copy()
+        agent_data = positions_df[positions_df["model_name"] == agent].copy()
         daily_pnl = pnl_calculator.portfolio_daily_pnl
         prices = pnl_calculator.prices
 
