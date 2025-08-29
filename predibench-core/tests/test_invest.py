@@ -55,4 +55,3 @@ def test_invest():
 
 if __name__ == "__main__":
     test_invest()
-    

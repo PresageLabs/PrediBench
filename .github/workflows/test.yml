@@ -11,21 +11,32 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
-    
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
     - name: Install uv
       uses: astral-sh/setup-uv@v4
-      with:
-        version: "latest"
-    
-    - name: Set up Python
-      run: cd predibench-core && uv python install
-    
+
     - name: Install dependencies
-      run: cd predibench-core && uv sync
-    
+      run: |
+        cd predibench-core
+        uv sync
     - name: Run tests
       env:
         HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        BUCKET_PREDIBENCH: ${{ secrets.BUCKET_PREDIBENCH }}
       run: |
         cd predibench-core && uv run python -m pytest tests/

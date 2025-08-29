@@ -256,6 +256,7 @@ def _should_retry(exception: Exception) -> bool:
     error_str = str(exception).lower()
     return (
         "BadRequest" in error_str
+        or "Bad Request" in error_str
         or "ValidationError" in error_str
         or "ContextError" in error_str
         or "maximum context length" in error_str
