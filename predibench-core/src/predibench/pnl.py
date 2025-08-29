@@ -320,7 +320,7 @@ def get_pnls(
         request_parameters = MarketsRequestParameters(
             id=market_id,
         )
-        market = request_parameters.get_markets(
+        market = request_parameters.get_markets( # very bad
             end_datetime=datetime.combine(end_date, time(0, 0, 0))
             if end_date
             else None,

@@ -589,7 +589,7 @@ def get_event_market_prices(event_id: str):
         clob_token_id = market.outcomes[0].clob_token_id
         price_data = _HistoricalTimeSeriesRequestParameters(
             clob_token_id=clob_token_id,
-        ).get_token_daily_timeseries()
+        ).get_cached_token_timeseries()
 
         market_prices[market.id] = price_data
 

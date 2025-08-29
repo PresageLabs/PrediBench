@@ -1,0 +1,49 @@
+name: Scheduled Price Updates
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours at 0, 6, 12, 18 UTC
+  workflow_dispatch:  # Allow manual triggering
+
+concurrency:
+  group: scheduled-price-updates
+  cancel-in-progress: true
+
+jobs:
+  update-prices:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: |
+          cd predibench-core
+          uv sync
+
+      - name: Update market prices
+        env:
+          BUCKET_PREDIBENCH: ${{ secrets.BUCKET_PREDIBENCH }}
+        run: |
+          cd predibench-core
+          uv run python scripts/update_markets.py
+
+      - name: Log completion
+        run: |
+          echo "Price update completed at $(date)"

@@ -139,4 +139,6 @@ def test_get_market_events():
 
 
 if __name__ == "__main__":
+    test_polymarket_api_integration()
+    test_get_open_markets()
     test_get_market_events()
