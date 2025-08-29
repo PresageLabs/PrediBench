@@ -41,7 +41,9 @@ def run_investments_for_specific_date(
     cache_file_path = get_date_output_path(target_date)
     cache_file_path = cache_file_path / "events.json"
 
-    if file_exists_in_storage(cache_file_path, force_rewrite=False): # IT is very unconvenient to override and lose the events
+    if file_exists_in_storage(
+        cache_file_path, force_rewrite=False
+    ):  # IT is very unconvenient to override and lose the events
         logger.info(f"Loading events from cache: {cache_file_path}")
         selected_events = load_events_from_file(cache_file_path)
     else:
@@ -79,7 +81,7 @@ def run_investments_for_specific_date(
                 model_id=model.model_id,
                 provider=model.inference_provider,
             )
-    
+
     # Having no models could be useful to cache the events
     if models:
         results = run_agent_investments(
@@ -115,7 +117,7 @@ if __name__ == "__main__":
         ),
         ModelInfo(
             model_id="Qwen/Qwen3-Coder-480B-A35B-Instruct",
-            model_pretty_name="Qwen3-Coder-480B-A35B-Instruct",
+            model_pretty_name="Qwen3 Coder 480B",
             inference_provider="fireworks-ai",
             company_pretty_name="Qwen",
             open_weights=True,
@@ -160,5 +162,4 @@ if __name__ == "__main__":
         time_until_ending=timedelta(days=7 * 6),
         max_n_events=2,
         target_date=date(2025, 8, 25),
-        
     )
