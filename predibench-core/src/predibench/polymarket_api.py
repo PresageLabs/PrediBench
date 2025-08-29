@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 import pandas as pd
 import requests
@@ -28,8 +29,13 @@ from tenacity import (
     wait_exponential,
 )
 
-from predibench.common import BASE_URL_POLYMARKET
+from predibench.common import BASE_URL_POLYMARKET, DATA_PATH
 from predibench.logger_config import get_logger
+from predibench.storage_utils import (
+    file_exists_in_storage,
+    read_from_storage,
+    write_to_storage,
+)
 from predibench.utils import convert_polymarket_time_to_datetime
 
 MAX_INTERVAL_TIMESERIES = timedelta(days=14, hours=23, minutes=0)
@@ -90,7 +96,7 @@ class Market(BaseModel, arbitrary_types_allowed=True):
                 clob_token_id=self.outcomes[0].clob_token_id,
                 end_datetime=end_datetime,
             )
-            self.prices = ts_request.get_token_daily_timeseries()
+            self.prices = ts_request.get_cached_token_timeseries()
             self.price_outcome_name = self.outcomes[
                 0
             ].name  # Store which outcome the prices represent
@@ -103,6 +109,20 @@ class Market(BaseModel, arbitrary_types_allowed=True):
             )
             self.prices = None
             self.price_outcome_name = None
+
+    @staticmethod
+    def _convert_to_daily_data(timeseries_data: pd.Series) -> pd.Series:
+        """Convert 6-hourly datetime data to daily date data for PnL compatibility."""
+        if timeseries_data is None or len(timeseries_data) == 0:
+            return timeseries_data
+        
+        # Resample to daily data (taking the last value of each day)
+        daily_data = timeseries_data.resample('1D').last().dropna()
+        
+        # Convert datetime index to date index for PnL compatibility
+        daily_data.index = daily_data.index.date
+        
+        return daily_data
 
     @staticmethod
     def from_json(market_data: dict) -> Market:
@@ -255,7 +275,7 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
     end_datetime: datetime | None = None
 
     @polymarket_retry
-    def get_token_daily_timeseries(self) -> pd.Series | None:
+    def get_token_daily_timeseries(self, fidelity: int = 60*24, interval: str = "max", resamble: str | timedelta = "1D") -> pd.Series[datetime, float] | None:
         """Make a single API request for timeseries data."""
         url = "https://clob.polymarket.com/prices-history"
         assert self.clob_token_id is not None
@@ -263,8 +283,8 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
         set_of_params = [
             {
                 "market": self.clob_token_id,
-                "interval": "max",
-                "fidelity": "1440",
+                "interval": interval,
+                "fidelity": str(fidelity),
             },
             {
                 "market": self.clob_token_id,
@@ -286,21 +306,144 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
                 ),
             )
             .sort_index()
-            .resample("1D")
+            .resample(resamble)
             .last()
             .ffill()
         )
-        timeseries.index = timeseries.index.tz_localize(timezone.utc).date
+        timeseries.index = timeseries.index.tz_localize(timezone.utc)
 
-        # Filter timeseries to only include dates between start_datetime and end_datetime
         if self.end_datetime is not None:
-            timeseries = timeseries.loc[timeseries.index <= self.end_datetime.date()]
-
-        # assert len(timeseries) > 0, (
-        #     f"No timeseries data found for market {self.clob_token_id}"
-        # )
+            timeseries = timeseries.loc[timeseries.index <= self.end_datetime]
 
         return timeseries
+
+    def get_cached_token_timeseries(self) -> pd.Series | None:
+        """Get token timeseries from cache if available, otherwise fetch from API."""
+        cache_path = self._get_cache_path()
+        
+        if file_exists_in_storage(cache_path):
+            try:
+                cached_data = json.loads(read_from_storage(cache_path))
+                cached_timeseries = self._deserialize_timeseries(cached_data)
+                
+                # Check if cached data covers the required date range
+                if self._is_cache_up_to_date(cached_timeseries):
+                    return cached_timeseries
+                else:
+                    logger.info(f"Cache for {self.clob_token_id} is outdated, updating...")
+                    return self.update_cached_token_timeseries()
+                    
+            except json.JSONDecodeError as e:
+                logger.warning(f"Failed to load cached data for {self.clob_token_id}: {e}")
+        
+        # If no cache or cache loading failed, fetch fresh data
+        return self._fetch_and_cache_timeseries()
+
+    def update_cached_token_timeseries(self) -> pd.Series | None:
+        """Update cached timeseries data with new information."""
+        cache_path = self._get_cache_path()
+        existing_data = None
+        
+        # Try to load existing cached data
+        if file_exists_in_storage(cache_path):
+            try:
+                cached_data = json.loads(read_from_storage(cache_path))
+                existing_data = self._deserialize_timeseries(cached_data)
+            except json.JSONDecodeError as e:
+                logger.warning(f"Failed to load existing cached data for {self.clob_token_id}: {e}")
+        
+        # Fetch fresh data
+        fresh_data = self._fetch_and_cache_timeseries()
+        
+        # Merge with existing data if available
+        if existing_data is not None and fresh_data is not None:
+            return self._merge_timeseries(existing_data, fresh_data)
+        
+        return fresh_data
+
+    def _get_cache_path(self) -> Path:
+        """Get the cache file path for this token."""
+        return DATA_PATH / "timeseries_cache" / f"{self.clob_token_id}.json"
+
+    def _fetch_and_cache_timeseries(self) -> pd.Series | None:
+        """Fetch timeseries data from API and cache it."""
+        # Try with 24h fidelity first, then 6h fidelity
+        timeseries_24h = self.get_token_daily_timeseries(fidelity=60*24)
+        timeseries_6h = self.get_token_daily_timeseries(fidelity=60*6, resamble="6H")
+        
+        # Merge the data
+        merged_data = self._merge_timeseries(timeseries_24h, timeseries_6h)
+        
+        if merged_data is not None:
+            # Cache the merged data
+            cache_path = self._get_cache_path()
+            serialized_data = self._serialize_timeseries(merged_data)
+            write_to_storage(cache_path, json.dumps(serialized_data, indent=2))
+            logger.info(f"Cached timeseries data for token {self.clob_token_id}")
+        
+        return merged_data
+
+    def _merge_timeseries(self, ts1: pd.Series | None, ts2: pd.Series | None) -> pd.Series | None:
+        """Merge two timeseries, preferring newer data and filling gaps."""
+        if ts1 is None and ts2 is None:
+            return None
+        if ts1 is None:
+            return ts2
+        if ts2 is None:
+            return ts1
+        
+        # Combine the series and remove duplicates, keeping the last (most recent) value
+        combined = pd.concat([ts1, ts2]).groupby(level=0).last()
+        return combined.sort_index()
+
+    def _serialize_timeseries(self, ts: pd.Series) -> dict:
+        """Convert pandas Series to JSON-serializable format."""
+        return {
+            "data": [{"datetime": timestamp.isoformat(), "value": float(value)} for timestamp, value in ts.items()],
+            "last_updated": datetime.now(timezone.utc).isoformat()
+        }
+
+    def _deserialize_timeseries(self, data: dict) -> pd.Series:
+        """Convert JSON data back to pandas Series."""
+        series_data = []
+        timestamps = []
+        
+        for item in data["data"]:
+            # Handle both old format (date) and new format (datetime)
+            if "datetime" in item:
+                timestamps.append(pd.to_datetime(item["datetime"]))
+            elif "date" in item:
+                # Legacy support for old date format
+                timestamps.append(pd.to_datetime(item["date"]))
+            series_data.append(item["value"])
+        
+        return pd.Series(series_data, index=timestamps)
+
+    def _is_cache_up_to_date(self, cached_timeseries: pd.Series) -> bool:
+        """Check if cached timeseries covers the required date range."""
+        if cached_timeseries is None or len(cached_timeseries) == 0:
+            return False
+        
+        # Determine the target datetime - use end_datetime if specified, otherwise now
+        target_datetime = (
+            self.end_datetime 
+            if self.end_datetime is not None 
+            else datetime.now(timezone.utc)
+        )
+        
+        # Ensure target_datetime has timezone info
+        if target_datetime.tzinfo is None:
+            target_datetime = target_datetime.replace(tzinfo=timezone.utc)
+        
+        # Get the latest cached timestamp
+        max_cached_timestamp = cached_timeseries.index.max()
+        
+        # Ensure cached timestamp has timezone info
+        if hasattr(max_cached_timestamp, 'tzinfo') and max_cached_timestamp.tzinfo is None:
+            max_cached_timestamp = max_cached_timestamp.replace(tzinfo=timezone.utc)
+        
+        # Check if the target datetime is covered by the cached data (with some tolerance)
+        return target_datetime <= max_cached_timestamp
 
 
 class EventsRequestParameters(_RequestParameters):

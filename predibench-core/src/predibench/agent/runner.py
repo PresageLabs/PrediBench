@@ -4,6 +4,7 @@ import time
 from datetime import date, datetime
 
 import numpy as np
+import pandas as pd
 from dotenv import load_dotenv
 from predibench.agent.dataclasses import (
     EventInvestmentDecisions,
@@ -20,7 +21,7 @@ from predibench.agent.smolagents_utils import (
 )
 from predibench.date_utils import is_backward_mode
 from predibench.logger_config import get_logger
-from predibench.polymarket_api import Event
+from predibench.polymarket_api import Event, Market
 from predibench.storage_utils import (
     file_exists_in_storage,
     read_from_storage,
@@ -60,6 +61,8 @@ def _process_event_investment(
                 price_data = market.prices.loc[:target_date].dropna()
             else:
                 price_data = market.prices.dropna()
+            # Convert to daily data for LLM prompt
+            price_data = Market._convert_to_daily_data(price_data)
             # Limit price history
             if len(price_data) > price_history_limit:
                 price_data = price_data.tail(price_history_limit)
@@ -70,6 +73,8 @@ def _process_event_investment(
             # Market is closed - get all available historical prices
             if market.prices is not None and len(market.prices) > 0:
                 price_data = market.prices.dropna()
+                # Convert to daily data for LLM prompt
+                price_data = Market._convert_to_daily_data(price_data)
                 # Limit price history
                 if len(price_data) > price_history_limit:
                     price_data = price_data.tail(price_history_limit)

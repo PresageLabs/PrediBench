@@ -247,5 +247,43 @@ def file_exists_in_storage(file_path: Path, force_rewrite: bool = False) -> bool
     return file_path.exists()
 
 
+def delete_from_storage(file_path: Path) -> bool:
+    """
+    Delete a file from storage (GCP bucket and local data directory).
+
+    Args:
+        file_path: Path object that must be relative to DATA_PATH
+
+    Returns:
+        True if file was deleted successfully, False otherwise
+
+    Raises:
+        ValueError: If the path is not relative to DATA_PATH
+    """
+    # Ensure the path is relative to DATA_PATH
+    if not file_path.is_relative_to(DATA_PATH):
+        raise ValueError(f"Path {file_path} is not relative to DATA_PATH {DATA_PATH}")
+
+    relative_path = file_path.relative_to(DATA_PATH)
+    blob_name = str(relative_path)
+    
+    deleted = False
+
+    # Delete from bucket if available
+    if has_bucket_write_access():
+        bucket = get_bucket()
+        blob = bucket.blob(blob_name)
+        if blob.exists():
+            blob.delete()
+            deleted = True
+
+    # Delete from local
+    if file_path.exists():
+        file_path.unlink()
+        deleted = True
+
+    return deleted
+
+
 if __name__ == "__main__":
     print(has_bucket_write_access())
