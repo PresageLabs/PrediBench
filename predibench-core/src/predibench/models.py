@@ -64,15 +64,13 @@ MODELS_BY_PROVIDER = {
             inference_provider="fireworks-ai",
             company_pretty_name="DeepSeek",
             open_weights=True,
-            agent_type="toolcalling",
         ),
         ModelInfo(
             model_id="deepseek-ai/DeepSeek-R1",
             model_pretty_name="DeepSeek R1",
-            inference_provider="novita",
+            inference_provider="fireworks-ai",
             company_pretty_name="DeepSeek",
             open_weights=True,
-            agent_type="toolcalling",
         ),
         ModelInfo(
             model_id="meta-llama/Llama-4-Maverick-17B-128E-Instruct",
