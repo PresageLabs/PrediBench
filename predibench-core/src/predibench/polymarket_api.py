@@ -343,46 +343,70 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
 
     def update_cached_token_timeseries(self) -> pd.Series | None:
         """Update cached timeseries data with new information."""
-        # TODO: should not refresh if the market is not active
         cache_path = self._get_cache_path()
         existing_data = None
         
-        # Try to load existing cached data
+        # Check if market is already marked as closed in cache
         if file_exists_in_storage(cache_path):
             try:
-                cached_data = json.loads(read_from_storage(cache_path))
+                cached_data:dict = json.loads(read_from_storage(cache_path))
+                if cached_data.get("is_closed", False):
+                    logger.info(f"Skipping update for closed market {self.clob_token_id}")
+                    return self._deserialize_timeseries(cached_data)
                 existing_data = self._deserialize_timeseries(cached_data)
             except json.JSONDecodeError as e:
                 logger.warning(f"Failed to load existing cached data for {self.clob_token_id}: {e}")
         
+        
         # Fetch fresh data
-        fresh_data = self._fetch_and_cache_timeseries()
+        merged_fresh_data = self._fetch_fresh_timeseries()
+        
+        if merged_fresh_data is None:
+            return None
+        
+        # Check if market should be marked as closed (last price > 2 days old)
+        is_closed = self._check_if_market_closed(merged_fresh_data)
         
         # Merge with existing data if available
-        if existing_data is not None and fresh_data is not None:
-            return self._merge_timeseries(existing_data, fresh_data)
+        if existing_data is not None:
+            final_data = self._merge_timeseries(existing_data, merged_fresh_data)
+        else:
+            final_data = merged_fresh_data
         
-        return fresh_data
+        # Cache the final data with closed status
+        if final_data is not None:
+            serialized_data = self._serialize_timeseries(final_data, is_closed=is_closed)
+            write_to_storage(cache_path, json.dumps(serialized_data, indent=2))
+            logger.info(f"Cached timeseries data for token {self.clob_token_id} (closed: {is_closed})")
+        
+        return final_data
 
     def _get_cache_path(self) -> Path:
         """Get the cache file path for this token."""
         return DATA_PATH / "timeseries_cache" / f"{self.clob_token_id}.json"
-
-    def _fetch_and_cache_timeseries(self) -> pd.Series | None:
-        """Fetch timeseries data from API and cache it."""
+    
+    def _fetch_fresh_timeseries(self) -> pd.Series | None:
+        """Fetch fresh timeseries data from API with both 24h and 6h fidelity."""
         # Try with 24h fidelity first, then 6h fidelity
         timeseries_24h = self.get_token_daily_timeseries(fidelity=60*24)
         timeseries_6h = self.get_token_daily_timeseries(fidelity=60*6, resamble="6H")
         
         # Merge the data
-        merged_data = self._merge_timeseries(timeseries_24h, timeseries_6h)
+        return self._merge_timeseries(timeseries_24h, timeseries_6h)
+
+    def _fetch_and_cache_timeseries(self) -> pd.Series | None:
+        """Fetch timeseries data from API and cache it."""
+        merged_data = self._fetch_fresh_timeseries()
         
         if merged_data is not None:
+            # Check if market should be marked as closed
+            is_closed = self._check_if_market_closed(merged_data)
+            
             # Cache the merged data
             cache_path = self._get_cache_path()
-            serialized_data = self._serialize_timeseries(merged_data)
+            serialized_data = self._serialize_timeseries(merged_data, is_closed=is_closed)
             write_to_storage(cache_path, json.dumps(serialized_data, indent=2))
-            logger.info(f"Cached timeseries data for token {self.clob_token_id}")
+            logger.info(f"Cached timeseries data for token {self.clob_token_id} (closed: {is_closed})")
         
         return merged_data
 
@@ -399,11 +423,12 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
         combined = pd.concat([ts1, ts2]).groupby(level=0).last()
         return combined.sort_index()
 
-    def _serialize_timeseries(self, ts: pd.Series) -> dict:
+    def _serialize_timeseries(self, ts: pd.Series, is_closed: bool = False) -> dict:
         """Convert pandas Series to JSON-serializable format."""
         return {
             "data": [{"datetime": timestamp.isoformat(), "value": float(value)} for timestamp, value in ts.items()],
-            "last_updated": datetime.now(timezone.utc).isoformat()
+            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "is_closed": is_closed
         }
 
     def _deserialize_timeseries(self, data: dict) -> pd.Series:
@@ -447,6 +472,22 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
         
         # Check if the target datetime is covered by the cached data (with some tolerance)
         return target_datetime <= max_cached_timestamp
+    
+    def _check_if_market_closed(self, timeseries: pd.Series) -> bool:
+        """Check if market is closed based on last price being older than 2 days."""
+        if timeseries is None or len(timeseries) == 0:
+            return True
+        
+        # Get the most recent timestamp
+        last_timestamp = timeseries.index.max()
+        
+        # Ensure timezone awareness
+        if hasattr(last_timestamp, 'tzinfo') and last_timestamp.tzinfo is None:
+            last_timestamp = last_timestamp.replace(tzinfo=timezone.utc)
+        
+        # Check if last price is older than 2 days
+        two_days_ago = datetime.now(timezone.utc) - timedelta(days=2)
+        return last_timestamp < two_days_ago
 
 
 class EventsRequestParameters(_RequestParameters):
