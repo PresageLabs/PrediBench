@@ -258,17 +258,17 @@ def _should_retry(exception: Exception) -> bool:
     """Check if the exception is a rate limit error."""
     error_str = str(exception).lower()
     return (
-        "BadRequest" in error_str
-        or "Bad Request" in error_str
-        or "ValidationError" in error_str
-        or "ContextError" in error_str
-        or "maximum context length" in error_str
-        or "context window" in error_str
+        "BadRequest".lower() in error_str
+        or "Bad Request".lower() in error_str
+        or "ValidationError".lower() in error_str
+        or "ContextError".lower() in error_str
+        or "maximum context length".lower() in error_str
+        or "context window".lower() in error_str
     )
 
 
 @retry(
-    stop=stop_after_attempt(2),
+    stop=stop_after_attempt(3),
     retry=retry_if_exception(_should_retry),
     before_sleep=before_sleep_log(logger, logging.ERROR),
     after=after_log(logger, logging.ERROR),
