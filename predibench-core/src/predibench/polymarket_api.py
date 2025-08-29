@@ -220,6 +220,7 @@ class MarketsRequestParameters(_RequestParameters):
     def get_markets(
         self,
         end_datetime: datetime | None = None,
+        fill_prices: bool = True,
     ) -> list[Market]:
         """Get open markets from Polymarket API using this request configuration.
 
@@ -265,8 +266,9 @@ class MarketsRequestParameters(_RequestParameters):
                 )
             markets = filtered_markets
 
-        for market in markets:
-            market.fill_prices(end_datetime)
+        if fill_prices:
+            for market in markets:
+                market.fill_prices(end_datetime)
         return markets
 
 
@@ -341,6 +343,7 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
 
     def update_cached_token_timeseries(self) -> pd.Series | None:
         """Update cached timeseries data with new information."""
+        # TODO: should not refresh if the market is not active
         cache_path = self._get_cache_path()
         existing_data = None
         

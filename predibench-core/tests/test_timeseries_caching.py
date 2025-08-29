@@ -12,7 +12,7 @@ def test_cached_timeseries_functionality():
         order="volume24hr",
         ascending=False,
     )
-    markets = market_request.get_markets()
+    markets = market_request.get_markets(fill_prices=False)
     
     # Find a market with valid token ID
     test_market = None
