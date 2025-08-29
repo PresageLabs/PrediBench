@@ -37,6 +37,13 @@ Now the second one:
 3. odds (float, 0 to 1): 0.25
 4. confidence (int, 0 to 10): 3
 5. bet (float, -1 to 1): -0.57
+
+And a third
+1. market_id (str): 3azdoi5
+2. rationale (str): This is it.
+3. odds (float, 0 to 1): 0.
+4. confidence (int, 0 to 10): 0
+5. bet (float, -1 to 1): -0.0
 """
     from predibench.agent.smolagents_utils import structure_final_answer
 
@@ -44,9 +51,10 @@ Now the second one:
 
     first_decision = list_decisions[0]
     second_decision = list_decisions[1]
+    third_decision = list_decisions[2]
 
     # Test that we got the correct number of decisions
-    assert len(list_decisions) == 2
+    assert len(list_decisions) == 3
 
     # Test first decision
     assert first_decision.market_id == "1234"
@@ -67,6 +75,13 @@ Now the second one:
     assert second_decision.model_decision.odds == 0.25
     assert second_decision.model_decision.confidence == 3
     assert second_decision.model_decision.bet == -0.57
+
+    # Test third decision
+    assert third_decision.market_id == "3azdoi5"
+    assert third_decision.model_decision.rationale == "This is it."
+    assert third_decision.model_decision.odds == 0.0
+    assert third_decision.model_decision.confidence == 0
+    assert third_decision.model_decision.bet == 0
 
     # Test unallocated capital is a float
     assert isinstance(unallocated_capital, float)
