@@ -5,7 +5,7 @@ from predibench.backend.brier import BrierScoreCalculator
 from predibench.backend.data_model import DataPoint
 import pandas as pd
 import numpy as np
-from predibench.backend.pnl import get_pnl_wrapper
+from predibench.backend.pnl import get_pnls
 from predibench.backend.data_loader import load_agent_choices
 
 
@@ -44,7 +44,6 @@ def _calculate_real_performance():
     """Calculate real Profit and performance metrics exactly like gradio app"""
     model_results = load_agent_choices()
 
-    # Working with Pydantic models from GCP
     print(f"Loaded {len(model_results)} model results from GCP")
 
     positions = []
@@ -68,7 +67,7 @@ def _calculate_real_performance():
 
     # positions_df = positions_df.pivot(index="date", columns="market_id", values="bet")
 
-    pnl_calculators = get_pnl_wrapper(
+    pnl_calculators = get_pnls(
         positions_df, write_plots=False, end_date=datetime.today()
     )
 
