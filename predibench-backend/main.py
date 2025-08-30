@@ -18,7 +18,7 @@ from predibench.polymarket_api import (
 from predibench.storage_utils import get_bucket
 from pydantic import BaseModel
 from predibench.backend.profile import profile_time
-
+from predibench.backend.data_model import LeaderboardEntry, Stats, DataPoint
 print("Successfully imported predibench modules")
 
 
@@ -40,36 +40,6 @@ app.add_middleware(
 )
 
 
-# Configuration
-AGENT_CHOICES_REPO = "Sibyllic/predibench-3"
-
-
-# Data models
-class DataPoint(BaseModel):
-    date: str
-    value: float
-
-
-class LeaderboardEntry(BaseModel):
-    id: str
-    model: str
-    final_cumulative_pnl: float
-    trades: int
-    profit: int
-    lastUpdated: str
-    trend: str
-    pnl_history: list[DataPoint]
-    avg_brier_score: float
-
-
-class Stats(BaseModel):
-    topFinalCumulativePnl: float
-    avgPnl: float
-    totalTrades: int
-    totalProfit: int
-
-
-# Real data loading functions
 @lru_cache(maxsize=1)
 def load_investment_choices_from_google() -> list[ModelInvestmentDecisions]:
     # Has bucket access, load directly from GCP bucket
