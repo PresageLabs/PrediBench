@@ -7,7 +7,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import plotly.io as pio
 from datasets import load_dataset
-from predibench.pnl import get_pnls
+from predibench.backend.pnl import get_pnls
 
 # Set Plotly dark theme as default
 pio.templates.default = "plotly_dark"

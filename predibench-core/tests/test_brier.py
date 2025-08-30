@@ -2,7 +2,7 @@ from datetime import date
 
 import numpy as np
 import pandas as pd
-from predibench.brier import BrierScoreCalculator
+from predibench.backend.brier import BrierScoreCalculator
 
 
 def test_brier_score_calculation():

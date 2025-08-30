@@ -8,8 +8,8 @@ import pandas as pd
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from predibench.agent.dataclasses import ModelInvestmentDecisions
-from predibench.brier import BrierScoreCalculator
-from predibench.pnl import PnlCalculator, get_pnls
+from predibench.backend.brier import BrierScoreCalculator
+from predibench.backend.pnl import PnlCalculator, get_pnls
 from predibench.polymarket_api import (
     Event,
     EventsRequestParameters,
