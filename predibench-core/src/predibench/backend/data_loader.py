@@ -9,29 +9,21 @@ def load_investment_choices_from_google() -> list[ModelInvestmentDecisions]:
 
     model_results = []
     bucket = get_bucket()
-    blobs = bucket.list_blobs(prefix="ping")
+    blobs = bucket.list_blobs(prefix="")
 
     for blob in blobs:
         if (
-            blob.name.endswith(".json")
-            and "/" in blob.name
-            and "events.json" not in blob.name
+            blob.name.endswith("model_investment_decisions.json")
         ):
-            parts = blob.name.split("/")
-            if "events_cache" in blob.name:
+            try:
+                json_content = blob.download_as_text()
+                model_result = ModelInvestmentDecisions.model_validate_json(
+                    json_content
+                )
+                model_results.append(model_result)
+            except Exception as e:
+                print(f"Error reading {blob.name}: {e}")
                 continue
-            if (
-                len(parts) == 3 and parts[-1] == "model_investment_decisions.json"
-            ):  # NOTE: date/model/model_event_decisions.json format
-                try:
-                    json_content = blob.download_as_text()
-                    model_result = ModelInvestmentDecisions.model_validate_json(
-                        json_content
-                    )
-                    model_results.append(model_result)
-                except Exception as e:
-                    print(f"Error reading {blob.name}: {e}")
-                    continue
 
     # Sort by target_date
     model_results.sort(key=lambda x: x.target_date)
