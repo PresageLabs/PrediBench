@@ -9,7 +9,7 @@ def load_investment_choices_from_google() -> list[ModelInvestmentDecisions]:
 
     model_results = []
     bucket = get_bucket()
-    blobs = bucket.list_blobs(prefix="")
+    blobs = bucket.list_blobs(prefix="ping")
 
     for blob in blobs:
         if (
