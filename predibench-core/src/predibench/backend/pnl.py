@@ -406,3 +406,10 @@ def get_historical_returns(
     for market in markets.values():
         prices_df[market.id] = market.prices
     return prices_df
+
+def get_pnl_wrapper(
+    positions_df: pd.DataFrame,
+    write_plots: bool = False,
+    end_date: datetime | None = None,
+) -> dict[str, PnlCalculator]:
+    return get_pnls(positions_df, end_date, write_plots)
