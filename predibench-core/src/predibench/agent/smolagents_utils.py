@@ -14,6 +14,7 @@ from predibench.agent.dataclasses import (
     SingleModelDecision,
 )
 from predibench.logger_config import get_logger
+from predibench.storage_utils import write_to_storage, read_from_storage, file_exists_in_storage
 from pydantic import BaseModel
 from smolagents import (
     ChatMessage,
@@ -326,6 +327,35 @@ The final_answer tool must contain the arguments rationale and decision.
     )
 
 
+def _get_cached_research_result(model_info: ModelInfo, target_date: date, event_id: str) -> str | None:
+    """Try to load cached research result from storage."""
+    if model_info is None or target_date is None or event_id is None:
+        return None
+        
+    model_result_path = model_info.get_model_result_path(target_date)
+    cache_file_path = model_result_path / f"{event_id}_full_result.txt"
+    
+    if file_exists_in_storage(cache_file_path):
+        logger.info(f"Loading cached research result from {cache_file_path}")
+        return read_from_storage(cache_file_path)
+        
+    return None
+
+
+def _save_research_result_to_cache(
+    research_output: str, model_info: ModelInfo, target_date: date, event_id: str
+) -> None:
+    """Save research result to cache storage."""
+    if model_info is None or target_date is None or event_id is None:
+        return
+        
+    model_result_path = model_info.get_model_result_path(target_date)
+    cache_file_path = model_result_path / f"{event_id}_full_result.txt"
+    
+    write_to_storage(cache_file_path, research_output)
+    logger.info(f"Saved research result to cache: {cache_file_path}")
+
+
 def structure_final_answer(
     research_output: str,
     structured_output_model_id: str = "huggingface/fireworks-ai/Qwen/Qwen3-Coder-30B-A3B-Instruct",
@@ -370,19 +400,31 @@ def structure_final_answer(
 def run_openai_deep_research(
     model_id: str,
     question: str,
+    model_info: ModelInfo | None = None,
+    target_date: date | None = None,
+    event_id: str | None = None,
 ) -> CompleteMarketInvestmentDecisions:
-    client = OpenAI(timeout=3600)
+    # Try to load cached result first
+    cached_result = _get_cached_research_result(model_info, target_date, event_id)
+    if cached_result is not None:
+        research_output = cached_result
+        full_response = None  # We don't have the full response when loading from cache
+    else:
+        client = OpenAI(timeout=3600)
 
-    full_response = client.responses.create(
-        model=model_id,
-        input=question
-        + "\n\nProvide your detailed analysis and reasoning, then clearly state your final decisions for each market you want to bet on.",
-        tools=[
-            {"type": "web_search_preview"},
-            {"type": "code_interpreter", "container": {"type": "auto"}},
-        ],
-    )
-    research_output = full_response.output_text
+        full_response = client.responses.create(
+            model=model_id,
+            input=question
+            + "\n\nProvide your detailed analysis and reasoning, then clearly state your final decisions for each market you want to bet on.",
+            tools=[
+                {"type": "web_search_preview"},
+                {"type": "code_interpreter", "container": {"type": "auto"}},
+            ],
+        )
+        research_output = full_response.output_text
+        
+        # Save to cache before attempting structured output
+        _save_research_result_to_cache(research_output, model_info, target_date, event_id)
 
     # Use structured output to get EventDecisions
     structured_market_decisions, unallocated_capital = structure_final_answer(
@@ -396,35 +438,47 @@ def run_openai_deep_research(
             input_tokens=full_response.usage.input_tokens,
             output_tokens=full_response.usage.output_tokens
             + full_response.usage.output_tokens_details.reasoning_tokens,
-        ),
+        ) if full_response is not None else None,
     )
 
 
 def run_perplexity_deep_research(
     model_id: str,
     question: str,
+    model_info: ModelInfo | None = None,
+    target_date: date | None = None,
+    event_id: str | None = None,
 ) -> CompleteMarketInvestmentDecisions:
-    url = "https://api.perplexity.ai/chat/completions"
+    # Try to load cached result first
+    cached_result = _get_cached_research_result(model_info, target_date, event_id)
+    if cached_result is not None:
+        research_output = cached_result
+        full_response = None  # We don't have the full response when loading from cache
+    else:
+        url = "https://api.perplexity.ai/chat/completions"
 
-    payload = {
-        "model": model_id,
-        "messages": [
-            {
-                "role": "user",
-                "content": question,
-            }
-        ],
-    }
-    headers = {
-        "Authorization": f"Bearer {os.getenv('PERPLEXITY_API_KEY')}",
-        "Content-Type": "application/json",
-    }
+        payload = {
+            "model": model_id,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": question,
+                }
+            ],
+        }
+        headers = {
+            "Authorization": f"Bearer {os.getenv('PERPLEXITY_API_KEY')}",
+            "Content-Type": "application/json",
+        }
 
-    raw_response = requests.post(url, json=payload, headers=headers)
-    raw_response.raise_for_status()
-    full_response = raw_response.json()
-    research_output = full_response["choices"][0]["message"]["content"]
-    # TODO: save research_output directly to storage
+        raw_response = requests.post(url, json=payload, headers=headers)
+        raw_response.raise_for_status()
+        full_response = raw_response.json()
+        research_output = full_response["choices"][0]["message"]["content"]
+        
+        # Save to cache before attempting structured output
+        _save_research_result_to_cache(research_output, model_info, target_date, event_id)
+
     structured_market_decisions, unallocated_capital = structure_final_answer(
         research_output
     )
@@ -435,5 +489,5 @@ def run_perplexity_deep_research(
         token_usage=TokenUsage(
             input_tokens=full_response["usage"]["prompt_tokens"],
             output_tokens=full_response["usage"]["completion_tokens"],
-        ),
+        ) if full_response is not None else None,
     )

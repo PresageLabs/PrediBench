@@ -190,6 +190,9 @@ Example: If you bet 0.3 in market A, -0.2 in market B (meaning you buy 0.2 of th
         complete_market_investment_decisions = run_openai_deep_research(
             model_id=model_info.model_id,
             question=full_question,
+            model_info=model_info,
+            target_date=target_date,
+            event_id=event.id,
         )
     elif (
         model_info.inference_provider == "perplexity"
@@ -198,6 +201,9 @@ Example: If you bet 0.3 in market A, -0.2 in market B (meaning you buy 0.2 of th
         complete_market_investment_decisions = run_perplexity_deep_research(
             model_id=model_info.model_id,
             question=full_question,
+            model_info=model_info,
+            target_date=target_date,
+            event_id=event.id,
         )
     else:
         complete_market_investment_decisions = run_smolagents(
