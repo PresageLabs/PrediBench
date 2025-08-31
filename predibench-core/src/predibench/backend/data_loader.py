@@ -54,6 +54,28 @@ def load_market_prices() -> dict[str, pd.Series | None]:
     
 
 @lru_cache(maxsize=1)
-def load_agent_choices():
+def load_agent_position() -> pd.DataFrame:
     """Load agent choices from GCP instead of HuggingFace dataset"""
-    return load_investment_choices_from_google()
+    
+    model_results = load_investment_choices_from_google()
+    print(f"Loaded {len(model_results)} model results from GCP")
+
+    positions = []
+    for model_result in model_results:
+        model_name = model_result.model_info.model_pretty_name
+        date = model_result.target_date
+
+        for event_decision in model_result.event_investment_decisions:
+            for market_decision in event_decision.market_investment_decisions:
+                positions.append(
+                    {
+                        "date": date,
+                        "market_id": market_decision.market_id,
+                        "choice": market_decision.model_decision.bet,
+                        "model_name": model_name,
+                    }
+                )
+
+    positions_df = pd.DataFrame.from_records(positions)
+    print(f"Created {len(positions_df)} position records")
+    return positions_df

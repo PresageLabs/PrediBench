@@ -1,10 +1,10 @@
-from predibench.backend.data_loader import load_agent_choices
+from predibench.backend.data_loader import load_agent_position
 
 
 def get_event_investment_decisions(event_id: str):
     """Get real investment choices for a specific event"""
     # Load agent choices data like in gradio app
-    data = load_agent_choices()
+    data = load_agent_position()
 
     # Working with Pydantic models from GCP
     market_investments = []

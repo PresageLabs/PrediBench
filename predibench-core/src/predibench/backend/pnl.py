@@ -6,7 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from predibench.backend.data_loader import load_agent_choices, load_market_prices
+from predibench.backend.data_loader import load_agent_position, load_market_prices
 from predibench.logger_config import get_logger
 from predibench.polymarket_api import Market, MarketsRequestParameters
 
@@ -290,19 +290,6 @@ class PnlCalculator:
         )
 
 
-def validate_continuous_prices(prices_df: pd.DataFrame) -> None:
-    """Validate that this dataframe's date index is continuous"""
-    start_date = prices_df.index.min()
-    end_date = prices_df.index.max()
-    expected_date_range = pd.date_range(start=start_date, end=end_date, freq="D").date
-    actual_dates = set(prices_df.index)
-    expected_dates = set(expected_date_range)
-
-    missing_dates = expected_dates - actual_dates
-    if missing_dates:
-        raise ValueError(f"Missing returns data for dates: {sorted(missing_dates)}")
-
-
 def get_pnls(
     positions_df: pd.DataFrame,
 ) -> dict[str, PnlCalculator]:
@@ -317,82 +304,69 @@ def get_pnls(
     market_prices = load_market_prices()
     prices_df = get_historical_returns(market_prices)
 
-    validate_continuous_prices(prices_df)
-
     pnl_calculators = {}
     for model_name in positions_df["model_name"].unique():
         print("AGENT NAME", model_name)
         positions_agent_df = positions_df[
             positions_df["model_name"] == model_name
         ].drop(columns=["model_name"])
-        positions_agent_df = positions_agent_df.loc[
-            positions_agent_df["date"].isin(positions_df["date"].unique())
-        ]
-        positions_agent_df = positions_agent_df.loc[
-            positions_df["market_id"].isin(prices_df.columns)
-        ]  # TODO: This should be removed when we can save
         assert len(positions_agent_df) > 0, (
             "A this stage, dataframe should not be empty!"
         )
+        positions_agent_df = positions_agent_df.pivot(
+        index="date", columns="market_id", values="choice"
+    )
 
-        pnl_calculator = get_pnl_calculator(
+        pnl_calculator = PnlCalculator(
             positions_agent_df,
             prices_df,
-            positions_df["date"].unique(),
         )
         pnl_calculators[model_name] = pnl_calculator
 
     return pnl_calculators
 
 
-def get_pnl_calculator(
-    positions_agent_df: pd.DataFrame,
-    prices_df: pd.DataFrame,
-    investment_dates: list,
-) -> PnlCalculator:
-    # Convert positions_agent_df to have date as index, question as columns, and choice as values
-    positions_agent_df = positions_agent_df.pivot(
-        index="date", columns="market_id", values="choice"
-    )
-
-    # Forward-fill positions to all daily dates in the returns range
-    daily_index = prices_df.index[prices_df.index >= investment_dates[0]]
-    positions_agent_df = positions_agent_df.reindex(daily_index, method="ffill").fillna(
-        0
-    )  # fillna(0) to avoid NaN at the beginning of the investment period
-    positions_agent_df = positions_agent_df.loc[
-        positions_agent_df.index >= investment_dates[0]
-    ]
-    prices_df = prices_df.loc[prices_df.index >= investment_dates[0]]
-
-    logger.info("Analyzing portfolio performance with PnlCalculator...")
-
-    logger.info("Positions Table (first 15 rows):")
-    logger.info(f"\n{positions_agent_df.head(15)}")
-    logger.info(f"Positions shape: {positions_agent_df.shape}")
-
-    logger.info("Returns Table (first 15 rows):")
-
-    logger.info("Data summary:")
-    logger.info(
-        f"  Investment positions: {(positions_agent_df != 0.0).sum().sum()} out of {positions_agent_df.size} possible"
-    )
-
-    return PnlCalculator(positions_agent_df, prices_df)
-
-
 def get_historical_returns(
-    markets: dict[str, Market],
+    market_prices: dict[str, pd.Series],
 ) -> pd.DataFrame:
-    """Get historical prices directly from timeseries data. Columns are market ids"""
+    """Get historical prices directly from timeseries data. Columns are market ids
+    
+    Creates a unified DataFrame with all markets, handling cases where markets
+    have different start/end dates by using a unified date index.
+    
+    Args:
+        market_prices: Dictionary mapping market_id to price Series
+        
+    Returns:
+        DataFrame with unified date index and market_ids as columns
+    """
+    # Collect all unique dates from all markets to create unified index
+    all_dates = set()
+    valid_market_prices = {}
+    
+    for market_id, prices in market_prices.items():
+        if prices is not None and len(prices) > 0:
+            all_dates.update(prices.index)
+            valid_market_prices[market_id] = prices
+    
+    if not all_dates:
+        # Return empty DataFrame if no valid price data
+        return pd.DataFrame(columns=list(market_prices.keys()))
+    
+    # Create unified date index
+    unified_index = pd.Index(sorted(all_dates))
+    
+    # Initialize DataFrame with NaN values
     prices_df = pd.DataFrame(
         np.nan,
-        index=markets[list(markets.keys())[0]].prices.index,
-        columns=list(markets.keys()),
+        index=unified_index,
+        columns=list(market_prices.keys()),
     )
 
-    for market in markets.values():
-        prices_df[market.id] = market.prices
+    # Fill in price data for each market
+    for market_id, prices in valid_market_prices.items():
+        prices_df[market_id] = prices
+    
     return prices_df
 
 
@@ -400,7 +374,7 @@ def get_historical_returns(
 @lru_cache(maxsize=1)
 def get_positions_df():
     # Calculate market-level data
-    data = load_agent_choices()
+    data = load_agent_position()
 
     # Working with Pydantic models from GCP
     positions = []
@@ -425,7 +399,5 @@ def get_positions_df():
 @lru_cache(maxsize=1)
 def get_all_markets_pnls():
     positions_df = get_positions_df()
-    pnl_calculators = get_pnl_wrapper(
-        positions_df, write_plots=False, end_date=datetime.today()
-    )
+    pnl_calculators = get_pnls(positions_df)
     return pnl_calculators

@@ -499,7 +499,7 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
             last_timestamp = last_timestamp.replace(tzinfo=timezone.utc)
         
         # Check if last price is older than 12 hours
-        two_days_ago = datetime.now(timezone.utc) - timedelta(hours=12)
+        two_days_ago = datetime.now(timezone.utc) - timedelta(hours=24)
         return last_timestamp < two_days_ago
 
 

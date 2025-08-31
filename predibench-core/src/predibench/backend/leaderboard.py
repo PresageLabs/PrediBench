@@ -6,7 +6,7 @@ from predibench.backend.data_model import DataPoint
 import pandas as pd
 import numpy as np
 from predibench.backend.pnl import get_pnls
-from predibench.backend.data_loader import load_agent_choices
+from predibench.backend.data_loader import load_agent_position
 
 
 
@@ -14,7 +14,7 @@ from predibench.backend.data_loader import load_agent_choices
 @lru_cache(maxsize=1)
 def _extract_decisions_data():
     """Extract decisions data with odds and confidence from model results"""
-    model_results = load_agent_choices()
+    model_results = load_agent_position()
 
     decisions = []
 
@@ -42,28 +42,7 @@ def _extract_decisions_data():
 @lru_cache(maxsize=1)
 def _calculate_real_performance():
     """Calculate real Profit and performance metrics exactly like gradio app"""
-    model_results = load_agent_choices()
-
-    print(f"Loaded {len(model_results)} model results from GCP")
-
-    positions = []
-    for model_result in model_results:
-        model_name = model_result.model_info.model_pretty_name
-        date = model_result.target_date
-
-        for event_decision in model_result.event_investment_decisions:
-            for market_decision in event_decision.market_investment_decisions:
-                positions.append(
-                    {
-                        "date": date,
-                        "market_id": market_decision.market_id,
-                        "choice": market_decision.model_decision.bet,
-                        "model_name": model_name,
-                    }
-                )
-
-    positions_df = pd.DataFrame.from_records(positions)
-    print(f"Created {len(positions_df)} position records")
+    positions_df = load_agent_position()
     
     pnl_calculators = get_pnls(
         positions_df

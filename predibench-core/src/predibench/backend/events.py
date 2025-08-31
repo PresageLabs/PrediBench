@@ -1,13 +1,13 @@
 from functools import lru_cache
 from predibench.polymarket_api import Event, EventsRequestParameters
-from predibench.backend.data_loader import load_agent_choices
+from predibench.backend.data_loader import load_agent_position
 
 
 @lru_cache(maxsize=1)
 def get_events_that_received_predictions() -> list[Event]:
     """Get events based that models ran predictions on"""
     # Load agent choices to see what markets they've been betting on
-    data = load_agent_choices()
+    data = load_agent_position()
 
     # Working with Pydantic models from GCP
     event_ids = set()
