@@ -433,7 +433,7 @@ def run_openai_deep_research(
     return CompleteMarketInvestmentDecisions(
         market_investment_decisions=structured_market_decisions,
         unallocated_capital=unallocated_capital,
-        full_response=full_response.model_dump(),
+        full_response=full_response.model_dump() if full_response is not None else None,
         token_usage=TokenUsage(
             input_tokens=full_response.usage.input_tokens,
             output_tokens=full_response.usage.output_tokens
