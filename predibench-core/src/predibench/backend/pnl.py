@@ -31,7 +31,7 @@ class PnlCalculator:
         vol_targeting_window: str, window for volatility targeting
         """
         self.positions = positions
-        self.returns = prices.pct_change(periods=1).copy()
+        self.returns = prices.pct_change(periods=1, fill_method=None).copy()
         self._assert_index_is_date(self.positions)
         self._assert_index_is_date(self.returns)
         self.prices = prices
@@ -353,8 +353,13 @@ def get_historical_returns(
         # Return empty DataFrame if no valid price data
         return pd.DataFrame(columns=list(market_prices.keys()))
     
-    # Create unified date index
+    # Create unified date index, convert to timezone-naive dates to match positions data
     unified_index = pd.Index(sorted(all_dates))
+    
+    # Convert timezone-aware datetimes to timezone-naive dates for consistency with positions
+    if len(unified_index) > 0 and hasattr(unified_index[0], 'tz') and unified_index[0].tz is not None:
+        unified_index = unified_index.tz_convert('UTC').date
+        unified_index = pd.DatetimeIndex([pd.Timestamp(d) for d in unified_index])
     
     # Initialize DataFrame with NaN values
     prices_df = pd.DataFrame(
@@ -365,7 +370,14 @@ def get_historical_returns(
 
     # Fill in price data for each market
     for market_id, prices in valid_market_prices.items():
-        prices_df[market_id] = prices
+        if len(prices) > 0 and hasattr(prices.index[0], 'tz') and prices.index[0].tz is not None:
+            # Convert timezone-aware prices index to timezone-naive dates
+            prices_dates = prices.index.tz_convert('UTC').date
+            prices_date_index = pd.DatetimeIndex([pd.Timestamp(d) for d in prices_dates])
+            prices_aligned = pd.Series(prices.values, index=prices_date_index)
+            prices_df[market_id] = prices_aligned
+        else:
+            prices_df[market_id] = prices
     
     return prices_df
 

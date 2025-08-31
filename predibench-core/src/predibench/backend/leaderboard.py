@@ -12,34 +12,6 @@ from predibench.backend.data_loader import load_agent_position
 
 
 @lru_cache(maxsize=1)
-def _extract_decisions_data():
-    """Extract decisions data with odds and confidence from model results"""
-    model_results = load_agent_position()
-
-    decisions = []
-
-    # Working with Pydantic models from GCP
-    for model_result in model_results:
-        model_name = model_result.model_info.model_pretty_name
-        date = model_result.target_date
-
-        for event_decision in model_result.event_investment_decisions:
-            for market_decision in event_decision.market_investment_decisions:
-                decisions.append(
-                    {
-                        "date": date,
-                        "market_id": market_decision.market_id,
-                        "model_name": model_name,
-                        "model_id": model_result.model_id,
-                        "odds": market_decision.model_decision.odds,
-                        "confidence": market_decision.model_decision.confidence,
-                    }
-                )
-
-    return pd.DataFrame.from_records(decisions)
-
-
-@lru_cache(maxsize=1)
 def _calculate_real_performance():
     """Calculate real Profit and performance metrics exactly like gradio app"""
     positions_df = load_agent_position()
@@ -48,12 +20,10 @@ def _calculate_real_performance():
         positions_df
     )
 
-    # Create BrierScoreCalculator instances for each agent
-    decisions_df = _extract_decisions_data()
     brier_calculators = {}
     for model_name, pnl_calculator in pnl_calculators.items():
         # Filter decisions for this agent
-        agent_decisions = decisions_df[decisions_df["model_name"] == model_name]
+        agent_decisions = positions_df[positions_df["model_name"] == model_name]
         # Convert to pivot format
         decisions_pivot_df = agent_decisions.pivot(
             index="date", columns="market_id", values="odds"
