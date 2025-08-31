@@ -101,12 +101,10 @@ if __name__ == "__main__":
     # Test with random model to verify new output format
     models = [
         ModelInfo(
-            model_id="openai/gpt-oss-120b",
-            model_pretty_name="GPT-OSS 120B",
-            inference_provider="fireworks-ai",
+            model_id="o3-deep-research",
+            model_pretty_name="O3 Deep Research",
+            inference_provider="openai",
             company_pretty_name="OpenAI",
-            open_weights=True,
-            agent_type="toolcalling",
         ),
     ]
 
@@ -114,6 +112,5 @@ if __name__ == "__main__":
         models=models,
         time_until_ending=timedelta(days=7 * 6),
         max_n_events=2,
-        target_date=date(2025, 8, 24),
-        force_rewrite=True,
+        target_date=date(2025, 8, 29),
     )
