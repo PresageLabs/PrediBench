@@ -6,7 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from predibench.backend.data_loader import load_agent_position, load_market_prices
+from predibench.backend.data_loader import load_agent_position
 from predibench.logger_config import get_logger
 from predibench.polymarket_api import Market, MarketsRequestParameters
 
@@ -119,40 +119,6 @@ def calculate_pnl(
 
 
 
-def get_pnls(
-    positions_df: pd.DataFrame,
-) -> dict[str, dict]:
-    """Builds PnL calculations for each agent in the positions dataframe.
-
-    Args:
-        positions_df: DataFrame with positions data, with columns [model_name, market_id, date]
-        write_plots: bool, if True, will write plots to the current directory
-        end_date: cutoff date
-    """
-    
-    market_prices = load_market_prices()
-    prices_df = get_historical_returns(market_prices)
-
-    pnl_results = {}
-    for model_name in positions_df["model_name"].unique():
-        print("AGENT NAME", model_name)
-        positions_agent_df = positions_df[
-            positions_df["model_name"] == model_name
-        ].drop(columns=["model_name"])
-        assert len(positions_agent_df) > 0, (
-            "A this stage, dataframe should not be empty!"
-        )
-        positions_agent_df = positions_agent_df.pivot(
-        index="date", columns="market_id", values="choice"
-    )
-
-        pnl_result = calculate_pnl(
-            positions_agent_df,
-            prices_df,
-        )
-        pnl_results[model_name] = pnl_result
-
-    return pnl_results
 
 
 def get_historical_returns(
@@ -243,6 +209,11 @@ def get_positions_df():
 
 @lru_cache(maxsize=1)
 def get_all_markets_pnls():
-    positions_df = get_positions_df()
-    pnl_results = get_pnls(positions_df)
-    return pnl_results
+    """Get PnL results for all agents using shared data loading approach."""
+    from predibench.backend.leaderboard import _load_market_data, _calculate_agent_pnl_results
+    
+    market_data = _load_market_data()
+    positions_df = market_data["positions_df"]
+    prices_df = market_data["prices_df"]
+    
+    return _calculate_agent_pnl_results(positions_df, prices_df)
