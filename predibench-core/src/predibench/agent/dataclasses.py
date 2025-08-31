@@ -46,6 +46,25 @@ class EventInvestmentDecisions(BaseModel):
     token_usage: TokenUsage | None = None
     timing: Timing | None = None
 
+    def normalize_gains(self) -> None:
+        """Normalize the bet amounts so that total allocated capital + unallocated capital = 1.0"""
+        total_allocated = sum(
+            abs(decision.model_decision.bet) 
+            for decision in self.market_investment_decisions
+        )
+        
+        total_capital = total_allocated + self.unallocated_capital
+        
+        if total_capital != 1.0 and total_capital > 0:
+            normalization_factor = 1.0 / total_capital
+            
+            # Normalize all bet amounts
+            for decision in self.market_investment_decisions:
+                decision.model_decision.bet *= normalization_factor
+            
+            # Normalize unallocated capital
+            self.unallocated_capital *= normalization_factor
+
 
 class ModelInfo(BaseModel):
     model_id: str

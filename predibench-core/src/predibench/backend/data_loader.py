@@ -31,6 +31,11 @@ def load_investment_choices_from_google() -> list[ModelInvestmentDecisions]:
 
     # Sort by target_date
     model_results.sort(key=lambda x: x.target_date)
+    
+    # Very important:Normalize gains for all event decisions
+    for model_result in model_results:
+        for event_decision in model_result.event_investment_decisions:
+            event_decision.normalize_gains()
     return model_results
 
 def load_saved_events() -> list[Event]:

@@ -103,7 +103,7 @@ def _calculate_real_performance():
     model_results = load_investment_choices_from_google()
     saved_events = load_saved_events()
     
-    positions_df =load_agent_position(model_results)
+    positions_df = load_agent_position(model_results)
     market_prices = load_market_prices(saved_events)
     prices_df = get_historical_returns(market_prices)
 
