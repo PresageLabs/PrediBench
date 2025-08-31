@@ -1,6 +1,6 @@
 from functools import lru_cache
 from predibench.agent.dataclasses import ModelInvestmentDecisions
-from predibench.polymarket_api import load_market_price
+from predibench.polymarket_api import load_market_price, Market
 from predibench.polymarket_data import load_events_from_file
 from predibench.storage_utils import get_bucket
 from predibench.common import DATA_PATH
@@ -49,7 +49,8 @@ def load_market_prices() -> dict[str, pd.Series | None]:
             events = load_events_from_file(file_path)
             for event in events:
                 for market in event.markets:
-                    market_to_prices[market.id] = load_market_price(market.outcomes[0].clob_token_id)
+                    market_prices = load_market_price(market.outcomes[0].clob_token_id)
+                    market_to_prices[market.id] = Market.convert_to_daily_data(market_prices)
     return market_to_prices
     
 

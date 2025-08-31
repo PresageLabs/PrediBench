@@ -102,192 +102,10 @@ class PnlCalculator:
             )
             return pnls
 
-    def plot_pnl(self, stock_details: bool = False):
-        if not stock_details:
-            fig = px.line(
-                x=self.portfolio_cumulative_pnl.index,
-                y=self.portfolio_cumulative_pnl,
-                labels={"x": "Date", "y": "Cumulative Profit"},
-            )
-            fig.data[0].update(mode="markers+lines")
-            fig.update_layout(
-                xaxis_title="Date",
-                yaxis_title="Cumulative Profit",
-            )
-            return fig
-        else:
-            # Create subplots: Prices on top, Profit on bottom (equal height)
-            fig = make_subplots(
-                rows=2,
-                cols=1,
-                row_heights=[0.5, 0.5],  # Equal height for both subplots
-                subplot_titles=("Price Evolution", "Cumulative Profit"),
-                vertical_spacing=0.08,
-            )
 
-            colors = px.colors.qualitative.Plotly
-            columns = list(self.pnl.columns)
-            for i, market_id in enumerate(columns):
-                col_color = colors[i % len(colors)]
-                cumulative_pnl_market = self.pnl[market_id].cumsum(axis="index")
 
-                # Add price evolution trace to subplot 1 (top)
-                if market_id in self.prices.columns:
-                    price_data = self.prices[market_id].dropna()
-                    fig.add_trace(
-                        go.Scatter(
-                            x=price_data.index,
-                            y=price_data.values,
-                            mode="lines",
-                            name=market_id[:40],
-                            line=dict(color=col_color),
-                            legendgroup=market_id[:40],
-                        ),
-                        row=1,
-                        col=1,
-                    )
 
-                    # Add markers for positions taken on the price chart
-                    positions_to_plot = self.positions[market_id][
-                        self.positions[market_id].notna()
-                    ]
 
-                    if len(positions_to_plot) > 0:
-                        # Get price values at position change dates
-                        inter_index = positions_to_plot.index.intersection(
-                            price_data.index
-                        )
-                        prices_at_positions = price_data.loc[inter_index]
-                        positions_to_plot = positions_to_plot.loc[inter_index]
-                        fig.add_trace(
-                            go.Scatter(
-                                x=prices_at_positions.index,
-                                y=prices_at_positions.values,
-                                text=positions_to_plot.values,
-                                hovertemplate="Date: %{x}<br>Position: %{text:.2f}<br>Price: %{y:.3f}<extra></extra>",
-                                mode="markers",
-                                marker=dict(
-                                    symbol=[
-                                        "triangle-up"
-                                        if pos > 0
-                                        else "triangle-down"
-                                        if pos < 0
-                                        else "circle"
-                                        for pos in positions_to_plot.values
-                                    ],
-                                    size=10,
-                                    color=col_color,
-                                    line=dict(width=1, color="black"),
-                                ),
-                                showlegend=False,
-                                legendgroup=market_id[:40],
-                                name="Positions - " + market_id[:40],
-                            ),
-                            row=1,
-                            col=1,
-                        )
-
-                # Add Profit trace to subplot 2 (bottom)
-                fig.add_trace(
-                    go.Scatter(
-                        x=cumulative_pnl_market.index,
-                        y=cumulative_pnl_market.values,
-                        mode="markers+lines",
-                        line=dict(color=col_color),
-                        showlegend=False,
-                        legendgroup=market_id[:40],
-                        name=market_id[:40],
-                    ),
-                    row=2,
-                    col=1,
-                )
-
-            fig.update_xaxes(title_text="Date", row=2, col=1)
-            fig.update_yaxes(title_text="Price", row=1, col=1)
-            fig.update_yaxes(
-                title_text="Cumulative Profit", tickformat=".1f", row=2, col=1
-            )
-            fig.update_layout(
-                legend_title="Stock",
-                width=1200,
-                height=800,  # Increased height for two subplots
-            )
-            return fig
-
-    def vol_pnl_daily(self):
-        return self.portfolio_std_pnl
-
-    def vol_pnl_annualized(self):
-        return self.portfolio_std_pnl * self.sharpe_constant_normalization
-
-    def sharpe_daily(self):
-        return self.portfolio_mean_pnl / self.portfolio_std_pnl
-
-    def sharpe_annualized(self):
-        return (
-            self.portfolio_mean_pnl
-            / self.portfolio_std_pnl
-            * self.sharpe_constant_normalization
-        )
-
-    def compute_sortino_ratio(self, risk_free_rate: float = 0.0):
-        """
-        Sortino Ratio = (Mean Return - Risk-Free Rate) / Downside Deviation
-        """
-        excess_returns = self.portfolio_daily_pnl - risk_free_rate
-        downside_returns = excess_returns[excess_returns < 0]
-        downside_deviation = np.std(downside_returns, ddof=1)
-        if downside_deviation == 0:
-            return np.inf
-        return excess_returns.mean() / downside_deviation
-
-    def max_drawdown(self):
-        """
-        Maximum Drawdown = (Peak - Trough) / Peak
-        Assumes daily returns
-        """
-        cumulative_returns = self.portfolio_cumulative_pnl
-        peak = cumulative_returns.cummax()
-        drawdown = (peak - cumulative_returns) / peak
-        return drawdown.max()
-
-    def compute_calmar_ratio(self, risk_free_rate: float = 0.0):
-        """
-        Calmar Ratio = Annualized Return / Maximum Drawdown
-        Assumes daily returns
-        """
-        max_drawdown = self.max_drawdown()
-        annualized_return = self.portfolio_mean_pnl * 252
-        if max_drawdown == 0:
-            return np.inf
-        return annualized_return / abs(max_drawdown)
-
-    def turnover(self):
-        """
-        Calculate turnover in %.
-        """
-        turnover = (
-            100
-            * self.positions.diff().abs().sum(axis=1).sum()
-            / self.positions.abs().sum(axis=1).sum()
-        )
-        return turnover
-
-    def get_performance_metrics(self) -> pd.DataFrame:
-        return pd.DataFrame.from_dict(
-            {
-                "Sharpe Ratio (Daily)": [self.sharpe_daily()],
-                "Sharpe Ratio (Annualized)": [self.sharpe_annualized()],
-                "Volatility (Daily)": [self.vol_pnl_daily()],
-                "Volatility (Annualized)": [self.vol_pnl_annualized()],
-                "Sortino Ratio": [self.compute_sortino_ratio()],
-                "Maximum Drawdown": [self.max_drawdown()],
-                "Calmar Ratio": [self.compute_calmar_ratio()],
-                "Turnover (%)": [self.turnover()],
-            },
-            columns=["Value"],
-            orient="index",
-        )
 
 
 def get_pnls(
@@ -360,6 +178,8 @@ def get_historical_returns(
     if len(unified_index) > 0 and hasattr(unified_index[0], 'tz') and unified_index[0].tz is not None:
         unified_index = unified_index.tz_convert('UTC').date
         unified_index = pd.DatetimeIndex([pd.Timestamp(d) for d in unified_index])
+        # Remove duplicate dates
+        unified_index = unified_index[~unified_index.duplicated()]
     
     # Initialize DataFrame with NaN values
     prices_df = pd.DataFrame(
@@ -375,6 +195,8 @@ def get_historical_returns(
             prices_dates = prices.index.tz_convert('UTC').date
             prices_date_index = pd.DatetimeIndex([pd.Timestamp(d) for d in prices_dates])
             prices_aligned = pd.Series(prices.values, index=prices_date_index)
+            # Remove duplicates by keeping the last value for each date
+            prices_aligned = prices_aligned[~prices_aligned.index.duplicated(keep='last')]
             prices_df[market_id] = prices_aligned
         else:
             prices_df[market_id] = prices

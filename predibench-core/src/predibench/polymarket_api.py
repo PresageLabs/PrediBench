@@ -111,7 +111,7 @@ class Market(BaseModel, arbitrary_types_allowed=True):
             self.price_outcome_name = None
 
     @staticmethod
-    def _convert_to_daily_data(timeseries_data: pd.Series) -> pd.Series:
+    def convert_to_daily_data(timeseries_data: pd.Series) -> pd.Series:
         """Convert 6-hourly datetime data to daily date data for PnL compatibility."""
         if timeseries_data is None or len(timeseries_data) == 0:
             return timeseries_data
