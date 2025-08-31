@@ -67,7 +67,7 @@ def calculate_pnl_and_performance(positions_df: pd.DataFrame):
     """Calculate real Profit and performance metrics for each agent using historical market data"""
     positions_df = positions_df.loc[positions_df["date"] > date(2025, 7, 19)]
     pnl_calculators = get_pnls(
-        positions_df, write_plots=False, end_date=datetime.today()
+        positions_df, end_date=datetime.today()
     )
 
     # Convert to the format expected by frontend

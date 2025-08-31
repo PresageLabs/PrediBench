@@ -306,7 +306,6 @@ def validate_continuous_prices(prices_df: pd.DataFrame) -> None:
 def get_pnls(
     positions_df: pd.DataFrame,
     end_date: date | None = None,
-    write_plots: bool = False,
 ) -> dict[str, PnlCalculator]:
     """Builds Profit calculators for each agent in the positions dataframe.
 
