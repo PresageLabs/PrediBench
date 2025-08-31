@@ -1,7 +1,7 @@
 from functools import lru_cache
 from predibench.backend.data_model import LeaderboardEntry
 from datetime import datetime
-from predibench.backend.brier import BrierScoreCalculator
+from predibench.backend.brier import calculate_brier_scores
 from predibench.backend.data_model import DataPoint
 import pandas as pd
 import numpy as np
@@ -20,7 +20,7 @@ def _calculate_real_performance():
         positions_df
     )
 
-    brier_calculators = {}
+    brier_results = {}
     # We need to load prices to calculate Brier scores
     from predibench.backend.pnl import get_historical_returns
     from predibench.backend.data_loader import load_market_prices
@@ -38,13 +38,13 @@ def _calculate_real_performance():
         decisions_pivot_df = decisions_pivot_df.reindex(
             prices_df.index, method="ffill"
         )
-        brier_calculators[model_name] = BrierScoreCalculator(
+        brier_results[model_name] = calculate_brier_scores(
             decisions_pivot_df, prices_df
         )
 
     agents_performance = {}
     for model_name, pnl_result in pnl_results.items():
-        brier_calculator = brier_calculators[model_name]
+        brier_result = brier_results[model_name]
         daily_pnl = pnl_result["portfolio_daily_pnl"]
 
         # Generate performance history from cumulative Profit
@@ -73,11 +73,11 @@ def _calculate_real_performance():
                 d.strftime("%Y-%m-%d")
                 for d in pnl_result["portfolio_cumulative_pnl"].index.tolist()
             ],
-            "avg_brier_score": brier_calculator.avg_brier_score,
+            "avg_brier_score": brier_result["avg_brier_score"],
         }
 
         print(
-            f"Agent {model_name}: Profit={final_pnl:.3f}, Sharpe={sharpe_ratio:.3f}, Brier={brier_calculator.avg_brier_score:.3f}"
+            f"Agent {model_name}: Profit={final_pnl:.3f}, Sharpe={sharpe_ratio:.3f}, Brier={brier_result['avg_brier_score']:.3f}"
         )
 
     print(f"Calculated performance for {len(agents_performance)} agents")
