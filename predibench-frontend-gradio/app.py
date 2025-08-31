@@ -66,32 +66,57 @@ def add_rationale_markers(
 def calculate_pnl_and_performance(positions_df: pd.DataFrame):
     """Calculate real Profit and performance metrics for each agent using historical market data"""
     positions_df = positions_df.loc[positions_df["date"] > date(2025, 7, 19)]
-    pnl_calculators = get_pnls(
-        positions_df, end_date=datetime.today()
-    )
+    pnl_results = get_pnls(positions_df)
+
+    # We need to load prices separately for plotting
+    from predibench.backend.pnl import get_historical_returns
+    from predibench.backend.data_loader import load_market_prices
+    market_prices = load_market_prices()
+    prices_df = get_historical_returns(market_prices)
 
     # Convert to the format expected by frontend
     agents_performance = {}
     for agent in positions_df["model_name"].unique():
-        pnl_calculator = pnl_calculators[agent]
+        pnl_result = pnl_results[agent]
         agent_data = positions_df[positions_df["model_name"] == agent].copy()
-        daily_pnl = pnl_calculator.portfolio_daily_pnl
-        prices = pnl_calculator.prices
+        daily_pnl = pnl_result["portfolio_daily_pnl"]
+
+        # Create a simple plot instead of using the class method
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+        
+        fig = make_subplots(rows=2, cols=1, shared_xaxes=True, 
+                           subplot_titles=['Cumulative PnL', 'Prices'])
+        
+        # Add cumulative PnL trace
+        fig.add_trace(
+            go.Scatter(x=pnl_result["portfolio_cumulative_pnl"].index, 
+                      y=pnl_result["portfolio_cumulative_pnl"].values,
+                      name="Cumulative PnL"),
+            row=1, col=1
+        )
+        
+        # Add price traces for each market
+        for col in prices_df.columns:
+            if col in pnl_result["pnl"].columns:
+                fig.add_trace(
+                    go.Scatter(x=prices_df.index, y=prices_df[col].values,
+                              name=f"Price {col[:20]}..."),
+                    row=2, col=1
+                )
 
         # Enhance the figure with rationale markers
-        enhanced_figure = add_rationale_markers(
-            pnl_calculator.plot_pnl(stock_details=True), agent_data, prices
-        )
+        enhanced_figure = add_rationale_markers(fig, agent_data, prices_df)
 
         agents_performance[agent] = {
             "long_positions": len(agent_data[agent_data["choice"] == 1]),
             "short_positions": len(agent_data[agent_data["choice"] == -1]),
             "no_positions": len(agent_data[agent_data["choice"] == 0]),
-            "final_cumulative_pnl": pnl_calculator.portfolio_cumulative_pnl.iloc[-1],
+            "final_cumulative_pnl": pnl_result["portfolio_cumulative_pnl"].iloc[-1],
             "annualized_sharpe_ratio": (daily_pnl.mean() / daily_pnl.std())
             * np.sqrt(252),
-            "daily_cumulative_pnl": pnl_calculator.portfolio_cumulative_pnl.tolist(),
-            "dates": pnl_calculator.portfolio_cumulative_pnl.index.tolist(),
+            "daily_cumulative_pnl": pnl_result["portfolio_cumulative_pnl"].tolist(),
+            "dates": pnl_result["portfolio_cumulative_pnl"].index.tolist(),
             "figure": enhanced_figure,
         }
 

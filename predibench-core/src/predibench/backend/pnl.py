@@ -13,94 +13,105 @@ from predibench.polymarket_api import Market, MarketsRequestParameters
 logger = get_logger(__name__)
 
 
-class PnlCalculator:
-    sharpe_constant_normalization = 252**0.5
+def _assert_index_is_date(df: pd.DataFrame):
+    assert all(isinstance(idx, date) for idx in df.index), (
+        "All index values must be date objects or timestamps without time component"
+    )
 
-    def __init__(
-        self,
-        positions: pd.DataFrame,
-        prices: pd.DataFrame,
-        to_vol_target: bool = False,
-        vol_targeting_window: str = "30D",
-    ):
-        """
-        positions: Daily positions: pd.DataFrame with columns as markets and index as dates. A position noted with date D as index is the position at the end of day D, which will be impacted by returns of day D+1
-        returns: Daily returns: pd.DataFrame with columns as markets and index as dates. These can be absolute or relative, but if they're relative the sum across portfolio won't mean anything.
+
+def _get_positions_begin_next_day(positions: pd.DataFrame, col: str):
+    """
+    Align positions with returns by shifting position dates forward by 1 day.
+    Position held at end of day D should capture returns on day D+1.
+    """
+    positions_series = positions[col].copy()
+    # Shift index forward by 1 day to align with when returns are realized
+    positions_series.index = positions_series.index + pd.Timedelta(days=1)
+    return positions_series
+
+
+def calculate_pnl(
+    positions: pd.DataFrame,
+    prices: pd.DataFrame,
+    to_vol_target: bool = False,
+    vol_targeting_window: str = "30D",
+):
+    """
+    Calculate profit and loss for given positions and prices.
+    
+    Args:
+        positions: Daily positions: pd.DataFrame with columns as markets and index as dates. 
+                  A position noted with date D as index is the position at the end of day D, 
+                  which will be impacted by returns of day D+1
         prices: Price data: pd.DataFrame with columns as markets and index as dates
         to_vol_target: bool, if True, will target volatility
         vol_targeting_window: str, window for volatility targeting
-        """
-        self.positions = positions
-        self.returns = prices.pct_change(periods=1, fill_method=None).copy()
-        self._assert_index_is_date(self.positions)
-        self._assert_index_is_date(self.returns)
-        self.prices = prices
-        self._assert_index_is_date(self.prices)
-        self.to_vol_target = to_vol_target
-        self.vol_targeting_window = vol_targeting_window
-        self.pnl = self.calculate_pnl()
-        self.portfolio_daily_pnl = self.pnl.sum(
-            axis="columns"
-        )  # NOTE: this assumes all positions equal, it's false ofc
-        self.portfolio_cumulative_pnl = self.portfolio_daily_pnl.cumsum()
-        self.portfolio_mean_pnl = self.portfolio_daily_pnl.mean()
-        self.portfolio_std_pnl = self.portfolio_daily_pnl.std()
-        self.portfolio_sum_pnl = self.portfolio_daily_pnl.sum()
-
-    def _assert_index_is_date(self, df: pd.DataFrame):
-        assert all(isinstance(idx, date) for idx in df.index), (
-            "All index values must be date objects or timestamps without time component"
+        
+    Returns:
+        dict containing:
+            - pnl: DataFrame with PnL values
+            - portfolio_daily_pnl: Series with daily portfolio PnL
+            - portfolio_cumulative_pnl: Series with cumulative portfolio PnL  
+            - portfolio_mean_pnl: float with mean daily PnL
+            - portfolio_std_pnl: float with std of daily PnL
+            - portfolio_sum_pnl: float with total PnL
+    """
+    returns = prices.pct_change(periods=1, fill_method=None).copy()
+    _assert_index_is_date(positions)
+    _assert_index_is_date(returns)
+    _assert_index_is_date(prices)
+    
+    if to_vol_target:
+        volatility = (
+            returns.apply(
+                lambda x: x.dropna().rolling(vol_targeting_window).std()
+            )
+            .resample("1D")
+            .last()
+            .ffill()
         )
-
-    def _get_positions_begin_next_day(self, col: str):
-        """
-        Align positions with returns by shifting position dates forward by 1 day.
-        Position held at end of day D should capture returns on day D+1.
-        """
-        positions_series = self.positions[col].copy()
-        # Shift index forward by 1 day to align with when returns are realized
-        positions_series.index = positions_series.index + pd.Timedelta(days=1)
-        return positions_series
-
-    def calculate_pnl(self):
-        if self.to_vol_target:
-            volatility = (
-                self.returns.apply(
-                    lambda x: x.dropna().rolling(self.vol_targeting_window).std()
+        new_positions = (
+            (positions / volatility).resample("1D").last().ffill(limit=7)
+        )
+        pnl = pd.concat(
+            [
+                new_positions[col]
+                .reindex(returns[col].dropna().index)
+                .shift(1)
+                * returns[col]
+                for col in new_positions
+            ],
+            axis="columns",
+        )
+    else:
+        logger.debug("Profit calculation debug info")
+        logger.debug(f"Returns head:\n{returns.head()}")
+        logger.debug(f"Positions head:\n{positions.head()}")
+        pnl = pd.concat(
+            [
+                _get_positions_begin_next_day(positions, col).reindex(
+                    returns[col].dropna().index, fill_value=0
                 )
-                .resample("1D")
-                .last()
-                .ffill()
-            )
-            self.new_positions = (
-                (self.positions / volatility).resample("1D").last().ffill(limit=7)
-            )
-            pnls = pd.concat(
-                [
-                    self.new_positions[col]
-                    .reindex(self.returns[col].dropna().index)
-                    .shift(1)
-                    * self.returns[col]
-                    for col in self.new_positions
-                ],
-                axis="columns",
-            )
-            return pnls
-        else:
-            logger.debug("Profit calculation debug info")
-            logger.debug(f"Returns head:\n{self.returns.head()}")
-            logger.debug(f"Positions head:\n{self.positions.head()}")
-            pnls = pd.concat(
-                [
-                    self._get_positions_begin_next_day(col).reindex(
-                        self.returns[col].dropna().index, fill_value=0
-                    )
-                    * self.returns[col]
-                    for col in self.positions
-                ],
-                axis="columns",
-            )
-            return pnls
+                * returns[col]
+                for col in positions
+            ],
+            axis="columns",
+        )
+    
+    portfolio_daily_pnl = pnl.sum(axis="columns")
+    portfolio_cumulative_pnl = portfolio_daily_pnl.cumsum()
+    portfolio_mean_pnl = portfolio_daily_pnl.mean()
+    portfolio_std_pnl = portfolio_daily_pnl.std()
+    portfolio_sum_pnl = portfolio_daily_pnl.sum()
+    
+    return {
+        "pnl": pnl,
+        "portfolio_daily_pnl": portfolio_daily_pnl,
+        "portfolio_cumulative_pnl": portfolio_cumulative_pnl,
+        "portfolio_mean_pnl": portfolio_mean_pnl,
+        "portfolio_std_pnl": portfolio_std_pnl,
+        "portfolio_sum_pnl": portfolio_sum_pnl,
+    }
 
 
 
@@ -110,8 +121,8 @@ class PnlCalculator:
 
 def get_pnls(
     positions_df: pd.DataFrame,
-) -> dict[str, PnlCalculator]:
-    """Builds Profit calculators for each agent in the positions dataframe.
+) -> dict[str, dict]:
+    """Builds PnL calculations for each agent in the positions dataframe.
 
     Args:
         positions_df: DataFrame with positions data, with columns [model_name, market_id, date]
@@ -122,7 +133,7 @@ def get_pnls(
     market_prices = load_market_prices()
     prices_df = get_historical_returns(market_prices)
 
-    pnl_calculators = {}
+    pnl_results = {}
     for model_name in positions_df["model_name"].unique():
         print("AGENT NAME", model_name)
         positions_agent_df = positions_df[
@@ -135,13 +146,13 @@ def get_pnls(
         index="date", columns="market_id", values="choice"
     )
 
-        pnl_calculator = PnlCalculator(
+        pnl_result = calculate_pnl(
             positions_agent_df,
             prices_df,
         )
-        pnl_calculators[model_name] = pnl_calculator
+        pnl_results[model_name] = pnl_result
 
-    return pnl_calculators
+    return pnl_results
 
 
 def get_historical_returns(
@@ -233,5 +244,5 @@ def get_positions_df():
 @lru_cache(maxsize=1)
 def get_all_markets_pnls():
     positions_df = get_positions_df()
-    pnl_calculators = get_pnls(positions_df)
-    return pnl_calculators
+    pnl_results = get_pnls(positions_df)
+    return pnl_results
