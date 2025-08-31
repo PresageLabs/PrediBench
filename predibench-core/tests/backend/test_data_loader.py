@@ -1,9 +1,9 @@
-from predibench.backend.data_loader import load_agent_choices, get_market_to_clob
+from predibench.backend.data_loader import load_agent_choices, load_market_prices
 
 
 def test_load_agent_choices():
-    markets_to_grob = get_market_to_clob()
-    assert len(markets_to_grob) > 80
+    market_prices = load_market_prices()
+    assert len(market_prices) > 80
     assert len(load_agent_choices()) > 30
     
 

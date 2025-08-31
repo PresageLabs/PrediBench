@@ -598,61 +598,9 @@ class Event(BaseModel, arbitrary_types_allowed=True):
             markets=markets,
         )
 
-
-################################################################################
-# Useful for the future but unused functions
-################################################################################
-
-
-class OrderLevel(BaseModel):
-    price: str
-    size: str
-
-
-class OrderBook(BaseModel):
-    market: str
-    asset_id: str
-    hash: str
-    timestamp: str
-    min_order_size: str
-    neg_risk: bool
-    tick_size: str
-    bids: list[OrderLevel]
-    asks: list[OrderLevel]
-
-    @staticmethod
-    @polymarket_retry
-    def get_order_book(token_id: str) -> OrderBook:
-        """Get order book for a specific token ID from Polymarket CLOB API.
-
-        Args:
-            token_id: Token ID of the market to get the book for
-
-        Returns:
-            OrderBook containing bids, asks, and market information
-        """
-        url = "https://clob.polymarket.com/book"
-        params = {"token_id": token_id}
-
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        data = response.json()
-
-        bids = [
-            OrderLevel(price=bid["price"], size=bid["size"]) for bid in data["bids"]
-        ]
-        asks = [
-            OrderLevel(price=ask["price"], size=ask["size"]) for ask in data["asks"]
-        ]
-
-        return OrderBook(
-            market=data["market"],
-            asset_id=data["asset_id"],
-            hash=data["hash"],
-            timestamp=data["timestamp"],
-            min_order_size=data["min_order_size"],
-            neg_risk=data["neg_risk"],
-            tick_size=data["tick_size"],
-            bids=bids,
-            asks=asks,
-        )
+def load_market_price(clob_token_id: str) -> pd.Series | None:
+    """Load market price from cache if available, otherwise fetch from API."""
+    request_parameters = _HistoricalTimeSeriesRequestParameters(
+        clob_token_id=clob_token_id,
+    )
+    return request_parameters.get_cached_token_timeseries()

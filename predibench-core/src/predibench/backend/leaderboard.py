@@ -65,10 +65,8 @@ def _calculate_real_performance():
     positions_df = pd.DataFrame.from_records(positions)
     print(f"Created {len(positions_df)} position records")
     
-    # TODO: read events.json that is saved and retrive the grob, maybe save the grob in the output nowon
-
     pnl_calculators = get_pnls(
-        positions_df, end_date=datetime.today()
+        positions_df
     )
 
     # Create BrierScoreCalculator instances for each agent

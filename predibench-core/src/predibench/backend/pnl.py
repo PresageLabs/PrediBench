@@ -6,7 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from predibench.backend.data_loader import load_agent_choices
+from predibench.backend.data_loader import load_agent_choices, load_market_prices
 from predibench.logger_config import get_logger
 from predibench.polymarket_api import Market, MarketsRequestParameters
 
@@ -305,7 +305,6 @@ def validate_continuous_prices(prices_df: pd.DataFrame) -> None:
 
 def get_pnls(
     positions_df: pd.DataFrame,
-    end_date: date | None = None,
 ) -> dict[str, PnlCalculator]:
     """Builds Profit calculators for each agent in the positions dataframe.
 
@@ -314,20 +313,9 @@ def get_pnls(
         write_plots: bool, if True, will write plots to the current directory
         end_date: cutoff date
     """
-    # Validate that we have continuous returns data
-    markets = {}
-    for market_id in positions_df["market_id"].unique():
-        request_parameters = MarketsRequestParameters(
-            id=market_id,
-        )
-        market = request_parameters.get_markets( # very bad
-            end_datetime=datetime.combine(end_date, time(0, 0, 0))
-            if end_date
-            else None,
-            # 15 days back is the maximum allowed by the API
-        )[0]
-        markets[market_id] = market
-    prices_df = get_historical_returns(markets)
+    
+    market_prices = load_market_prices()
+    prices_df = get_historical_returns(market_prices)
 
     validate_continuous_prices(prices_df)
 
