@@ -3,7 +3,6 @@ from predibench.polymarket_api import _HistoricalTimeSeriesRequestParameters
 from predibench.backend.events import get_events_by_ids
 
 
-@lru_cache(maxsize=32)
 def get_event_market_prices(event_id: str):
     """Get price history for all markets in an event"""
     events_list = get_events_by_ids((event_id,))

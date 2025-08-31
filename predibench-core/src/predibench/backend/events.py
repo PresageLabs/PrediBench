@@ -3,7 +3,7 @@ from predibench.polymarket_api import Event, EventsRequestParameters
 from predibench.backend.data_loader import load_agent_position
 
 
-@lru_cache(maxsize=1)
+
 def get_events_that_received_predictions() -> list[Event]:
     """Get events based that models ran predictions on"""
     # Load agent choices to see what markets they've been betting on
@@ -19,7 +19,7 @@ def get_events_that_received_predictions() -> list[Event]:
     return get_events_by_ids(event_ids)
 
 
-@lru_cache(maxsize=32)
+
 def get_events_by_ids(event_ids: tuple[str, ...]) -> list[Event]:
     """Cached wrapper for EventsRequestParameters.get_events()"""
     events = []

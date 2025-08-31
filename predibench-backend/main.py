@@ -149,3 +149,6 @@ if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
+    # ce que j'ai besoin:
+    # - récupérer les résultats par model_id, et par event_id

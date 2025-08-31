@@ -7,7 +7,6 @@ from predibench.backend.events import get_events_that_received_predictions
 from predibench.backend.data_model import LeaderboardEntry
 
 
-@lru_cache(maxsize=16)
 def get_model_details(model_id: str) -> LeaderboardEntry | dict:
     """Get detailed information for a specific model"""
     leaderboard = get_leaderboard()
@@ -19,7 +18,6 @@ def get_model_details(model_id: str) -> LeaderboardEntry | dict:
     return model
 
 
-@lru_cache(maxsize=16)
 def get_model_investment_details(agent_id: str):
     """Get market-level position and PnL data for a specific model"""
 

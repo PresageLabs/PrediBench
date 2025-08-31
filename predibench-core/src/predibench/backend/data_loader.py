@@ -1,6 +1,6 @@
 from functools import lru_cache
 from predibench.agent.dataclasses import ModelInvestmentDecisions
-from predibench.polymarket_api import load_market_price, Market
+from predibench.polymarket_api import load_market_price, Market, Event
 from predibench.polymarket_data import load_events_from_file
 from predibench.storage_utils import get_bucket
 from predibench.common import DATA_PATH
@@ -33,7 +33,18 @@ def load_investment_choices_from_google() -> list[ModelInvestmentDecisions]:
     model_results.sort(key=lambda x: x.target_date)
     return model_results
 
-def load_market_prices() -> dict[str, pd.Series | None]:
+def load_saved_events() -> list[Event]:
+    bucket = get_bucket()
+    blobs = bucket.list_blobs(prefix="")
+    events = []
+    for blob in blobs:
+        if blob.name.endswith("events.json"):
+            file_path = DATA_PATH / Path(blob.name)
+            events = load_events_from_file(file_path)
+            events.extend(events)
+    return events
+
+def load_market_prices(events: list[Event]) -> dict[str, pd.Series | None]:
     """
     The cached data for the markets is saved by clob id. But the results are saved by market id.
     This function will return a dictionary that maps market id to clob id.
@@ -41,24 +52,17 @@ def load_market_prices() -> dict[str, pd.Series | None]:
     A better way to do this would be to save the clob id in the results.
     """
     market_to_prices = {}
-    bucket = get_bucket()
-    blobs = bucket.list_blobs(prefix="")
-    for blob in blobs:
-        if blob.name.endswith("events.json"):
-            file_path = DATA_PATH / Path(blob.name)
-            events = load_events_from_file(file_path)
-            for event in events:
-                for market in event.markets:
-                    market_prices = load_market_price(market.outcomes[0].clob_token_id)
-                    market_to_prices[market.id] = Market.convert_to_daily_data(market_prices)
+    for event in events:
+        for market in event.markets:
+            market_prices = load_market_price(market.outcomes[0].clob_token_id)
+            market_to_prices[market.id] = Market.convert_to_daily_data(market_prices)
     return market_to_prices
     
 
-@lru_cache(maxsize=1)
-def load_agent_position() -> pd.DataFrame:
+
+def load_agent_position(model_results: list[ModelInvestmentDecisions]) -> pd.DataFrame:
     """Load agent choices from GCP instead of HuggingFace dataset"""
     
-    model_results = load_investment_choices_from_google()
     print(f"Loaded {len(model_results)} model results from GCP")
 
     positions = []

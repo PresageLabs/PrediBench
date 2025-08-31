@@ -181,8 +181,6 @@ def get_historical_returns(
     return prices_df
 
 
-
-@lru_cache(maxsize=1)
 def get_positions_df():
     # Calculate market-level data
     data = load_agent_position()
@@ -206,8 +204,6 @@ def get_positions_df():
 
     return pd.DataFrame.from_records(positions)
 
-
-@lru_cache(maxsize=1)
 def get_all_markets_pnls():
     """Get PnL results for all agents using shared data loading approach."""
     from predibench.backend.leaderboard import _load_market_data, _calculate_agent_pnl_results

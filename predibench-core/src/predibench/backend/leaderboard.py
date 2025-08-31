@@ -6,22 +6,9 @@ from predibench.backend.data_model import DataPoint
 import pandas as pd
 import numpy as np
 from predibench.backend.pnl import calculate_pnl
-from predibench.backend.data_loader import load_agent_position, load_market_prices
+from predibench.backend.data_loader import load_agent_position, load_market_prices, load_saved_events
 from predibench.backend.pnl import get_historical_returns
-
-
-@lru_cache(maxsize=1)
-def _load_market_data():
-    """Load and cache all market data needed for performance calculations."""
-    positions_df = load_agent_position()
-    market_prices = load_market_prices()
-    prices_df = get_historical_returns(market_prices)
-    
-    return {
-        "positions_df": positions_df,
-        "market_prices": market_prices,
-        "prices_df": prices_df,
-    }
+from predibench.backend.data_loader import load_investment_choices_from_google
 
 
 def _calculate_agent_pnl_results(positions_df: pd.DataFrame, prices_df: pd.DataFrame) -> dict[str, dict]:
@@ -82,7 +69,6 @@ def _create_pnl_history(cumulative_pnl: pd.Series) -> list[DataPoint]:
 
 
 
-
 def _aggregate_agent_performance(
     model_name: str, 
     pnl_result: dict, 
@@ -112,13 +98,15 @@ def _print_agent_summary(model_name: str, performance: dict):
     )
 
 
-@lru_cache(maxsize=1)
 def _calculate_real_performance():
     """Calculate real performance metrics for all agents with clean separation of concerns."""
-    # Load all market data once
-    market_data = _load_market_data()
-    positions_df = market_data["positions_df"]
-    prices_df = market_data["prices_df"]
+    model_results = load_investment_choices_from_google()
+    saved_events = load_saved_events()
+    
+    positions_df =load_agent_position(model_results)
+    market_prices = load_market_prices(saved_events)
+    prices_df = get_historical_returns(market_prices)
+
     
     # Calculate PnL and Brier results using shared data
     pnl_results = _calculate_agent_pnl_results(positions_df, prices_df)
@@ -169,7 +157,6 @@ def _create_leaderboard_entry(model_name: str, metrics: dict) -> LeaderboardEntr
     )
 
 
-@lru_cache(maxsize=1)
 def get_leaderboard() -> list[LeaderboardEntry]:
     """Generate leaderboard from real performance data, sorted by cumulative PnL."""
     real_performance = _calculate_real_performance()
