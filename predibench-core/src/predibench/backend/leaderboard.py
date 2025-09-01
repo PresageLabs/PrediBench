@@ -30,7 +30,7 @@ def _calculate_agent_pnl_results(positions_df: pd.DataFrame, prices_df: pd.DataF
             index="date", columns="market_id", values="choice"
         )
 
-        pnl_result = calculate_pnl(positions_agent_df, prices_df)
+        pnl_result = calculate_pnl(positions_agent_df=positions_agent_df, prices_df=prices_df)
         pnl_results[model_name] = pnl_result
 
     return pnl_results
@@ -52,7 +52,7 @@ def _calculate_agent_brier_results(positions_df: pd.DataFrame, prices_df: pd.Dat
         )
         
         brier_results[model_name] = calculate_brier_scores(
-            decisions_pivot_df, prices_df
+            decisions_pivot_df=decisions_pivot_df, prices_df=prices_df
         )
     
     return brier_results

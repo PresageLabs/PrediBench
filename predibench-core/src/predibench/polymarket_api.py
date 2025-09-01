@@ -329,15 +329,9 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
         if file_exists_in_storage(cache_path):
             try:
                 cached_data = json.loads(read_from_storage(cache_path))
-                cached_timeseries = self._deserialize_timeseries(cached_data)
-                
-                # Check if cached data covers the required date range
-                if self._is_cache_up_to_date(cached_data=cached_data, cached_timeseries=cached_timeseries):
-                    return cached_timeseries
-                else:
-                    logger.info(f"Cache for {self.clob_token_id} is outdated, updating...")
-                    return self.update_cached_token_timeseries()
-                    
+                cached_timeseries = self._deserialize_timeseries(cached_data)                
+                return cached_timeseries
+
             except json.JSONDecodeError as e:
                 logger.warning(f"Failed to load cached data for {self.clob_token_id}: {e}")
         
