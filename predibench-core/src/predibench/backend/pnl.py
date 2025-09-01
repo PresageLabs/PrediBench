@@ -18,7 +18,7 @@ def _assert_index_is_date(df: pd.DataFrame):
 # Removed unused _get_positions_begin_next_day function
 
 
-def calculate_pnl_per_agent(
+def compute_pnl_per_model(
     positions_agent_df: pd.DataFrame,
     prices_df: pd.DataFrame,
 ) -> PnlResult:
@@ -247,10 +247,10 @@ def get_positions_df():
 
 def get_all_markets_pnls():
     """Get PnL results for all agents using shared data loading approach."""
-    from predibench.backend.leaderboard import _load_market_data, _calculate_agent_pnl_results
+    from predibench.backend.leaderboard import _load_market_data, _compute_pnl_results_for_all_models
     
     market_data = _load_market_data()
     positions_df = market_data["positions_df"]
     prices_df = market_data["prices_df"]
     
-    return _calculate_agent_pnl_results(positions_df, prices_df)
+    return _compute_pnl_results_for_all_models(positions_df, prices_df)

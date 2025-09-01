@@ -5,7 +5,7 @@ import sys
 import os
 
 
-from predibench.backend.pnl import calculate_pnl_per_agent
+from predibench.backend.pnl import compute_pnl_per_model
 
 
 def test_calculate_pnl_with_nans():
@@ -37,7 +37,7 @@ def test_calculate_pnl_with_nans():
         'market_B': [None, None, None, None, 0.30, 0.32, 0.28, 0.35, 0.38, 0.36]
     }, index=dates)
     
-    result = calculate_pnl_per_agent(positions_df, prices_df)
+    result = compute_pnl_per_model(positions_df, prices_df)
     
     # Manual calculation with new realistic data (with price interpolation and position forward-filling):
     # market_A (days 3-10, with position forward-filling):

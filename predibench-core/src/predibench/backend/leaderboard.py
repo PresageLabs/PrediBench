@@ -5,13 +5,13 @@ from predibench.backend.brier import calculate_brier_scores
 from predibench.backend.data_model import DataPoint
 import pandas as pd
 import numpy as np
-from predibench.backend.pnl import calculate_pnl_per_agent
+from predibench.backend.pnl import compute_pnl_per_model
 from predibench.backend.data_loader import load_agent_position, load_market_prices, load_saved_events
 from predibench.backend.pnl import get_historical_returns
 from predibench.backend.data_loader import load_investment_choices_from_google
 
 
-def _calculate_agent_pnl_results(positions_df: pd.DataFrame, prices_df: pd.DataFrame) -> dict[str, PnlResult]:
+def _compute_pnl_results_for_all_models(positions_df: pd.DataFrame, prices_df: pd.DataFrame) -> dict[str, PnlResult]:
     """Calculate PnL results for all agents using shared market data."""
     pnl_results = {}
     
@@ -30,7 +30,7 @@ def _calculate_agent_pnl_results(positions_df: pd.DataFrame, prices_df: pd.DataF
             index="date", columns="market_id", values="choice"
         )
 
-        pnl_result = calculate_pnl_per_agent(positions_agent_df=positions_agent_df, prices_df=prices_df)
+        pnl_result = compute_pnl_per_model(positions_agent_df=positions_agent_df, prices_df=prices_df)
         pnl_results[model_name] = pnl_result
 
     return pnl_results
@@ -103,7 +103,7 @@ def _calculate_real_performance() -> dict[str, AgentPerformance]:
 
     
     # Calculate PnL and Brier results using shared data
-    pnl_results = _calculate_agent_pnl_results(positions_df, prices_df)
+    pnl_results = _compute_pnl_results_for_all_models(positions_df, prices_df)
     brier_results = _calculate_agent_brier_results(positions_df, prices_df)
     
     # Aggregate performance metrics for each agent
