@@ -3,6 +3,7 @@ from datetime import date
 import pandas as pd
 
 from predibench.logger_config import get_logger
+from predibench.backend.data_model import BrierResult
 
 logger = get_logger(__name__)
 
@@ -16,7 +17,7 @@ def _assert_index_is_date(df: pd.DataFrame):
 def calculate_brier_scores(
     decisions_df: pd.DataFrame,
     prices_df: pd.DataFrame,
-):
+) -> BrierResult:
     """
     Calculate Brier scores for model predictions.
 
@@ -57,7 +58,7 @@ def calculate_brier_scores(
     brier_scores_cleaned = brier_scores_df.dropna(how="all", axis=1)
     avg_brier_score = brier_scores_cleaned.mean().mean()
     
-    return {
-        "brier_scores": brier_scores_cleaned,
-        "avg_brier_score": avg_brier_score,
-    }
+    return BrierResult(
+        brier_scores=brier_scores_cleaned,
+        avg_brier_score=float(avg_brier_score),
+    )

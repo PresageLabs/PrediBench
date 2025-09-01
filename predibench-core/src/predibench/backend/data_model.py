@@ -103,3 +103,14 @@ class AgentPerformance(BaseModel):
     pnl_history: List[DataPoint]
     avg_brier_score: float
     trades: int
+
+
+class BrierResult(BaseModel):
+    """Clean, typed result from Brier score calculation"""
+    # DataFrame of per-date Brier scores per market (nullable when no decisions)
+    brier_scores: pd.DataFrame
+    # Average Brier score across all available predictions
+    avg_brier_score: float
+    
+    class Config:
+        arbitrary_types_allowed = True

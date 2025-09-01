@@ -1,5 +1,5 @@
 from functools import lru_cache
-from predibench.backend.data_model import LeaderboardEntry, AgentPerformance, PnlResult
+from predibench.backend.data_model import LeaderboardEntry, AgentPerformance, PnlResult, BrierResult
 from datetime import datetime
 from predibench.backend.brier import calculate_brier_scores
 from predibench.backend.data_model import DataPoint
@@ -36,7 +36,7 @@ def _compute_pnl_results_for_all_models(positions_df: pd.DataFrame, prices_df: p
     return pnl_results
 
 
-def _calculate_agent_brier_results(positions_df: pd.DataFrame, prices_df: pd.DataFrame) -> dict[str, dict]:
+def _calculate_agent_brier_results(positions_df: pd.DataFrame, prices_df: pd.DataFrame) -> dict[str, BrierResult]:
     """Calculate Brier score results for all agents using shared market data."""
     brier_results = {}
     
@@ -46,13 +46,13 @@ def _calculate_agent_brier_results(positions_df: pd.DataFrame, prices_df: pd.Dat
         decisions_pivot_df = agent_decisions.pivot(
             index="date", columns="market_id", values="odds"
         )
-        # Align with price data
-        decisions_pivot_df = decisions_pivot_df.reindex(
-            prices_df.index, method="ffill"
-        )
+        # Align with price data and forward-fill predictions across all dates
+        # Note: reindex(method="ffill") only fills values introduced by reindexing;
+        # we also need to ffill existing NaNs from missing decisions within existing rows.
+        decisions_pivot_df = decisions_pivot_df.reindex(prices_df.index).ffill()
         
         brier_results[model_name] = calculate_brier_scores(
-            decisions_pivot_df=decisions_pivot_df, prices_df=prices_df
+            decisions_df=decisions_pivot_df, prices_df=prices_df
         )
     
     return brier_results
@@ -65,7 +65,7 @@ def _calculate_agent_brier_results(positions_df: pd.DataFrame, prices_df: pd.Dat
 def _aggregate_agent_performance(
     model_name: str, 
     pnl_result: PnlResult, 
-    brier_result: dict,
+    brier_result: BrierResult,
     positions_df: pd.DataFrame
 ) -> AgentPerformance:
     """Aggregate all performance metrics for a single agent."""
@@ -77,7 +77,7 @@ def _aggregate_agent_performance(
         model_name=model_name,
         final_cumulative_pnl=pnl_result.final_pnl,
         pnl_history=pnl_result.cumulative_pnl,
-        avg_brier_score=brier_result["avg_brier_score"],
+        avg_brier_score=brier_result.avg_brier_score,
         trades=trades_count,
     )
 
