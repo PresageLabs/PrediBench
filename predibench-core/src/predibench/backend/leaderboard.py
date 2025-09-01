@@ -5,7 +5,7 @@ from predibench.backend.brier import calculate_brier_scores
 from predibench.backend.data_model import DataPoint
 import pandas as pd
 import numpy as np
-from predibench.backend.pnl import calculate_pnl
+from predibench.backend.pnl import calculate_pnl_per_agent
 from predibench.backend.data_loader import load_agent_position, load_market_prices, load_saved_events
 from predibench.backend.pnl import get_historical_returns
 from predibench.backend.data_loader import load_investment_choices_from_google
@@ -30,7 +30,7 @@ def _calculate_agent_pnl_results(positions_df: pd.DataFrame, prices_df: pd.DataF
             index="date", columns="market_id", values="choice"
         )
 
-        pnl_result = calculate_pnl(positions_agent_df=positions_agent_df, prices_df=prices_df)
+        pnl_result = calculate_pnl_per_agent(positions_agent_df=positions_agent_df, prices_df=prices_df)
         pnl_results[model_name] = pnl_result
 
     return pnl_results

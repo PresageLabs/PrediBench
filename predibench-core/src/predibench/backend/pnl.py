@@ -4,7 +4,7 @@ import pandas as pd
 
 from predibench.backend.data_loader import load_agent_position
 from predibench.logger_config import get_logger
-from predibench.backend.data_model import PnlResult, DataPoint
+from predibench.backend.data_model import PnlResult, DataPoint, PnlPoint
 
 logger = get_logger(__name__)
 
@@ -18,7 +18,7 @@ def _assert_index_is_date(df: pd.DataFrame):
 # Removed unused _get_positions_begin_next_day function
 
 
-def calculate_pnl(
+def calculate_pnl_per_agent(
     positions_agent_df: pd.DataFrame,
     prices_df: pd.DataFrame,
 ) -> PnlResult:
@@ -98,7 +98,7 @@ def calculate_pnl(
     
     if not market_pnl_series:
         logger.warning("No valid market PnL data calculated")
-        return PnlResult(cumulative_pnl=[], final_pnl=0.0)
+        return PnlResult(cumulative_pnl=[], final_pnl=0.0, market_pnls={})
     
     # Combine all market PnLs into a unified timeline
     # Get all dates from all markets
@@ -131,12 +131,27 @@ def calculate_pnl(
     
     final_pnl = float(portfolio_cumulative_pnl.iloc[-1]) if len(portfolio_cumulative_pnl) > 0 else 0.0
     
+    # Create per-market cumulative PnL data
+    market_pnl_points = {}
+    for market_id, market_daily_pnl in market_pnl_series.items():
+        market_cumulative_pnl = market_daily_pnl.cumsum()
+        market_points = []
+        for date_idx, pnl_value in market_cumulative_pnl.items():
+            market_points.append(
+                PnlPoint(
+                    date=date_idx.strftime("%Y-%m-%d"),
+                    pnl=float(pnl_value)
+                )
+            )
+        market_pnl_points[market_id] = market_points
+    
     logger.info(f"Calculated PnL for {len(market_pnl_series)} markets over {len(all_dates)} total days")
     logger.info(f"Final cumulative PnL: {final_pnl:.3f}")
     
     return PnlResult(
         cumulative_pnl=cumulative_pnl_points,
-        final_pnl=final_pnl
+        final_pnl=final_pnl,
+        market_pnls=market_pnl_points
     )
 
 

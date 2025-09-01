@@ -90,6 +90,7 @@ class PnlResult(BaseModel):
     """Clean, typed result from PnL calculation"""
     cumulative_pnl: List[DataPoint]  # Time series for frontend charts
     final_pnl: float                 # Final cumulative value
+    market_pnls: Dict[str, List[PnlPoint]]  # Per-market cumulative PnL over time
     
     class Config:
         arbitrary_types_allowed = True
