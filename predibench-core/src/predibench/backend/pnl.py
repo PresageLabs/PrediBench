@@ -1,14 +1,9 @@
-from datetime import date, datetime, time
-from functools import lru_cache
+from datetime import date
 import numpy as np
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 
 from predibench.backend.data_loader import load_agent_position
 from predibench.logger_config import get_logger
-from predibench.polymarket_api import Market, MarketsRequestParameters
 from predibench.backend.data_model import PnlResult, DataPoint
 
 logger = get_logger(__name__)
@@ -20,15 +15,7 @@ def _assert_index_is_date(df: pd.DataFrame):
     )
 
 
-def _get_positions_begin_next_day(positions: pd.DataFrame, col: str):
-    """
-    Align positions with returns by shifting position dates forward by 1 day.
-    Position held at end of day D should capture returns on day D+1.
-    """
-    positions_series = positions[col].copy()
-    # Shift index forward by 1 day to align with when returns are realized
-    positions_series.index = positions_series.index + pd.Timedelta(days=1)
-    return positions_series
+# Removed unused _get_positions_begin_next_day function
 
 
 def calculate_pnl(
@@ -38,7 +25,10 @@ def calculate_pnl(
     """
     Calculate profit and loss for given positions and prices.
     
-    For prediction markets: PnL = position_size * (price_today - price_yesterday)
+    For each market, PnL is calculated from first agent bet until market end:
+    - Start: First non-NaN position in positions_agent_df for that market
+    - End: Last non-NaN price in prices_df for that market
+    - PnL = position_held_yesterday * (price_today - price_yesterday)
     
     Args:
         positions_agent_df: Daily positions DataFrame with dates as index, markets as columns
@@ -50,39 +40,83 @@ def calculate_pnl(
     _assert_index_is_date(positions_agent_df)
     _assert_index_is_date(prices_df)
     
-    # Calculate price changes (not percentage returns)
-    price_changes = prices_df.diff().fillna(0)
+    # Calculate PnL for each market individually
+    market_pnl_series = {}
     
-    # Align positions and price changes to same date range
-    aligned_dates = price_changes.index.intersection(positions_agent_df.index)
-    if len(aligned_dates) == 0:
-        # Return empty results if no overlapping dates
-        return PnlResult(
-            cumulative_pnl=[],
-            final_pnl=0.0
-        )
-    
-    # Calculate PnL for each market
-    market_pnls = {}
     for market_id in positions_agent_df.columns:
-        if market_id in price_changes.columns:
-            # Get positions and price changes for this market
-            positions = positions_agent_df[market_id].reindex(aligned_dates, fill_value=0)
-            price_change = price_changes[market_id].reindex(aligned_dates, fill_value=0)
+        if market_id not in prices_df.columns:
+            logger.warning(f"Market {market_id} not found in prices data, skipping")
+            continue
             
-            # PnL = previous_day_position * price_change
-            # Shift positions by 1 day since position held yesterday affects today's PnL
-            market_pnl = positions.shift(1, fill_value=0) * price_change
-            market_pnls[market_id] = market_pnl
+        # Get agent positions and market prices for this market
+        agent_positions_series = positions_agent_df[market_id]
+        market_prices_raw = prices_df[market_id]
+        
+        # Interpolate missing prices between non-NaN values
+        market_prices = market_prices_raw.interpolate(method='linear').dropna()
+        
+        # Find first and last non-NaN positions (but keep the series intact)
+        valid_positions = agent_positions_series.dropna()
+        if len(valid_positions) == 0 or len(market_prices) == 0:
+            logger.debug(f"No valid data for market {market_id}, skipping")
+            continue
+        
+        # Find the date range for this market:
+        # Start: First non-NaN agent position
+        # End: Last non-NaN market price  
+        first_bet_date = valid_positions.index.min()
+        last_market_date = market_prices.index.max()
+        
+        if first_bet_date > last_market_date:
+            raise ValueError(f"Agent started betting after market {market_id} ended")
+            
+        # Create date range for this market's PnL calculation
+        market_date_range = pd.date_range(start=first_bet_date, end=last_market_date, freq='D')
+        # Convert to date objects to match our data format
+        market_date_range = pd.Index([d.date() for d in market_date_range])
+        market_date_range = market_date_range.intersection(market_prices.index)
+        
+        if len(market_date_range) == 0:
+            logger.debug(f"No overlapping dates for market {market_id}, skipping")
+            continue
+        
+        # Extend agent positions to cover the full market duration
+        # Forward-fill positions: NaN means "hold previous position"
+        extended_positions = agent_positions_series.reindex(market_date_range).ffill().fillna(0)
+        
+        # Get aligned prices and calculate price changes
+        aligned_prices = market_prices.reindex(market_date_range, method='ffill')
+        price_changes = aligned_prices.diff().fillna(0)
+        
+        # Calculate daily PnL: previous_day_position * price_change
+        # First day has no previous position, so PnL starts from second day
+        daily_pnl = extended_positions.shift(1, fill_value=0) * price_changes
+        
+        market_pnl_series[market_id] = daily_pnl
+        
+        logger.debug(f"Market {market_id}: PnL from {first_bet_date} to {last_market_date}")
     
-    # Create PnL DataFrame
-    if market_pnls:
-        pnl_df = pd.DataFrame(market_pnls, index=aligned_dates)
-    else:
-        pnl_df = pd.DataFrame(index=aligned_dates)
+    if not market_pnl_series:
+        logger.warning("No valid market PnL data calculated")
+        return PnlResult(cumulative_pnl=[], final_pnl=0.0)
     
-    # Calculate portfolio-level metrics (only what we need)
-    portfolio_daily_pnl = pnl_df.sum(axis=1) if len(pnl_df.columns) > 0 else pd.Series(0.0, index=aligned_dates)
+    # Combine all market PnLs into a unified timeline
+    # Get all dates from all markets
+    all_dates = set()
+    for pnl_series in market_pnl_series.values():
+        all_dates.update(pnl_series.index)
+    
+    all_dates = sorted(all_dates)
+    
+    # Calculate portfolio daily PnL by summing across markets for each date
+    portfolio_daily_pnl = pd.Series(0.0, index=all_dates)
+    
+    for market_id, market_pnl in market_pnl_series.items():
+        # Align each market's PnL to the full timeline
+        aligned_market_pnl = market_pnl.reindex(all_dates, fill_value=0.0)
+        portfolio_daily_pnl += aligned_market_pnl
+    
+    # Calculate cumulative PnL
     portfolio_cumulative_pnl = portfolio_daily_pnl.cumsum()
     
     # Convert to DataPoints for frontend
@@ -97,8 +131,8 @@ def calculate_pnl(
     
     final_pnl = float(portfolio_cumulative_pnl.iloc[-1]) if len(portfolio_cumulative_pnl) > 0 else 0.0
     
-    logger.debug(f"Calculated PnL for {len(market_pnls)} markets over {len(aligned_dates)} days")
-    logger.debug(f"Final cumulative PnL: {final_pnl:.3f}")
+    logger.info(f"Calculated PnL for {len(market_pnl_series)} markets over {len(all_dates)} total days")
+    logger.info(f"Final cumulative PnL: {final_pnl:.3f}")
     
     return PnlResult(
         cumulative_pnl=cumulative_pnl_points,

@@ -1,72 +1,75 @@
-import numpy as np
+import pytest
 import pandas as pd
+from datetime import date
+import sys
+import os
+
+
 from predibench.backend.pnl import calculate_pnl
 
 
-def test_pnl():
-    date_range = pd.date_range(start="2025-07-26", periods=5, freq="D")
-    positions = pd.DataFrame(
-        data=[1.0, 1.0, 1.0, 1.0, -1.0],
-        index=date_range,
-        columns=["Will Lewis Hamilton be the 2025 Drivers Champion?"],
-    )
-
-    # Create dummy prices data for testing
-    prices = pd.DataFrame(
-        index=date_range, columns=["Will Lewis Hamilton be the 2025 Drivers Champion?"]
-    )
-    prices.iloc[0, 0] = 0.5
-    prices.iloc[1, 0] = 0.4
-    prices.iloc[2, 0] = 0.667
-    prices.iloc[3, 0] = 0.8
-    prices.iloc[4, 0] = 0.6
-
-    pnl_result = calculate_pnl(positions, prices)
-
-    pnl_data = pnl_result["pnl"]
-
-    assert positions.shape == (5, 1)
-    assert not pnl_data.empty
-
-    # Expected Profit: 0.333333 + (-0.25) + 0.0 = 0.083333
-    expected_final_pnl = 0.4169
-    actual_final_pnl = pnl_data.sum(axis=1).cumsum().iloc[-1]
-    np.testing.assert_allclose(actual_final_pnl, expected_final_pnl, atol=1e-4)
-
-
-def test_pnl_nan_positions():
-    """Test with successive positions (2, -1, 0) and changing daily prices"""
-    date_range = pd.date_range(start="2024-01-01", periods=7, freq="D")
-
-    positions = pd.DataFrame(
-        data=[2, 2, -1, -1, np.nan, np.nan, np.nan],
-        index=date_range,
-        columns=["TestAsset"],
-    )
-
-    prices = pd.DataFrame(
-        data=[1.0, 1.05, 1.10, 0.95, 1.00, 1.02, 0.98],
-        index=date_range,
-        columns=["TestAsset"],
-    )
-
-    pnl_result = calculate_pnl(positions, prices)
-    pnl_data = pnl_result["pnl"]
-
-    expected_daily_pnl = [0.0, 0.10, 0.095238, 0.136364, -0.052632, 0.0, 0.0]
-    expected_cumulative_pnl = sum(expected_daily_pnl[1:])  # Skip first day (NaN return)
-
-    actual_cumulative_pnl = pnl_data.sum(axis=1).cumsum().iloc[-1]
-
-    np.testing.assert_allclose(
-        actual_cumulative_pnl, expected_cumulative_pnl, atol=1e-4
-    )
-
-    # Verify shapes
-    assert positions.shape == (7, 1)
-    assert not pnl_data.empty
+def test_calculate_pnl_with_nans():
+    """
+    Test PnL calculation with realistic data including NaN values.
+    
+    Scenario:
+    - 10 days of data
+    - Agent starts betting on market_A from day 3, stops day 8
+    - Agent bets on market_B from day 5 to day 10
+    - Some prices have NaN (market not active)
+    
+    Expected behavior:
+    - market_A: PnL calculated from day 3 (first bet) to day 8 (last price)
+    - market_B: PnL calculated from day 5 (first bet) to day 10 (last price)
+    """
+    # 10 days of data
+    dates = [date(2024, 1, i) for i in range(1, 11)]
+    
+    # Agent positions with NaN values
+    positions_df = pd.DataFrame({
+        'market_A': [None, None, 100.0, None, 150.0, None, 100.0, 50.0, None, None],
+        'market_B': [None, None, None, None, 200.0, 200.0, 200.0, 150.0, 100.0, 100.0]
+    }, index=dates)
+    
+    # Market prices with NaN (markets not active on some days)
+    prices_df = pd.DataFrame({
+        'market_A': [None, 0.2, 0.50, None, 0.52, 0.58, 0.60, 0.62, 1.0, 1.0],
+        'market_B': [None, None, None, None, 0.30, 0.32, 0.28, 0.35, 0.38, 0.36]
+    }, index=dates)
+    
+    result = calculate_pnl(positions_df, prices_df)
+    
+    # Manual calculation with new realistic data (with price interpolation and position forward-filling):
+    # market_A (days 3-10, with position forward-filling):
+    # Original positions: Day3=100, Day4=None, Day5=150, Day6=None, Day7=100, Day8=50, Day9=None, Day10=None
+    # Forward-filled positions: Day3=100, Day4=100(ffill), Day5=150, Day6=150(ffill), Day7=100, Day8=50, Day9=50(ffill), Day10=50(ffill)
+    # Prices: Day3=0.50, Day4=0.51(interpolated), Day5=0.52, Day6=0.58, Day7=0.60, Day8=0.62, Day9=1.0, Day10=1.0
+    # Day 3: $0 (first day)
+    # Day 4: 100 × (0.51-0.50) = $1, cumulative = $1
+    # Day 5: 100 × (0.52-0.51) = $1, cumulative = $2  (held position from day 4)
+    # Day 6: 150 × (0.58-0.52) = $9, cumulative = $11
+    # Day 7: 150 × (0.60-0.58) = $3, cumulative = $14 (held position from day 6)
+    # Day 8: 100 × (0.62-0.60) = $2, cumulative = $16
+    # Day 9: 50 × (1.0-0.62) = $19, cumulative = $35
+    # Day 10: 50 × (1.0-1.0) = $0, cumulative = $35 (held position from day 9)
+    
+    # market_B (days 5-10):
+    # Day 5: $0 (first day)
+    # Day 6: 200 × (0.32-0.30) = $4, cumulative = $4
+    # Day 7: 200 × (0.28-0.32) = -$8, cumulative = -$4
+    # Day 8: 200 × (0.35-0.28) = $14, cumulative = $10
+    # Day 9: 150 × (0.38-0.35) = $4.5, cumulative = $14.5
+    # Day 10: 100 × (0.36-0.38) = -$2, cumulative = $12.5
+    
+    # Total expected: $35 + $12.5 = $47.5
+    
+    assert abs(result.final_pnl - 47.5) < 0.01  # Allow for floating point precision
+    
+    print(f"✓ Test passed: Final PnL = ${result.final_pnl}")
+    print("Daily progression:")
+    for point in result.cumulative_pnl:
+        print(f"  {point.date}: ${point.value}")
 
 
 if __name__ == "__main__":
-    test_pnl()
-    test_pnl_nan_positions()
+    test_calculate_pnl_with_nans()
