@@ -2,7 +2,7 @@ name: Scheduled Price Updates
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # Every 6 hours at 0, 6, 12, 18 UTC
+    - cron: '0 */3 * * *'  # Every 3 hours
   workflow_dispatch:  # Allow manual triggering
 
 concurrency:

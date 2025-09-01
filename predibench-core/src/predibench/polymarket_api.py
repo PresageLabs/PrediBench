@@ -487,7 +487,7 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
         return False
     
     def _check_if_market_closed(self, timeseries: pd.Series) -> bool:
-        """Check if market is closed based on last price being older than 2 days."""
+        """Check if market is closed based on last price."""
         if timeseries is None or len(timeseries) == 0:
             return True
         
@@ -498,8 +498,8 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
         if hasattr(last_timestamp, 'tzinfo') and last_timestamp.tzinfo is None:
             last_timestamp = last_timestamp.replace(tzinfo=timezone.utc)
         
-        # Check if last price is older than 2 days
-        two_days_ago = datetime.now(timezone.utc) - timedelta(days=2)
+        # Check if last price is older than 12 hours
+        two_days_ago = datetime.now(timezone.utc) - timedelta(hours=12)
         return last_timestamp < two_days_ago
 
 
