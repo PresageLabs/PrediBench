@@ -41,13 +41,13 @@ def load_investment_choices_from_google() -> list[ModelInvestmentDecisions]:
 def load_saved_events() -> list[Event]:
     bucket = get_bucket()
     blobs = bucket.list_blobs(prefix="")
-    events = []
+    all_events: list[Event] = []
     for blob in blobs:
         if blob.name.endswith("events.json"):
             file_path = DATA_PATH / Path(blob.name)
-            events = load_events_from_file(file_path)
-            events.extend(events)
-    return events
+            loaded = load_events_from_file(file_path)
+            all_events.extend(loaded)
+    return all_events
 
 def load_market_prices(events: list[Event]) -> dict[str, pd.Series | None]:
     """
@@ -59,8 +59,9 @@ def load_market_prices(events: list[Event]) -> dict[str, pd.Series | None]:
     market_to_prices = {}
     for event in events:
         for market in event.markets:
-            market_prices = load_market_price(market.outcomes[0].clob_token_id)
-            market_to_prices[market.id] = Market.convert_to_daily_data(market_prices)
+            if market.id not in market_to_prices:
+                market_prices = load_market_price(market.outcomes[0].clob_token_id)
+                market_to_prices[market.id] = Market.convert_to_daily_data(market_prices)
     return market_to_prices
     
 
