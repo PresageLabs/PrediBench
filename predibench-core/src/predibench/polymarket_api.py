@@ -344,7 +344,7 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
         # If no cache or cache loading failed, fetch fresh data
         return self._fetch_and_cache_timeseries()
 
-    def update_cached_token_timeseries(self) -> pd.Series | None:
+    def update_cached_token_timeseries(self, force_update: bool = False) -> pd.Series | None:
         """Update cached timeseries data with new information."""
         cache_path = self._get_cache_path()
         existing_data = None
@@ -353,7 +353,7 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
         if file_exists_in_storage(cache_path):
             try:
                 cached_data:dict = json.loads(read_from_storage(cache_path))
-                if cached_data.get("is_closed", False):
+                if cached_data.get("is_closed", False) and not force_update:
                     logger.info(f"Skipping update for closed market {self.clob_token_id}")
                     return self._deserialize_timeseries(cached_data)
                 existing_data = self._deserialize_timeseries(cached_data)
@@ -487,7 +487,7 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
         return False
     
     def _check_if_market_closed(self, timeseries: pd.Series) -> bool:
-        """Check if market is closed based on last price being older than 2 days."""
+        """Check if market is closed based on last price."""
         if timeseries is None or len(timeseries) == 0:
             return True
         
@@ -498,8 +498,8 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
         if hasattr(last_timestamp, 'tzinfo') and last_timestamp.tzinfo is None:
             last_timestamp = last_timestamp.replace(tzinfo=timezone.utc)
         
-        # Check if last price is older than 2 days
-        two_days_ago = datetime.now(timezone.utc) - timedelta(days=2)
+        # Check if last price is older than 12 hours
+        two_days_ago = datetime.now(timezone.utc) - timedelta(hours=12)
         return last_timestamp < two_days_ago
 
 

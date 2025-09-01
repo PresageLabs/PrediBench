@@ -66,7 +66,7 @@ def update_market(clob_token_id: str) -> bool:
     )
     
     # This will fetch fresh data and update the cache
-    timeseries = ts_request.update_cached_token_timeseries()
+    timeseries = ts_request.update_cached_token_timeseries(force_update=True)
     
     if timeseries is not None:
         logger.info(f"✅ Successfully updated market {clob_token_id}")
