@@ -28,6 +28,8 @@ MODELS_BY_PROVIDER = {
             inference_provider="openai",
             company_pretty_name="OpenAI",
         ),
+    ],
+    "o3-deep-research": [
         ModelInfo(
             model_id="o3-deep-research",
             model_pretty_name="O3 Deep Research",
