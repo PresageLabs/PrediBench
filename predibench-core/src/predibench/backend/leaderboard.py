@@ -1,5 +1,5 @@
 from functools import lru_cache
-from predibench.backend.data_model import LeaderboardEntry
+from predibench.backend.data_model import LeaderboardEntry, AgentPerformance, PnlResult
 from datetime import datetime
 from predibench.backend.brier import calculate_brier_scores
 from predibench.backend.data_model import DataPoint
@@ -11,7 +11,7 @@ from predibench.backend.pnl import get_historical_returns
 from predibench.backend.data_loader import load_investment_choices_from_google
 
 
-def _calculate_agent_pnl_results(positions_df: pd.DataFrame, prices_df: pd.DataFrame) -> dict[str, dict]:
+def _calculate_agent_pnl_results(positions_df: pd.DataFrame, prices_df: pd.DataFrame) -> dict[str, PnlResult]:
     """Calculate PnL results for all agents using shared market data."""
     pnl_results = {}
     
@@ -58,47 +58,41 @@ def _calculate_agent_brier_results(positions_df: pd.DataFrame, prices_df: pd.Dat
     return brier_results
 
 
-def _create_pnl_history(cumulative_pnl: pd.Series) -> list[DataPoint]:
-    """Convert cumulative PnL series to list of DataPoint objects for frontend."""
-    pnl_history = []
-    for date_idx, pnl_value in cumulative_pnl.items():
-        pnl_history.append(
-            DataPoint(date=date_idx.strftime("%Y-%m-%d"), value=float(pnl_value))
-        )
-    return pnl_history
+# Removed _create_pnl_history - now handled directly in PnL calculation
 
 
 
 def _aggregate_agent_performance(
     model_name: str, 
-    pnl_result: dict, 
-    brier_result: dict
-) -> dict:
+    pnl_result: PnlResult, 
+    brier_result: dict,
+    positions_df: pd.DataFrame
+) -> AgentPerformance:
     """Aggregate all performance metrics for a single agent."""
-    cumulative_pnl = pnl_result["portfolio_cumulative_pnl"]
+    # Count actual trades (non-zero positions)
+    model_positions = positions_df[positions_df["model_name"] == model_name]
+    trades_count = len(model_positions[model_positions["choice"] != 0])
     
-    # Calculate key metrics
-    final_pnl = float(cumulative_pnl.iloc[-1])
-    pnl_history = _create_pnl_history(cumulative_pnl)
-    
-    return {
-        "model_name": model_name,
-        "final_cumulative_pnl": final_pnl,
-        "pnl_history": pnl_history,
-        "avg_brier_score": brier_result["avg_brier_score"],
-    }
-
-
-def _print_agent_summary(model_name: str, performance: dict):
-    """Print summary metrics for an agent."""
-    print(
-        f"Agent {model_name}: "
-        f"Profit={performance['final_cumulative_pnl']:.3f}, "
-        f"Brier={performance['avg_brier_score']:.3f}"
+    return AgentPerformance(
+        model_name=model_name,
+        final_cumulative_pnl=pnl_result.final_pnl,
+        pnl_history=pnl_result.cumulative_pnl,
+        avg_brier_score=brier_result["avg_brier_score"],
+        trades=trades_count,
     )
 
 
-def _calculate_real_performance():
+def _print_agent_summary(model_name: str, performance: AgentPerformance):
+    """Print summary metrics for an agent."""
+    print(
+        f"Agent {model_name}: "
+        f"Profit={performance.final_cumulative_pnl:.3f}, "
+        f"Brier={performance.avg_brier_score:.3f}, "
+        f"Trades={performance.trades}"
+    )
+
+
+def _calculate_real_performance() -> dict[str, AgentPerformance]:
     """Calculate real performance metrics for all agents with clean separation of concerns."""
     model_results = load_investment_choices_from_google()
     saved_events = load_saved_events()
@@ -118,7 +112,8 @@ def _calculate_real_performance():
         performance = _aggregate_agent_performance(
             model_name, 
             pnl_results[model_name], 
-            brier_results[model_name]
+            brier_results[model_name],
+            positions_df
         )
         agents_performance[model_name] = performance
         _print_agent_summary(model_name, performance)
@@ -140,20 +135,19 @@ def _determine_trend(pnl_history: list[DataPoint]) -> str:
     return "stable"
 
 
-def _create_leaderboard_entry(model_name: str, metrics: dict) -> LeaderboardEntry:
+def _create_leaderboard_entry(performance: AgentPerformance) -> LeaderboardEntry:
     """Create a LeaderboardEntry from aggregated performance metrics."""
-    trend = _determine_trend(metrics["pnl_history"])
+    trend = _determine_trend(performance.pnl_history)
     
     return LeaderboardEntry(
-        id=model_name,
-        model=model_name,
-        final_cumulative_pnl=metrics["final_cumulative_pnl"],
-        trades=0,  # TODO: Calculate actual trades if needed
-        profit=0,  # TODO: Calculate actual profit if needed  
+        id=performance.model_name,
+        model=performance.model_name,
+        final_cumulative_pnl=performance.final_cumulative_pnl,
+        trades=performance.trades,
         lastUpdated=datetime.now().strftime("%Y-%m-%d"),
         trend=trend,
-        pnl_history=metrics["pnl_history"],
-        avg_brier_score=metrics["avg_brier_score"],
+        pnl_history=performance.pnl_history,
+        avg_brier_score=performance.avg_brier_score,
     )
 
 
@@ -164,14 +158,14 @@ def get_leaderboard() -> list[LeaderboardEntry]:
     # Sort agents by final cumulative PnL in descending order
     sorted_agents = sorted(
         real_performance.items(),
-        key=lambda x: x[1]["final_cumulative_pnl"],
+        key=lambda x: x[1].final_cumulative_pnl,
         reverse=True,
     )
 
     # Create leaderboard entries
     leaderboard = []
-    for model_name, metrics in sorted_agents:
-        entry = _create_leaderboard_entry(model_name, metrics)
+    for _, performance in sorted_agents:
+        entry = _create_leaderboard_entry(performance)
         leaderboard.append(entry)
 
     return leaderboard

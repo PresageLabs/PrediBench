@@ -9,6 +9,7 @@ from plotly.subplots import make_subplots
 from predibench.backend.data_loader import load_agent_position
 from predibench.logger_config import get_logger
 from predibench.polymarket_api import Market, MarketsRequestParameters
+from predibench.backend.data_model import PnlResult, DataPoint
 
 logger = get_logger(__name__)
 
@@ -31,87 +32,78 @@ def _get_positions_begin_next_day(positions: pd.DataFrame, col: str):
 
 
 def calculate_pnl(
-    positions: pd.DataFrame,
-    prices: pd.DataFrame,
-    to_vol_target: bool = False,
-    vol_targeting_window: str = "30D",
-):
+    positions_agent_df: pd.DataFrame,
+    prices_df: pd.DataFrame,
+) -> PnlResult:
     """
     Calculate profit and loss for given positions and prices.
     
+    For prediction markets: PnL = position_size * (price_today - price_yesterday)
+    
     Args:
-        positions: Daily positions: pd.DataFrame with columns as markets and index as dates. 
-                  A position noted with date D as index is the position at the end of day D, 
-                  which will be impacted by returns of day D+1
-        prices: Price data: pd.DataFrame with columns as markets and index as dates
-        to_vol_target: bool, if True, will target volatility
-        vol_targeting_window: str, window for volatility targeting
+        positions_agent_df: Daily positions DataFrame with dates as index, markets as columns
+        prices_df: Price data DataFrame with dates as index, markets as columns
         
     Returns:
-        dict containing:
-            - pnl: DataFrame with PnL values
-            - portfolio_daily_pnl: Series with daily portfolio PnL
-            - portfolio_cumulative_pnl: Series with cumulative portfolio PnL  
-            - portfolio_mean_pnl: float with mean daily PnL
-            - portfolio_std_pnl: float with std of daily PnL
-            - portfolio_sum_pnl: float with total PnL
+        PnlResult with cumulative PnL time series and final value
     """
-    returns = prices.pct_change(periods=1, fill_method=None).copy()
-    _assert_index_is_date(positions)
-    _assert_index_is_date(returns)
-    _assert_index_is_date(prices)
+    _assert_index_is_date(positions_agent_df)
+    _assert_index_is_date(prices_df)
     
-    if to_vol_target:
-        volatility = (
-            returns.apply(
-                lambda x: x.dropna().rolling(vol_targeting_window).std()
-            )
-            .resample("1D")
-            .last()
-            .ffill()
+    # Calculate price changes (not percentage returns)
+    price_changes = prices_df.diff().fillna(0)
+    
+    # Align positions and price changes to same date range
+    aligned_dates = price_changes.index.intersection(positions_agent_df.index)
+    if len(aligned_dates) == 0:
+        # Return empty results if no overlapping dates
+        return PnlResult(
+            cumulative_pnl=[],
+            final_pnl=0.0
         )
-        new_positions = (
-            (positions / volatility).resample("1D").last().ffill(limit=7)
-        )
-        pnl = pd.concat(
-            [
-                new_positions[col]
-                .reindex(returns[col].dropna().index)
-                .shift(1)
-                * returns[col]
-                for col in new_positions
-            ],
-            axis="columns",
-        )
+    
+    # Calculate PnL for each market
+    market_pnls = {}
+    for market_id in positions_agent_df.columns:
+        if market_id in price_changes.columns:
+            # Get positions and price changes for this market
+            positions = positions_agent_df[market_id].reindex(aligned_dates, fill_value=0)
+            price_change = price_changes[market_id].reindex(aligned_dates, fill_value=0)
+            
+            # PnL = previous_day_position * price_change
+            # Shift positions by 1 day since position held yesterday affects today's PnL
+            market_pnl = positions.shift(1, fill_value=0) * price_change
+            market_pnls[market_id] = market_pnl
+    
+    # Create PnL DataFrame
+    if market_pnls:
+        pnl_df = pd.DataFrame(market_pnls, index=aligned_dates)
     else:
-        logger.debug("Profit calculation debug info")
-        logger.debug(f"Returns head:\n{returns.head()}")
-        logger.debug(f"Positions head:\n{positions.head()}")
-        pnl = pd.concat(
-            [
-                _get_positions_begin_next_day(positions, col).reindex(
-                    returns[col].dropna().index, fill_value=0
-                )
-                * returns[col]
-                for col in positions
-            ],
-            axis="columns",
+        pnl_df = pd.DataFrame(index=aligned_dates)
+    
+    # Calculate portfolio-level metrics (only what we need)
+    portfolio_daily_pnl = pnl_df.sum(axis=1) if len(pnl_df.columns) > 0 else pd.Series(0.0, index=aligned_dates)
+    portfolio_cumulative_pnl = portfolio_daily_pnl.cumsum()
+    
+    # Convert to DataPoints for frontend
+    cumulative_pnl_points = []
+    for date_idx, pnl_value in portfolio_cumulative_pnl.items():
+        cumulative_pnl_points.append(
+            DataPoint(
+                date=date_idx.strftime("%Y-%m-%d"),
+                value=float(pnl_value)
+            )
         )
     
-    portfolio_daily_pnl = pnl.sum(axis="columns")
-    portfolio_cumulative_pnl = portfolio_daily_pnl.cumsum()
-    portfolio_mean_pnl = portfolio_daily_pnl.mean()
-    portfolio_std_pnl = portfolio_daily_pnl.std()
-    portfolio_sum_pnl = portfolio_daily_pnl.sum()
+    final_pnl = float(portfolio_cumulative_pnl.iloc[-1]) if len(portfolio_cumulative_pnl) > 0 else 0.0
     
-    return {
-        "pnl": pnl,
-        "portfolio_daily_pnl": portfolio_daily_pnl,
-        "portfolio_cumulative_pnl": portfolio_cumulative_pnl,
-        "portfolio_mean_pnl": portfolio_mean_pnl,
-        "portfolio_std_pnl": portfolio_std_pnl,
-        "portfolio_sum_pnl": portfolio_sum_pnl,
-    }
+    logger.debug(f"Calculated PnL for {len(market_pnls)} markets over {len(aligned_dates)} days")
+    logger.debug(f"Final cumulative PnL: {final_pnl:.3f}")
+    
+    return PnlResult(
+        cumulative_pnl=cumulative_pnl_points,
+        final_pnl=final_pnl
+    )
 
 
 

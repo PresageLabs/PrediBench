@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional, Dict, List, Literal
+import pandas as pd
 
 
 class DataPoint(BaseModel):
@@ -82,3 +83,22 @@ class Stats(BaseModel):
     avgPnl: float
     totalTrades: int
     totalProfit: float
+
+
+# Typed results for PnL calculations
+class PnlResult(BaseModel):
+    """Clean, typed result from PnL calculation"""
+    cumulative_pnl: List[DataPoint]  # Time series for frontend charts
+    final_pnl: float                 # Final cumulative value
+    
+    class Config:
+        arbitrary_types_allowed = True
+
+
+class AgentPerformance(BaseModel):
+    """Complete performance metrics for a single agent/model"""
+    model_name: str
+    final_cumulative_pnl: float
+    pnl_history: List[DataPoint]
+    avg_brier_score: float
+    trades: int
