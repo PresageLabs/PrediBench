@@ -13,6 +13,9 @@ def test_get_leaderboard():
     market_prices = load_market_prices(saved_events)
     prices_df = get_historical_returns(market_prices)
     
+    assert len(market_prices) > 80
+    assert len(positions_df) > 30
+    
     # Test the leaderboard function
     result = get_leaderboard(positions_df, prices_df)
     assert isinstance(result, list)

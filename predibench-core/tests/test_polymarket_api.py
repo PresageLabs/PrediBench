@@ -3,7 +3,6 @@ from datetime import datetime
 from predibench.polymarket_api import (
     EventsRequestParameters,
     MarketsRequestParameters,
-    OrderBook,
     _HistoricalTimeSeriesRequestParameters,
 )
 
