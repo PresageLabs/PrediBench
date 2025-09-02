@@ -111,7 +111,7 @@ class Market(BaseModel, arbitrary_types_allowed=True):
             self.price_outcome_name = None
 
     @staticmethod
-    def _convert_to_daily_data(timeseries_data: pd.Series) -> pd.Series:
+    def convert_to_daily_data(timeseries_data: pd.Series) -> pd.Series:
         """Convert 6-hourly datetime data to daily date data for PnL compatibility."""
         if timeseries_data is None or len(timeseries_data) == 0:
             return timeseries_data
@@ -324,20 +324,17 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
 
     def get_cached_token_timeseries(self) -> pd.Series | None:
         """Get token timeseries from cache if available, otherwise fetch from API."""
+        if self.clob_token_id is None or self.clob_token_id == "":
+            raise ValueError(f"clob_token_id is None or empty")
+        
         cache_path = self._get_cache_path()
         
         if file_exists_in_storage(cache_path):
             try:
                 cached_data = json.loads(read_from_storage(cache_path))
-                cached_timeseries = self._deserialize_timeseries(cached_data)
-                
-                # Check if cached data covers the required date range
-                if self._is_cache_up_to_date(cached_data=cached_data, cached_timeseries=cached_timeseries):
-                    return cached_timeseries
-                else:
-                    logger.info(f"Cache for {self.clob_token_id} is outdated, updating...")
-                    return self.update_cached_token_timeseries()
-                    
+                cached_timeseries = self._deserialize_timeseries(cached_data)                
+                return cached_timeseries
+
             except json.JSONDecodeError as e:
                 logger.warning(f"Failed to load cached data for {self.clob_token_id}: {e}")
         
@@ -499,7 +496,7 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
             last_timestamp = last_timestamp.replace(tzinfo=timezone.utc)
         
         # Check if last price is older than 12 hours
-        two_days_ago = datetime.now(timezone.utc) - timedelta(hours=12)
+        two_days_ago = datetime.now(timezone.utc) - timedelta(hours=24)
         return last_timestamp < two_days_ago
 
 
@@ -598,61 +595,9 @@ class Event(BaseModel, arbitrary_types_allowed=True):
             markets=markets,
         )
 
-
-################################################################################
-# Useful for the future but unused functions
-################################################################################
-
-
-class OrderLevel(BaseModel):
-    price: str
-    size: str
-
-
-class OrderBook(BaseModel):
-    market: str
-    asset_id: str
-    hash: str
-    timestamp: str
-    min_order_size: str
-    neg_risk: bool
-    tick_size: str
-    bids: list[OrderLevel]
-    asks: list[OrderLevel]
-
-    @staticmethod
-    @polymarket_retry
-    def get_order_book(token_id: str) -> OrderBook:
-        """Get order book for a specific token ID from Polymarket CLOB API.
-
-        Args:
-            token_id: Token ID of the market to get the book for
-
-        Returns:
-            OrderBook containing bids, asks, and market information
-        """
-        url = "https://clob.polymarket.com/book"
-        params = {"token_id": token_id}
-
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        data = response.json()
-
-        bids = [
-            OrderLevel(price=bid["price"], size=bid["size"]) for bid in data["bids"]
-        ]
-        asks = [
-            OrderLevel(price=ask["price"], size=ask["size"]) for ask in data["asks"]
-        ]
-
-        return OrderBook(
-            market=data["market"],
-            asset_id=data["asset_id"],
-            hash=data["hash"],
-            timestamp=data["timestamp"],
-            min_order_size=data["min_order_size"],
-            neg_risk=data["neg_risk"],
-            tick_size=data["tick_size"],
-            bids=bids,
-            asks=asks,
-        )
+def load_market_price(clob_token_id: str) -> pd.Series | None:
+    """Load market price from cache if available, otherwise fetch from API."""
+    request_parameters = _HistoricalTimeSeriesRequestParameters(
+        clob_token_id=clob_token_id,
+    )
+    return request_parameters.get_cached_token_timeseries()

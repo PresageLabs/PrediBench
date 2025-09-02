@@ -62,7 +62,7 @@ def _process_event_investment(
             else:
                 price_data = market.prices.dropna()
             # Convert to daily data for LLM prompt
-            price_data = Market._convert_to_daily_data(price_data)
+            price_data = Market.convert_to_daily_data(price_data)
             # Limit price history
             if len(price_data) > price_history_limit:
                 price_data = price_data.tail(price_history_limit)
@@ -74,7 +74,7 @@ def _process_event_investment(
             if market.prices is not None and len(market.prices) > 0:
                 price_data = market.prices.dropna()
                 # Convert to daily data for LLM prompt
-                price_data = Market._convert_to_daily_data(price_data)
+                price_data = Market.convert_to_daily_data(price_data)
                 # Limit price history
                 if len(price_data) > price_history_limit:
                     price_data = price_data.tail(price_history_limit)

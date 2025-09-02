@@ -1,29 +1,34 @@
 import os
-import time
+import json
 from datetime import datetime
-from functools import lru_cache, wraps
+import threading
+from cachetools import TTLCache, cached
 
-import numpy as np
-import pandas as pd
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from predibench.agent.dataclasses import ModelInvestmentDecisions
-from predibench.backend.brier import BrierScoreCalculator
-from predibench.backend.pnl import PnlCalculator, get_pnls
-from predibench.polymarket_api import (
-    Event,
-    EventsRequestParameters,
-    _HistoricalTimeSeriesRequestParameters,
-)
-from predibench.storage_utils import get_bucket
-from pydantic import BaseModel
 from predibench.backend.profile import profile_time
-from predibench.backend.data_model import LeaderboardEntry, Stats, DataPoint
-from predibench.backend.events import get_events_that_received_predictions, get_events_by_ids
-from predibench.backend.leaderboard import get_leaderboard
-from predibench.backend.data_loader import load_agent_choices
-from predibench.backend.pnl import get_pnl_wrapper, get_all_markets_pnls, get_positions_df
+from predibench.backend.data_model import LeaderboardEntryBackend, StatsBackend, BackendData, EventBackend
+from predibench.storage_utils import read_from_storage
+from predibench.common import DATA_PATH
+
 print("Successfully imported predibench modules")
+
+CACHE_TTL_SECONDS = 3600
+_backend_cache = TTLCache(maxsize=1, ttl=CACHE_TTL_SECONDS)
+_cache_lock = threading.RLock()
+
+# Load cached backend data with TTL invalidation
+@cached(cache=_backend_cache, lock=_cache_lock)
+def load_backend_cache() -> BackendData:
+    """Load pre-computed backend data from cache (TTL-controlled)."""
+    cache_file_path = DATA_PATH / "backend_cache.json"
+    json_content = read_from_storage(cache_file_path)
+    cached_data = json.loads(json_content)
+    return BackendData.model_validate(cached_data)
+
+# Warm cache at startup (and print status)
+_initial_data = load_backend_cache()
+print(f"✅ Loaded backend cache with {len(_initial_data.leaderboard)} leaderboard entries (TTL={CACHE_TTL_SECONDS}s)")
 
 
 
@@ -51,14 +56,14 @@ def root():
     return {"message": "Polymarket LLM Benchmark API", "version": "1.0.0"}
 
 
-@app.get("/api/leaderboard", response_model=list[LeaderboardEntry])
+@app.get("/api/leaderboard", response_model=list[LeaderboardEntryBackend])
 @profile_time
 def get_leaderboard_endpoint():
     """Get the current leaderboard with LLM performance data"""
-    return get_leaderboard()
+    return load_backend_cache().leaderboard
 
 
-@app.get("/api/events", response_model=list[Event])
+@app.get("/api/events", response_model=list[EventBackend])
 @profile_time
 def get_events_endpoint(
     search: str = "",
@@ -67,7 +72,7 @@ def get_events_endpoint(
     limit: int = 50,
 ):
     """Get active Polymarket events with search and filtering"""
-    events = get_events_that_received_predictions()
+    events = load_backend_cache().events
 
     # Apply search filter
     if search:
@@ -96,156 +101,51 @@ def get_events_endpoint(
     return events[:limit]
 
 
-@app.get("/api/stats", response_model=Stats)
+@app.get("/api/stats", response_model=StatsBackend)
 @profile_time
 def get_stats():
     """Get overall benchmark statistics"""
-    leaderboard = get_leaderboard()
-
-    return Stats(
-        topFinalCumulativePnl=max(entry.final_cumulative_pnl for entry in leaderboard),
-        avgPnl=sum(entry.final_cumulative_pnl for entry in leaderboard)
-        / len(leaderboard),
-        totalTrades=sum(entry.trades for entry in leaderboard),
-        totalProfit=sum(entry.profit for entry in leaderboard),
-    )
+    return load_backend_cache().stats
 
 
-@app.get("/api/model/{model_id}", response_model=LeaderboardEntry)
+@app.get("/api/model/{model_id}", response_model=LeaderboardEntryBackend)
 @profile_time
-@lru_cache(maxsize=16)
-def get_model_details(model_id: str):
+def get_model_details_endpoint(model_id: str):
     """Get detailed information for a specific model"""
-    leaderboard = get_leaderboard()
-    model = next((entry for entry in leaderboard if entry.id == model_id), None)
-
-    if not model:
-        return {"error": "Model not found"}
-
-    return model
+    data = load_backend_cache()
+    if model_id not in data.model_details:
+        raise HTTPException(status_code=404, detail="Model not found")
+    return data.model_details[model_id]
 
 
-@lru_cache(maxsize=16)
 @app.get("/api/model/{agent_id}/pnl")
 @profile_time
-def get_model_investment_details(agent_id: str):
+def get_model_investment_details_endpoint(agent_id: str):
     """Get market-level position and PnL data for a specific model"""
-
-    pnl_calculators = get_all_markets_pnls()
-
-    # Get PnL calculator for this agent
-    pnl_calculator = pnl_calculators[agent_id]
-
-    # Filter for this specific agent
-    positions_df = get_positions_df()
-    agent_positions = positions_df[positions_df["model_name"] == agent_id]
-
-    if agent_positions.empty:
-        return {"markets": []}
-
-    # Prepare market data with questions
-    markets_data = {}
-
-    # Get market questions from events
-    events = get_events_that_received_predictions()
-    market_dict = {}
-    for event in events:
-        for market in event.markets:
-            market_dict[market.id] = market
-
-    # Process each market this agent traded
-    for market_id in agent_positions["market_id"].unique():
-        # Get market question
-        market_question = market_dict[market_id].question
-
-        # Get price data if available
-        price_data = []
-        market_prices = pnl_calculator.prices[market_id].fillna(0)
-        for date_idx, price in market_prices.items():
-            price_data.append(
-                {
-                    "date": date_idx.strftime("%Y-%m-%d"),
-                    "price": float(price),
-                }
-            )
-
-        # Get position markers, ffill positions
-        market_positions = agent_positions[agent_positions["market_id"] == market_id][
-            ["date", "choice"]
-        ]
-        market_positions = pd.concat(
-            [
-                market_positions,
-                pd.DataFrame({"date": [market_prices.index[-1]], "choice": [np.nan]}),
-            ]
-        )  # Add a last value to allow ffill to work
-        market_positions["date"] = pd.to_datetime(market_positions["date"])
-        market_positions["choice"] = market_positions["choice"].astype(float)
-        market_positions = market_positions.set_index("date")
-        market_positions = market_positions.resample("D").ffill(limit=7).reset_index()
-
-        position_markers = []
-        for _, pos_row in market_positions.iterrows():
-            position_markers.append(
-                {
-                    "date": pos_row["date"].strftime("%Y-%m-%d"),
-                    "position": pos_row["choice"],
-                }
-            )
-
-        # Get market-specific Profit
-        market_pnl = pnl_calculator.pnl[market_id].cumsum().fillna(0)
-        pnl_data = []
-        for date_idx, pnl_value in market_pnl.items():
-            pnl_data.append(
-                {"date": date_idx.strftime("%Y-%m-%d"), "pnl": float(pnl_value)}
-            )
-        markets_data[market_id] = {
-            "market_id": market_id,
-            "question": market_question,
-            "prices": price_data,
-            "positions": position_markers,
-            "pnl_data": pnl_data,
-        }
-
-    return markets_data
+    data = load_backend_cache()
+    if agent_id not in data.model_investment_details:
+        raise HTTPException(status_code=404, detail="Model investment details not found")
+    return data.model_investment_details[agent_id]
 
 
 @app.get("/api/event/{event_id}")
 @profile_time
 def get_event_details(event_id: str):
     """Get detailed information for a specific event including all its markets"""
-    events_list = get_events_by_ids((event_id,))
-
-    if not events_list:
-        return {"error": "Event not found"}
-
-    return events_list[0]
+    data = load_backend_cache()
+    if event_id not in data.event_details:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return data.event_details[event_id]
 
 
 @app.get("/api/event/{event_id}/market_prices")
 @profile_time
-@lru_cache(maxsize=32)
-def get_event_market_prices(event_id: str):
+def get_event_market_prices_endpoint(event_id: str):
     """Get price history for all markets in an event"""
-    events_list = get_events_by_ids((event_id,))
-
-    if not events_list:
-        return {}
-
-    event = events_list[0]
-    market_prices = {}
-
-    # Get prices for each market in the event
-    for market in event.markets:
-        clob_token_id = market.outcomes[0].clob_token_id
-        price_data = _HistoricalTimeSeriesRequestParameters(
-            clob_token_id=clob_token_id,
-        ).get_cached_token_timeseries()
-
-        market_prices[market.id] = price_data
-
-    return market_prices
+    data = load_backend_cache()
+    if event_id not in data.event_market_prices:
+        raise HTTPException(status_code=404, detail="Event market prices not found")
+    return data.event_market_prices[event_id]
 
 
 @app.get(
@@ -253,48 +153,12 @@ def get_event_market_prices(event_id: str):
     response_model=list[dict],
 )
 @profile_time
-def get_event_investment_decisions(event_id: str):
+def get_event_investment_decisions_endpoint(event_id: str):
     """Get real investment choices for a specific event"""
-    # Load agent choices data like in gradio app
-    data = load_agent_choices()
-
-    # Working with Pydantic models from GCP
-    market_investments = []
-
-    # Get the latest prediction for each agent for this specific event ID
-    agent_latest_predictions = {}
-    for model_result in data:
-        model_name = model_result.model_info.model_pretty_name
-        for event_decision in model_result.event_investment_decisions:
-            if event_decision.event_id == event_id:
-                # Use target_date as a proxy for "latest" (assuming newer dates are more recent)
-                if (
-                    model_name not in agent_latest_predictions
-                    or model_result.target_date
-                    > agent_latest_predictions[model_name][0].target_date
-                ):
-                    agent_latest_predictions[model_name] = (
-                        model_result,
-                        event_decision,
-                    )
-
-    # Extract market decisions from latest predictions
-    for model_result, event_decision in agent_latest_predictions.values():
-        for market_decision in event_decision.market_investment_decisions:
-            market_investments.append(
-                {
-                    "market_id": market_decision.market_id,
-                    "model_name": model_result.model_info.model_pretty_name,
-                    "model_id": model_result.model_id,
-                    "bet": market_decision.model_decision.bet,
-                    "odds": market_decision.model_decision.odds,
-                    "confidence": market_decision.model_decision.confidence,
-                    "rationale": market_decision.model_decision.rationale,
-                    "date": model_result.target_date,
-                }
-            )
-
-    return market_investments
+    data = load_backend_cache()
+    if event_id not in data.event_investment_decisions:
+        raise HTTPException(status_code=404, detail="Event investment decisions not found")
+    return data.event_investment_decisions[event_id]
 
 
 if __name__ == "__main__":
@@ -304,3 +168,6 @@ if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
+    # ce que j'ai besoin:
+    # - récupérer les résultats par model_id, et par event_id

@@ -17,6 +17,7 @@ dependencies = [
     "requests>=2.31.0",
     "tenacity>=8.0.0",
     "coloredlogs>=15.0.0",
+    "cachetools>=5.3.3",
     "predibench",
 ]
 
