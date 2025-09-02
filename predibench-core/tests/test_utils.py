@@ -93,3 +93,6 @@ And a third
     assert isinstance(unallocated_capital, float)
 
     print("test_structure_final_answer completed successfully!")
+
+if __name__ == "__main__":
+    test_structure_final_answer()

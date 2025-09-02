@@ -364,7 +364,9 @@ def structure_final_answer(
     structured_model = LiteLLMModel(model_id=structured_output_model_id)
 
     structured_prompt = textwrap.dedent(f"""
-        You are a structured output extraction specialist for prediction market investment decisions. Your task is to analyze the research output and provide investment decisions for each available market based on the original question context.
+        Based on the following research output, extract the investment decisions for each market:
+        
+
 
         **ORIGINAL QUESTION AND MARKET CONTEXT:**
         <original_question>
@@ -375,19 +377,13 @@ def structure_final_answer(
         <research_output>
         {research_output}
         </research_output>
+                
+        Your output should be list of market decisions. Each decision should include:
 
-        **YOUR TASK:**
-        Based on the research analysis above and the available markets listed in the original question, provide investment decisions for each market you want to bet on. Use the research findings to inform your decisions.
 
-        **CRITICAL REQUIREMENTS:**
-        1. **Market Names**: Use the exact market IDs from the "AVAILABLE MARKETS" section in the original question
-        2. **Decision Quality**: Base your decisions on the research analysis provided
-        3. **Capital Allocation**: Ensure your bets follow the 1.0 total capital allocation rule
-        4. **Complete Analysis**: Provide decisions for all markets you want to bet on based on the research
-        5. **No Good Bets**: If the research indicates no markets have good betting opportunities (poor odds, high uncertainty, insufficient information), return an empty market_investment_decisions list and set unallocated_capital to 1.0.
-
-        **Each market decision must include exactly these 5 fields:**
         {BET_DESCRIPTION}
+
+        Make sure to directly use elements from the research output: return each market decision exactly as is, do not add or change any element, extract everything as-is.
 
         **OUTPUT FORMAT:**
         Provide a JSON object with:
