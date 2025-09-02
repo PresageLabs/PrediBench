@@ -4,7 +4,7 @@ import pandas as pd
 
 from predibench.backend.data_loader import load_agent_position
 from predibench.logger_config import get_logger
-from predibench.backend.data_model import PnlResult, DataPoint, PnlPoint
+from predibench.backend.data_model import PnlResultBackend, DataPointBackend, PnlPointBackend
 
 logger = get_logger(__name__)
 
@@ -21,7 +21,7 @@ def _assert_index_is_date(df: pd.DataFrame):
 def compute_pnl_per_model(
     positions_agent_df: pd.DataFrame,
     prices_df: pd.DataFrame,
-) -> PnlResult:
+) -> PnlResultBackend:
     """
     Calculate profit and loss for given positions and prices.
     
@@ -98,7 +98,7 @@ def compute_pnl_per_model(
     
     if not market_pnl_series:
         logger.warning("No valid market PnL data calculated")
-        return PnlResult(cumulative_pnl=[], final_pnl=0.0, market_pnls={})
+        return PnlResultBackend(cumulative_pnl=[], final_pnl=0.0, market_pnls={})
     
     # Combine all market PnLs into a unified timeline
     # Get all dates from all markets
@@ -123,7 +123,7 @@ def compute_pnl_per_model(
     cumulative_pnl_points = []
     for date_idx, pnl_value in portfolio_cumulative_pnl.items():
         cumulative_pnl_points.append(
-            DataPoint(
+            DataPointBackend(
                 date=date_idx.strftime("%Y-%m-%d"),
                 value=float(pnl_value)
             )
@@ -138,7 +138,7 @@ def compute_pnl_per_model(
         market_points = []
         for date_idx, pnl_value in market_cumulative_pnl.items():
             market_points.append(
-                PnlPoint(
+                PnlPointBackend(
                     date=date_idx.strftime("%Y-%m-%d"),
                     pnl=float(pnl_value)
                 )
@@ -148,7 +148,7 @@ def compute_pnl_per_model(
     logger.info(f"Calculated PnL for {len(market_pnl_series)} markets over {len(all_dates)} total days")
     logger.info(f"Final cumulative PnL: {final_pnl:.3f}")
     
-    return PnlResult(
+    return PnlResultBackend(
         cumulative_pnl=cumulative_pnl_points,
         final_pnl=final_pnl,
         market_pnls=market_pnl_points

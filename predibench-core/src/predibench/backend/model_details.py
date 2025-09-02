@@ -4,10 +4,10 @@ import pandas as pd
 from predibench.backend.leaderboard import get_leaderboard
 from predibench.backend.pnl import get_all_markets_pnls, get_positions_df
 from predibench.backend.events import get_events_that_received_predictions
-from predibench.backend.data_model import LeaderboardEntry
+from predibench.backend.data_model import LeaderboardEntryBackend
 
 
-def get_model_details(model_id: str) -> LeaderboardEntry | dict:
+def get_model_details(model_id: str) -> LeaderboardEntryBackend | dict:
     """Get detailed information for a specific model"""
     leaderboard = get_leaderboard()
     model = next((entry for entry in leaderboard if entry.id == model_id), None)

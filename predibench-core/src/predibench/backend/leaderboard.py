@@ -1,14 +1,14 @@
 from functools import lru_cache
-from predibench.backend.data_model import LeaderboardEntry, AgentPerformance, PnlResult, BrierResult
+from predibench.backend.data_model import LeaderboardEntryBackend, AgentPerformance, PnlResultBackend, BrierResult
 from datetime import datetime
 from predibench.backend.brier import calculate_brier_scores
-from predibench.backend.data_model import DataPoint
+from predibench.backend.data_model import DataPointBackend
 import pandas as pd
 import numpy as np
 from predibench.backend.pnl import compute_pnl_per_model
 
 
-def _compute_pnl_results_for_all_models(positions_df: pd.DataFrame, prices_df: pd.DataFrame) -> dict[str, PnlResult]:
+def _compute_pnl_results_for_all_models(positions_df: pd.DataFrame, prices_df: pd.DataFrame) -> dict[str, PnlResultBackend]:
     """Calculate PnL results for all agents using shared market data."""
     pnl_results = {}
     
@@ -61,7 +61,7 @@ def _calculate_agent_brier_results(positions_df: pd.DataFrame, prices_df: pd.Dat
 
 def _aggregate_agent_performance(
     model_name: str, 
-    pnl_result: PnlResult, 
+    pnl_result: PnlResultBackend, 
     brier_result: BrierResult,
     positions_df: pd.DataFrame
 ) -> AgentPerformance:
@@ -111,7 +111,7 @@ def _calculate_real_performance(positions_df: pd.DataFrame, prices_df: pd.DataFr
     return agents_performance
 
 
-def _determine_trend(pnl_history: list[DataPoint]) -> str:
+def _determine_trend(pnl_history: list[DataPointBackend]) -> str:
     """Determine the trend direction based on recent PnL changes."""
     if len(pnl_history) >= 2:
         recent_change = pnl_history[-1].value - pnl_history[-2].value
@@ -124,11 +124,11 @@ def _determine_trend(pnl_history: list[DataPoint]) -> str:
     return "stable"
 
 
-def _create_leaderboard_entry(performance: AgentPerformance) -> LeaderboardEntry:
+def _create_leaderboard_entry(performance: AgentPerformance) -> LeaderboardEntryBackend:
     """Create a LeaderboardEntry from aggregated performance metrics."""
     trend = _determine_trend(performance.pnl_history)
     
-    return LeaderboardEntry(
+    return LeaderboardEntryBackend(
         id=performance.model_name,
         model=performance.model_name,
         final_cumulative_pnl=performance.final_cumulative_pnl,
@@ -140,7 +140,7 @@ def _create_leaderboard_entry(performance: AgentPerformance) -> LeaderboardEntry
     )
 
 
-def get_leaderboard(positions_df: pd.DataFrame, prices_df: pd.DataFrame) -> list[LeaderboardEntry]:
+def get_leaderboard(positions_df: pd.DataFrame, prices_df: pd.DataFrame) -> list[LeaderboardEntryBackend]:
     """Generate leaderboard from real performance data, sorted by cumulative PnL."""
     real_performance = _calculate_real_performance(positions_df, prices_df)
 

@@ -9,14 +9,16 @@ import pandas as pd
 import numpy as np
 
 from predibench.backend.data_model import (
-    BackendData, LeaderboardEntry, Event, Stats, MarketData, 
-    PricePoint, PositionPoint, PnlPoint, MarketInvestmentDecision
+    BackendData, LeaderboardEntryBackend, StatsBackend, MarketData,
+    PricePointBackend, PositionPointBackend, PnlPointBackend, MarketInvestmentDecisionBackend, EventBackend
 )
 from predibench.backend.leaderboard import get_leaderboard
 from predibench.backend.events import get_events_that_received_predictions, get_events_by_ids
 from predibench.backend.data_loader import load_investment_choices_from_google, load_saved_events, load_agent_position, load_market_prices
 from predibench.backend.pnl import get_all_markets_pnls, get_historical_returns
+from predibench.agent.dataclasses import ModelInvestmentDecisions
 from predibench.polymarket_api import _HistoricalTimeSeriesRequestParameters
+from predibench.polymarket_data import event_to_dict
 
 
 def get_data_for_backend() -> BackendData:
@@ -40,9 +42,11 @@ def get_data_for_backend() -> BackendData:
     print("Computing core data...")
     leaderboard = get_leaderboard(positions_df, prices_df)
     events = get_events_that_received_predictions(model_results)
+    # Convert Polymarket Event models to backend Event models (dict-based to avoid cross-model issues)
+    backend_events = [EventBackend.model_validate(event_to_dict(e)) for e in events]
     
     # Step 3: Compute stats from leaderboard
-    stats = Stats(
+    stats = StatsBackend(
         topFinalCumulativePnl=max(entry.final_cumulative_pnl for entry in leaderboard),
         avgPnl=sum(entry.final_cumulative_pnl for entry in leaderboard) / len(leaderboard),
         totalTrades=sum(entry.trades for entry in leaderboard),
@@ -60,7 +64,7 @@ def get_data_for_backend() -> BackendData:
     
     # Create market question lookup
     market_dict = {}
-    for event in events:
+    for event in backend_events:
         for market in event.markets:
             market_dict[market.id] = market
     
@@ -71,15 +75,21 @@ def get_data_for_backend() -> BackendData:
     
     # Step 6: Pre-compute event details (just index events)
     print("Computing event details...")
-    event_details = {event.id: event for event in events}
+    event_details = {event.id: event for event in backend_events}
     
     # Step 7: Pre-compute event market prices
     print("Computing event market prices...")
     event_market_prices = {}
-    for event in events:
+    for event in backend_events:
         market_prices_for_event = {}
         for market in event.markets:
             clob_token_id = market.outcomes[0].clob_token_id
+            
+            # Skip markets with empty or None clob_token_id
+            if not clob_token_id:
+                market_prices_for_event[market.id] = []
+                continue
+                
             price_data_raw = _HistoricalTimeSeriesRequestParameters(
                 clob_token_id=clob_token_id,
             ).get_cached_token_timeseries()
@@ -88,7 +98,7 @@ def get_data_for_backend() -> BackendData:
             price_points = []
             if price_data_raw is not None:
                 for date_idx, price_value in price_data_raw.items():
-                    price_points.append(PricePoint(
+                    price_points.append(PricePointBackend(
                         date=date_idx.strftime("%Y-%m-%d"),
                         price=float(price_value)
                     ))
@@ -100,7 +110,7 @@ def get_data_for_backend() -> BackendData:
     print("Computing event investment decisions...")
     event_investment_decisions = {}
     
-    for event in events:
+    for event in backend_events:
         decisions = _compute_event_investment_decisions(event.id, model_results)
         event_investment_decisions[event.id] = decisions
     
@@ -108,13 +118,13 @@ def get_data_for_backend() -> BackendData:
     
     return BackendData(
         leaderboard=leaderboard,
-        events=events,
+        events=backend_events,
         stats=stats,
         model_details=model_details,
         model_investment_details=model_investment_details,
         event_details=event_details,
         event_market_prices=event_market_prices,
-        event_investment_decisions=event_investment_decisions
+        event_investment_decisions=event_investment_decisions,
     )
 
 
@@ -148,7 +158,7 @@ def _compute_model_investment_details(
         if market_id in prices_df.columns:
             market_prices_series = prices_df[market_id].fillna(0)
             for date_idx, price in market_prices_series.items():
-                price_data.append(PricePoint(
+                price_data.append(PricePointBackend(
                     date=date_idx.strftime("%Y-%m-%d"),
                     price=float(price)
                 ))
@@ -176,7 +186,7 @@ def _compute_model_investment_details(
             if pd.isna(position_value):
                 position_value = 0.0
             
-            position_markers.append(PositionPoint(
+            position_markers.append(PositionPointBackend(
                 date=pos_row["date"].strftime("%Y-%m-%d"),
                 position=float(position_value)
             ))
@@ -198,7 +208,7 @@ def _compute_model_investment_details(
     return markets_data
 
 
-def _compute_event_investment_decisions(event_id: str, model_results: list) -> List[MarketInvestmentDecision]:
+def _compute_event_investment_decisions(event_id: str, model_results: List[ModelInvestmentDecisions]) -> List[MarketInvestmentDecisionBackend]:
     """Compute investment decisions for a specific event."""
     
     market_investments = []
@@ -223,15 +233,15 @@ def _compute_event_investment_decisions(event_id: str, model_results: list) -> L
     # Extract market decisions from latest predictions
     for model_result, event_decision in agent_latest_predictions.values():
         for market_decision in event_decision.market_investment_decisions:
-            market_investments.append(MarketInvestmentDecision(
+            market_investments.append(MarketInvestmentDecisionBackend(
                 market_id=market_decision.market_id,
                 model_name=model_result.model_info.model_pretty_name,
                 model_id=model_result.model_id,
-                bet=market_decision.model_decision.bet,
+                bet=str(market_decision.model_decision.bet),
                 odds=market_decision.model_decision.odds,
                 confidence=market_decision.model_decision.confidence,
                 rationale=market_decision.model_decision.rationale,
-                date=model_result.target_date,
+                date=str(model_result.target_date),
             ))
     
     return market_investments

@@ -3,52 +3,52 @@ from typing import Optional, Dict, List, Literal
 import pandas as pd
 
 
-class DataPoint(BaseModel):
+class DataPointBackend(BaseModel):
     date: str
     value: float
 
 
-class PricePoint(BaseModel):
+class PricePointBackend(BaseModel):
     date: str
     price: float
 
 
-class PositionPoint(BaseModel):
+class PositionPointBackend(BaseModel):
     date: str
     position: float
 
 
-class PnlPoint(BaseModel):
+class PnlPointBackend(BaseModel):
     date: str
     pnl: float
 
 
-class LeaderboardEntry(BaseModel):
+class LeaderboardEntryBackend(BaseModel):
     id: str
     model: str
     final_cumulative_pnl: float
     trades: int
     lastUpdated: str
     trend: Literal['up', 'down', 'stable']
-    pnl_history: List[DataPoint]
+    pnl_history: List[DataPointBackend]
     avg_brier_score: float
 
 
-class MarketOutcome(BaseModel):
+class MarketOutcomeBackend(BaseModel):
     clob_token_id: str
     name: str
     price: float
 
 
-class Market(BaseModel):
+class MarketBackend(BaseModel):
     id: str
     question: str
     slug: str
     description: str
-    outcomes: List[MarketOutcome]
+    outcomes: List[MarketOutcomeBackend]
 
 
-class Event(BaseModel):
+class EventBackend(BaseModel):
     id: str
     slug: str
     title: str
@@ -63,15 +63,15 @@ class Event(BaseModel):
     volume1mo: Optional[float] = None
     volume1yr: Optional[float] = None
     liquidity: Optional[float] = None
-    markets: List[Market]
+    markets: List[MarketBackend]
 
 
 class MarketData(BaseModel):
     market_id: str
     question: str
-    prices: List[PricePoint]
-    positions: List[PositionPoint]
-    pnl_data: List[PnlPoint]
+    prices: List[PricePointBackend]
+    positions: List[PositionPointBackend]
+    pnl_data: List[PnlPointBackend]
 
 
 # ModelMarketDetails is just a type alias for a dictionary
@@ -79,14 +79,14 @@ class MarketData(BaseModel):
 ModelMarketDetails = Dict[str, MarketData]
 
 
-class Stats(BaseModel):
+class StatsBackend(BaseModel):
     topFinalCumulativePnl: float
     avgPnl: float
     totalTrades: int
     totalProfit: float
 
 
-class MarketInvestmentDecision(BaseModel):
+class MarketInvestmentDecisionBackend(BaseModel):
     """Investment decision data for a specific market - matches frontend interface"""
     market_id: str
     model_name: str
@@ -101,32 +101,32 @@ class MarketInvestmentDecision(BaseModel):
 class BackendData(BaseModel):
     """Comprehensive pre-computed data for all backend routes"""
     # Core data - matches API endpoints exactly
-    leaderboard: List[LeaderboardEntry]
-    events: List[Event]
-    stats: Stats
+    leaderboard: List[LeaderboardEntryBackend]
+    events: List[EventBackend]
+    stats: StatsBackend
     
     # Model-specific data: model_id -> LeaderboardEntry
-    model_details: Dict[str, LeaderboardEntry]
+    model_details: Dict[str, LeaderboardEntryBackend]
     
     # Model investment data: model_id -> market data dict
     model_investment_details: Dict[str, ModelMarketDetails]
     
     # Event-specific data: event_id -> event details
-    event_details: Dict[str, Event]
+    event_details: Dict[str, EventBackend]
     
     # Event market prices: event_id -> market_id -> price data points
-    event_market_prices: Dict[str, Dict[str, List[PricePoint]]]
+    event_market_prices: Dict[str, Dict[str, List[PricePointBackend]]]
     
     # Event investment decisions: event_id -> list of decisions
-    event_investment_decisions: Dict[str, List[MarketInvestmentDecision]]
+    event_investment_decisions: Dict[str, List[MarketInvestmentDecisionBackend]]
 
 
 # Typed results for PnL calculations
-class PnlResult(BaseModel):
+class PnlResultBackend(BaseModel):
     """Clean, typed result from PnL calculation"""
-    cumulative_pnl: List[DataPoint]  # Time series for frontend charts
+    cumulative_pnl: List[DataPointBackend]  # Time series for frontend charts
     final_pnl: float                 # Final cumulative value
-    market_pnls: Dict[str, List[PnlPoint]]  # Per-market cumulative PnL over time
+    market_pnls: Dict[str, List[PnlPointBackend]]  # Per-market cumulative PnL over time
     
     class Config:
         arbitrary_types_allowed = True
@@ -136,7 +136,7 @@ class AgentPerformance(BaseModel):
     """Complete performance metrics for a single agent/model"""
     model_name: str
     final_cumulative_pnl: float
-    pnl_history: List[DataPoint]
+    pnl_history: List[DataPointBackend]
     avg_brier_score: float
     trades: int
 

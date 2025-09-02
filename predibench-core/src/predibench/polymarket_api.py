@@ -324,6 +324,9 @@ class _HistoricalTimeSeriesRequestParameters(BaseModel):
 
     def get_cached_token_timeseries(self) -> pd.Series | None:
         """Get token timeseries from cache if available, otherwise fetch from API."""
+        if self.clob_token_id is None or self.clob_token_id == "":
+            raise ValueError(f"clob_token_id is None or empty")
+        
         cache_path = self._get_cache_path()
         
         if file_exists_in_storage(cache_path):

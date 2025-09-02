@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from predibench.polymarket_api import Event
 from predibench.backend.profile import profile_time
-from predibench.backend.data_model import LeaderboardEntry, Stats, BackendData
+from predibench.backend.data_model import LeaderboardEntryBackend, StatsBackend, BackendData
 from predibench.storage_utils import read_from_storage
 from predibench.common import DATA_PATH
 
@@ -52,7 +52,7 @@ def root():
     return {"message": "Polymarket LLM Benchmark API", "version": "1.0.0"}
 
 
-@app.get("/api/leaderboard", response_model=list[LeaderboardEntry])
+@app.get("/api/leaderboard", response_model=list[LeaderboardEntryBackend])
 @profile_time
 def get_leaderboard_endpoint():
     """Get the current leaderboard with LLM performance data"""
@@ -97,14 +97,14 @@ def get_events_endpoint(
     return events[:limit]
 
 
-@app.get("/api/stats", response_model=Stats)
+@app.get("/api/stats", response_model=StatsBackend)
 @profile_time
 def get_stats():
     """Get overall benchmark statistics"""
     return backend_data.stats
 
 
-@app.get("/api/model/{model_id}", response_model=LeaderboardEntry)
+@app.get("/api/model/{model_id}", response_model=LeaderboardEntryBackend)
 @profile_time
 def get_model_details_endpoint(model_id: str):
     """Get detailed information for a specific model"""
