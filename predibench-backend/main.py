@@ -1,17 +1,30 @@
 import os
+import json
 from datetime import datetime
+from functools import lru_cache
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from predibench.polymarket_api import Event
 from predibench.backend.profile import profile_time
-from predibench.backend.data_model import LeaderboardEntry, Stats
-from predibench.backend.events import get_events_that_received_predictions, get_events_by_ids
-from predibench.backend.leaderboard import get_leaderboard
-from predibench.backend.market_prices import get_event_market_prices
-from predibench.backend.model_details import get_model_details, get_model_investment_details
-from predibench.backend.investment_decisions import get_event_investment_decisions
+from predibench.backend.data_model import LeaderboardEntry, Stats, BackendData
+from predibench.storage_utils import read_from_storage
+from predibench.common import DATA_PATH
+
 print("Successfully imported predibench modules")
+
+# Load cached backend data once at startup
+@lru_cache(maxsize=1)
+def load_backend_cache() -> BackendData:
+    """Load pre-computed backend data from cache."""
+    cache_file_path = DATA_PATH / "backend_cache.json"
+    json_content = read_from_storage(cache_file_path)
+    cached_data = json.loads(json_content)
+    return BackendData.model_validate(cached_data)
+
+# Load cache at startup
+backend_data = load_backend_cache()
+print(f"✅ Loaded backend cache with {len(backend_data.leaderboard)} leaderboard entries")
 
 
 
@@ -43,7 +56,7 @@ def root():
 @profile_time
 def get_leaderboard_endpoint():
     """Get the current leaderboard with LLM performance data"""
-    return get_leaderboard()
+    return backend_data.leaderboard
 
 
 @app.get("/api/events", response_model=list[Event])
@@ -55,7 +68,7 @@ def get_events_endpoint(
     limit: int = 50,
 ):
     """Get active Polymarket events with search and filtering"""
-    events = get_events_that_received_predictions()
+    events = backend_data.events
 
     # Apply search filter
     if search:
@@ -88,48 +101,43 @@ def get_events_endpoint(
 @profile_time
 def get_stats():
     """Get overall benchmark statistics"""
-    leaderboard = get_leaderboard()
-
-    return Stats(
-        topFinalCumulativePnl=max(entry.final_cumulative_pnl for entry in leaderboard),
-        avgPnl=sum(entry.final_cumulative_pnl for entry in leaderboard)
-        / len(leaderboard),
-        totalTrades=sum(entry.trades for entry in leaderboard),
-        totalProfit=sum(entry.profit for entry in leaderboard),
-    )
+    return backend_data.stats
 
 
 @app.get("/api/model/{model_id}", response_model=LeaderboardEntry)
 @profile_time
 def get_model_details_endpoint(model_id: str):
     """Get detailed information for a specific model"""
-    return get_model_details(model_id)
+    if model_id not in backend_data.model_details:
+        raise HTTPException(status_code=404, detail="Model not found")
+    return backend_data.model_details[model_id]
 
 
 @app.get("/api/model/{agent_id}/pnl")
 @profile_time
 def get_model_investment_details_endpoint(agent_id: str):
     """Get market-level position and PnL data for a specific model"""
-    return get_model_investment_details(agent_id)
+    if agent_id not in backend_data.model_investment_details:
+        raise HTTPException(status_code=404, detail="Model investment details not found")
+    return backend_data.model_investment_details[agent_id]
 
 
 @app.get("/api/event/{event_id}")
 @profile_time
 def get_event_details(event_id: str):
     """Get detailed information for a specific event including all its markets"""
-    events_list = get_events_by_ids((event_id,))
-
-    if not events_list:
-        return {"error": "Event not found"}
-
-    return events_list[0]
+    if event_id not in backend_data.event_details:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return backend_data.event_details[event_id]
 
 
 @app.get("/api/event/{event_id}/market_prices")
 @profile_time
 def get_event_market_prices_endpoint(event_id: str):
     """Get price history for all markets in an event"""
-    return get_event_market_prices(event_id)
+    if event_id not in backend_data.event_market_prices:
+        raise HTTPException(status_code=404, detail="Event market prices not found")
+    return backend_data.event_market_prices[event_id]
 
 
 @app.get(
@@ -139,7 +147,9 @@ def get_event_market_prices_endpoint(event_id: str):
 @profile_time
 def get_event_investment_decisions_endpoint(event_id: str):
     """Get real investment choices for a specific event"""
-    return get_event_investment_decisions(event_id)
+    if event_id not in backend_data.event_investment_decisions:
+        raise HTTPException(status_code=404, detail="Event investment decisions not found")
+    return backend_data.event_investment_decisions[event_id]
 
 
 if __name__ == "__main__":

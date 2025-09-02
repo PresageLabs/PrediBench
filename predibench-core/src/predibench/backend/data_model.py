@@ -35,6 +35,7 @@ class LeaderboardEntry(BaseModel):
 
 
 class MarketOutcome(BaseModel):
+    clob_token_id: str
     name: str
     price: float
 
@@ -83,6 +84,41 @@ class Stats(BaseModel):
     avgPnl: float
     totalTrades: int
     totalProfit: float
+
+
+class MarketInvestmentDecision(BaseModel):
+    """Investment decision data for a specific market - matches frontend interface"""
+    market_id: str
+    model_name: str
+    model_id: str
+    bet: str
+    odds: float
+    confidence: float
+    rationale: str
+    date: str
+
+
+class BackendData(BaseModel):
+    """Comprehensive pre-computed data for all backend routes"""
+    # Core data - matches API endpoints exactly
+    leaderboard: List[LeaderboardEntry]
+    events: List[Event]
+    stats: Stats
+    
+    # Model-specific data: model_id -> LeaderboardEntry
+    model_details: Dict[str, LeaderboardEntry]
+    
+    # Model investment data: model_id -> market data dict
+    model_investment_details: Dict[str, ModelMarketDetails]
+    
+    # Event-specific data: event_id -> event details
+    event_details: Dict[str, Event]
+    
+    # Event market prices: event_id -> market_id -> price data points
+    event_market_prices: Dict[str, Dict[str, List[PricePoint]]]
+    
+    # Event investment decisions: event_id -> list of decisions
+    event_investment_decisions: Dict[str, List[MarketInvestmentDecision]]
 
 
 # Typed results for PnL calculations
