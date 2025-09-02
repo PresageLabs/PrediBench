@@ -377,16 +377,9 @@ def structure_final_answer(
         </research_output>
 
         **YOUR TASK:**
-        Based on the research analysis above and the available markets listed in the original question, provide investment decisions for each market you want to bet on. Use the research findings to inform your decisions.
+        Based on the following research output, extract the investment decisions for each market, do not add any other information:
+        
 
-        **CRITICAL REQUIREMENTS:**
-        1. **Market Names**: Use the exact market IDs from the "AVAILABLE MARKETS" section in the original question
-        2. **Decision Quality**: Base your decisions on the research analysis provided
-        3. **Capital Allocation**: Ensure your bets follow the 1.0 total capital allocation rule
-        4. **Complete Analysis**: Provide decisions for all markets you want to bet on based on the research
-        5. **No Good Bets**: If the research indicates no markets have good betting opportunities (poor odds, high uncertainty, insufficient information), return an empty market_investment_decisions list and set unallocated_capital to 1.0.
-
-        **Each market decision must include exactly these 5 fields:**
         {BET_DESCRIPTION}
 
         **OUTPUT FORMAT:**
