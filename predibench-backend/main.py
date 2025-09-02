@@ -5,9 +5,8 @@ from functools import lru_cache
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from predibench.polymarket_api import Event
 from predibench.backend.profile import profile_time
-from predibench.backend.data_model import LeaderboardEntryBackend, StatsBackend, BackendData
+from predibench.backend.data_model import LeaderboardEntryBackend, StatsBackend, BackendData, EventBackend
 from predibench.storage_utils import read_from_storage
 from predibench.common import DATA_PATH
 
@@ -59,7 +58,7 @@ def get_leaderboard_endpoint():
     return backend_data.leaderboard
 
 
-@app.get("/api/events", response_model=list[Event])
+@app.get("/api/events", response_model=list[EventBackend])
 @profile_time
 def get_events_endpoint(
     search: str = "",
