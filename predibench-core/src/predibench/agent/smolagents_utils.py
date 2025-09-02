@@ -364,7 +364,9 @@ def structure_final_answer(
     structured_model = LiteLLMModel(model_id=structured_output_model_id)
 
     structured_prompt = textwrap.dedent(f"""
-        You are a structured output extraction specialist for prediction market investment decisions. Your task is to analyze the research output and provide investment decisions for each available market based on the original question context.
+        Based on the following research output, extract the investment decisions for each market:
+        
+
 
         **ORIGINAL QUESTION AND MARKET CONTEXT:**
         <original_question>
@@ -375,12 +377,13 @@ def structure_final_answer(
         <research_output>
         {research_output}
         </research_output>
+                
+        Your output should be list of market decisions. Each decision should include:
 
-        **YOUR TASK:**
-        Based on the following research output, extract the investment decisions for each market, do not add any other information:
-        
 
         {BET_DESCRIPTION}
+
+        Make sure to directly use elements from the research output: return each market decision exactly as is, do not add or change any element, extract everything as-is.
 
         **OUTPUT FORMAT:**
         Provide a JSON object with:
