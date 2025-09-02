@@ -65,18 +65,19 @@ MODELS_BY_PROVIDER = {
     ],
     "huggingface-deepseek": [
         ModelInfo(
-            model_id="deepseek-ai/DeepSeek-V3.1",
-            model_pretty_name="DeepSeek V3.1",
-            inference_provider="fireworks-ai",
-            company_pretty_name="DeepSeek",
-            open_weights=True,
-        ),
-        ModelInfo(
             model_id="deepseek-ai/DeepSeek-R1",
             model_pretty_name="DeepSeek R1",
             inference_provider="fireworks-ai",
             company_pretty_name="DeepSeek",
             open_weights=True,
+        ),
+        ModelInfo(
+            model_id="deepseek-ai/DeepSeek-V3.1",
+            model_pretty_name="DeepSeek V3.1",
+            inference_provider="fireworks-ai",
+            company_pretty_name="DeepSeek",
+            open_weights=True,
+            agent_type="toolcalling",
         ),
     ],
     "huggingface-meta": [

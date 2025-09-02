@@ -111,6 +111,5 @@ if __name__ == "__main__":
     results = run_investments_for_specific_date(
         models=models,
         time_until_ending=timedelta(days=7 * 6),
-        max_n_events=2,
-        target_date=date(2025, 8, 29),
+        target_date=date(2025, 9, 1),
     )

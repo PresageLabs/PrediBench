@@ -47,7 +47,13 @@ And a third
 """
     from predibench.agent.smolagents_utils import structure_final_answer
 
-    list_decisions, unallocated_capital = structure_final_answer(research_output)
+    mock_original_question = """
+    **AVAILABLE MARKETS:**
+    Market ID: 1234
+    Market ID: 4321  
+    Market ID: 3azdoi5
+    """
+    list_decisions, unallocated_capital = structure_final_answer(research_output, mock_original_question)
 
     first_decision = list_decisions[0]
     second_decision = list_decisions[1]

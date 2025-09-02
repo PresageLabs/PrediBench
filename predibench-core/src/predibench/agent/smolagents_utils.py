@@ -358,21 +358,48 @@ def _save_research_result_to_cache(
 
 def structure_final_answer(
     research_output: str,
+    original_question: str,
     structured_output_model_id: str = "huggingface/fireworks-ai/Qwen/Qwen3-Coder-30B-A3B-Instruct",
 ) -> tuple[list[MarketInvestmentDecision], float]:
     structured_model = LiteLLMModel(model_id=structured_output_model_id)
 
     structured_prompt = textwrap.dedent(f"""
-        Based on the following research output, extract the investment decisions for each market:
-        
+        You are a structured output extraction specialist for prediction market investment decisions. Your task is to analyze the research output and provide investment decisions for each available market based on the original question context.
+
+        **ORIGINAL QUESTION AND MARKET CONTEXT:**
+        <original_question>
+        {original_question}
+        </original_question>
+
+        **RESEARCH ANALYSIS OUTPUT:**
         <research_output>
         {research_output}
         </research_output>
-        
-        Your output should be list of market decisions. Each decision should include:
+
+        **YOUR TASK:**
+        Based on the research analysis above and the available markets listed in the original question, provide investment decisions for each market you want to bet on. Use the research findings to inform your decisions.
+
+        **CRITICAL REQUIREMENTS:**
+        1. **Market Names**: Use the exact market IDs from the "AVAILABLE MARKETS" section in the original question
+        2. **Decision Quality**: Base your decisions on the research analysis provided
+        3. **Capital Allocation**: Ensure your bets follow the 1.0 total capital allocation rule
+        4. **Complete Analysis**: Provide decisions for all markets you want to bet on based on the research
+        5. **No Good Bets**: If the research indicates no markets have good betting opportunities (poor odds, high uncertainty, insufficient information), return an empty market_investment_decisions list and set unallocated_capital to 1.0.
+
+        **Each market decision must include exactly these 5 fields:**
         {BET_DESCRIPTION}
 
-        Make sure to directly use elements from the research output: return each market decision exactly as is, do not add or change any element, extract everything as-is.
+        **OUTPUT FORMAT:**
+        Provide a JSON object with:
+        - "market_investment_decisions": Array of market decisions
+        - "unallocated_capital": Float (0.0 to 1.0) for capital not allocated to any market
+
+        **VALIDATION:**
+        - All market IDs must match those in the original question's "AVAILABLE MARKETS" section
+        - Sum of absolute bet values + unallocated_capital should equal 1.0
+        - All rationales should reflect insights from the research analysis
+        - Confidence levels should reflect the certainty of your analysis
+        - If no good betting opportunities exist, you may return an empty market_investment_decisions array and set unallocated_capital to 1.0
         """)
     structured_output = structured_model.generate(
         [ChatMessage(role="user", content=structured_prompt)],
@@ -428,7 +455,7 @@ def run_openai_deep_research(
 
     # Use structured output to get EventDecisions
     structured_market_decisions, unallocated_capital = structure_final_answer(
-        research_output
+        research_output, question
     )
     return CompleteMarketInvestmentDecisions(
         market_investment_decisions=structured_market_decisions,
@@ -480,7 +507,7 @@ def run_perplexity_deep_research(
         _save_research_result_to_cache(research_output, model_info, target_date, event_id)
 
     structured_market_decisions, unallocated_capital = structure_final_answer(
-        research_output
+        research_output, question
     )
     return CompleteMarketInvestmentDecisions(
         market_investment_decisions=structured_market_decisions,

@@ -19,6 +19,7 @@ on:
           - google
           - perplexity
           - anthropic
+          - o3-deep-research
 
 
 concurrency:
@@ -59,7 +60,7 @@ jobs:
         env:
           BUCKET_PREDIBENCH: ${{ secrets.BUCKET_PREDIBENCH }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY_AYMERIC }}
+          OPENAI_API_KEY: ${{ (github.event.inputs.provider == 'openai') && secrets.OPENAI_API_KEY_AYMERIC || secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
@@ -67,5 +68,5 @@ jobs:
           PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
         run: |
           cd predibench-core
-          uv run python scripts/main.py ${{ github.event.inputs.provider }} \
+          uv run python scripts/main.py ${{ github.event.inputs.provider }}
 
