@@ -6,9 +6,6 @@ from predibench.backend.data_model import DataPoint
 import pandas as pd
 import numpy as np
 from predibench.backend.pnl import compute_pnl_per_model
-from predibench.backend.data_loader import load_agent_position, load_market_prices, load_saved_events
-from predibench.backend.pnl import get_historical_returns
-from predibench.backend.data_loader import load_investment_choices_from_google
 
 
 def _compute_pnl_results_for_all_models(positions_df: pd.DataFrame, prices_df: pd.DataFrame) -> dict[str, PnlResult]:
@@ -92,16 +89,8 @@ def _print_agent_summary(model_name: str, performance: AgentPerformance):
     )
 
 
-def _calculate_real_performance() -> dict[str, AgentPerformance]:
+def _calculate_real_performance(positions_df: pd.DataFrame, prices_df: pd.DataFrame) -> dict[str, AgentPerformance]:
     """Calculate real performance metrics for all agents with clean separation of concerns."""
-    model_results = load_investment_choices_from_google()
-    saved_events = load_saved_events()
-    
-    positions_df = load_agent_position(model_results)
-    market_prices = load_market_prices(saved_events)
-    prices_df = get_historical_returns(market_prices)
-
-    
     # Calculate PnL and Brier results using shared data
     pnl_results = _compute_pnl_results_for_all_models(positions_df, prices_df)
     brier_results = _calculate_agent_brier_results(positions_df, prices_df)
@@ -151,9 +140,9 @@ def _create_leaderboard_entry(performance: AgentPerformance) -> LeaderboardEntry
     )
 
 
-def get_leaderboard() -> list[LeaderboardEntry]:
+def get_leaderboard(positions_df: pd.DataFrame, prices_df: pd.DataFrame) -> list[LeaderboardEntry]:
     """Generate leaderboard from real performance data, sorted by cumulative PnL."""
-    real_performance = _calculate_real_performance()
+    real_performance = _calculate_real_performance(positions_df, prices_df)
 
     # Sort agents by final cumulative PnL in descending order
     sorted_agents = sorted(

@@ -14,9 +14,8 @@ from predibench.backend.data_model import (
 )
 from predibench.backend.leaderboard import get_leaderboard
 from predibench.backend.events import get_events_that_received_predictions, get_events_by_ids
-from predibench.backend.data_loader import load_investment_choices_from_google, load_saved_events
-from predibench.backend.pnl import get_all_markets_pnls, get_positions_df, get_historical_returns
-from predibench.backend.data_loader import load_market_prices
+from predibench.backend.data_loader import load_investment_choices_from_google, load_saved_events, load_agent_position, load_market_prices
+from predibench.backend.pnl import get_all_markets_pnls, get_historical_returns
 from predibench.polymarket_api import _HistoricalTimeSeriesRequestParameters
 
 
@@ -33,14 +32,14 @@ def get_data_for_backend() -> BackendData:
     print("Loading base data sources...")
     model_results = load_investment_choices_from_google()  # Load once
     saved_events = load_saved_events()                     # Load once
-    positions_df = get_positions_df()                      # Load once  
+    positions_df = load_agent_position(model_results)     # Load once - pass model_results
     market_prices = load_market_prices(saved_events)      # Load once
     prices_df = get_historical_returns(market_prices)     # Load once
     
     # Step 2: Compute core leaderboard and events
     print("Computing core data...")
-    leaderboard = get_leaderboard()
-    events = get_events_that_received_predictions()
+    leaderboard = get_leaderboard(positions_df, prices_df)
+    events = get_events_that_received_predictions(model_results)
     
     # Step 3: Compute stats from leaderboard
     stats = Stats(
@@ -56,7 +55,7 @@ def get_data_for_backend() -> BackendData:
     
     # Step 5: Pre-compute model investment details
     print("Computing model investment details...")
-    pnl_results = get_all_markets_pnls()
+    pnl_results = get_all_markets_pnls(positions_df, prices_df)
     model_investment_details = {}
     
     # Create market question lookup
@@ -85,13 +84,14 @@ def get_data_for_backend() -> BackendData:
                 clob_token_id=clob_token_id,
             ).get_cached_token_timeseries()
             
-            # Convert to PricePoint format
+            # Convert to PricePoint format - price_data_raw is a pandas Series
             price_points = []
-            for price_entry in price_data_raw:
-                price_points.append(PricePoint(
-                    date=price_entry.get('date', ''),
-                    price=float(price_entry.get('price', 0.0))
-                ))
+            if price_data_raw is not None:
+                for date_idx, price_value in price_data_raw.items():
+                    price_points.append(PricePoint(
+                        date=date_idx.strftime("%Y-%m-%d"),
+                        price=float(price_value)
+                    ))
             market_prices_for_event[market.id] = price_points
             
         event_market_prices[event.id] = market_prices_for_event
@@ -163,25 +163,29 @@ def _compute_model_investment_details(
         ])
         market_positions["date"] = pd.to_datetime(market_positions["date"])
         market_positions["choice"] = market_positions["choice"].astype(float)
+        
+        # Handle duplicate dates by taking the last value for each date
+        market_positions = market_positions.groupby("date").last().reset_index()
         market_positions = market_positions.set_index("date")
         market_positions = market_positions.resample("D").ffill(limit=7).reset_index()
         
         position_markers = []
         for _, pos_row in market_positions.iterrows():
+            # Handle NaN values in position data
+            position_value = pos_row["choice"]
+            if pd.isna(position_value):
+                position_value = 0.0
+            
             position_markers.append(PositionPoint(
                 date=pos_row["date"].strftime("%Y-%m-%d"),
-                position=pos_row["choice"]
+                position=float(position_value)
             ))
         
         # Get market-specific PnL
         pnl_data = []
-        if market_id in pnl_result["pnl"]:
-            market_pnl = pnl_result["pnl"][market_id].cumsum().fillna(0)
-            for date_idx, pnl_value in market_pnl.items():
-                pnl_data.append(PnlPoint(
-                    date=date_idx.strftime("%Y-%m-%d"), 
-                    pnl=float(pnl_value)
-                ))
+        if market_id in pnl_result.market_pnls:
+            # market_pnls already contains cumulative PnL as List[PnlPoint]
+            pnl_data = pnl_result.market_pnls[market_id]
         
         markets_data[market_id] = MarketData(
             market_id=market_id,

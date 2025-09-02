@@ -245,12 +245,8 @@ def get_positions_df():
 
     return pd.DataFrame.from_records(positions)
 
-def get_all_markets_pnls():
+def get_all_markets_pnls(positions_df: pd.DataFrame, prices_df: pd.DataFrame):
     """Get PnL results for all agents using shared data loading approach."""
-    from predibench.backend.leaderboard import _load_market_data, _compute_pnl_results_for_all_models
-    
-    market_data = _load_market_data()
-    positions_df = market_data["positions_df"]
-    prices_df = market_data["prices_df"]
+    from predibench.backend.leaderboard import _compute_pnl_results_for_all_models
     
     return _compute_pnl_results_for_all_models(positions_df, prices_df)
