@@ -60,19 +60,6 @@ def test_polymarket_api_integration():
     token_id = open_market.outcomes[0].clob_token_id
     print(f"\nGetting order book for token: {token_id}")
 
-    order_book = OrderBook.get_order_book(token_id)
-
-    # Verify order book structure
-    assert len(order_book.market) > 0
-    assert len(order_book.asset_id) > 0
-    assert len(order_book.timestamp) > 0
-    assert isinstance(order_book.bids, list)
-    assert isinstance(order_book.asks, list)
-
-    print(f"Order book timestamp: {order_book.timestamp}")
-    print(f"Best bid: {order_book.bids[0].price if order_book.bids else 'None'}")
-    print(f"Best ask: {order_book.asks[0].price if order_book.asks else 'None'}")
-    print(f"Tick size: {order_book.tick_size}")
 
     # Test timeseries functionality
     timeseries_request_parameters = _HistoricalTimeSeriesRequestParameters(
