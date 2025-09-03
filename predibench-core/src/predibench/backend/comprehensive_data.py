@@ -13,7 +13,7 @@ from predibench.backend.data_model_new import (
     EventBrierScoreBackend, MarketBrierScoreBackend
 )
 from predibench.backend.leaderboard import get_leaderboard
-from predibench.backend.events import get_events_that_received_predictions
+from predibench.backend.events import get_non_duplicated_events
 from predibench.backend.data_loader import load_investment_choices_from_google, load_saved_events, load_agent_position, load_market_prices
 from predibench.backend.pnl import get_all_markets_pnls, get_historical_returns
 from predibench.agent.dataclasses import ModelInvestmentDecisions
@@ -31,17 +31,19 @@ def get_data_for_backend() -> BackendData:
     # Step 1: Load all base data sources (load once, use everywhere)
     print("Loading base data sources...")
     model_results = load_investment_choices_from_google()  # Load once
-    saved_events = load_saved_events()                     # Load once
+    _saved_events = load_saved_events()                     # Load once
+    events = get_non_duplicated_events(_saved_events)
     positions_df = load_agent_position(model_results)     # Load once - pass model_results
-    market_prices = load_market_prices(saved_events)      # Load once
+    market_prices = load_market_prices(events)      # Load once
     prices_df = get_historical_returns(market_prices)     # Load once
+    
+    # Step 1.5: Convert Polymarket Event models to backend Event models
+    backend_events = [EventBackend.from_event(e) for e in events]
     
     # Step 2: Compute core leaderboard and events
     print("Computing core data...")
     leaderboard = get_leaderboard(positions_df, prices_df)
-    events = get_events_that_received_predictions(model_results)
     # Convert Polymarket Event models to backend Event models
-    backend_events = [EventBackend.from_event(e) for e in events]
     
     # Step 3: Compute AgentPerformanceBackend for each model
     print("Computing agent performance data...")

@@ -61,7 +61,12 @@ def load_market_prices(events: list[Event]) -> dict[str, pd.Series | None]:
         for market in event.markets:
             if market.id not in market_to_prices:
                 market_prices = load_market_price(market.outcomes[0].clob_token_id)
-                market_to_prices[market.id] = Market.convert_to_daily_data(market_prices)
+                market_prices = Market.convert_to_daily_data(market_prices)
+                market.prices = market_prices
+                market_to_prices[market.id] = market_prices
+            else:
+                market.prices = market_to_prices[market.id]
+            
     return market_to_prices
     
 

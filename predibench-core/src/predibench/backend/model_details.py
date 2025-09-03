@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from predibench.backend.leaderboard import get_leaderboard
 from predibench.backend.pnl import get_all_markets_pnls, get_positions_df
-from predibench.backend.events import get_events_that_received_predictions
+from predibench.backend.events import get_non_duplicated_events
 from predibench.backend.data_model import LeaderboardEntryBackend
 
 
@@ -43,7 +43,7 @@ def get_model_investment_details(agent_id: str):
     markets_data = {}
 
     # Get market questions from events
-    events = get_events_that_received_predictions()
+    events = get_non_duplicated_events()
     market_dict = {}
     for event in events:
         for market in event.markets:
