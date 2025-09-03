@@ -15,7 +15,7 @@ from predibench.backend.data_model_new import (
 from predibench.backend.leaderboard import get_leaderboard
 from predibench.backend.events import get_non_duplicated_events
 from predibench.backend.data_loader import load_investment_choices_from_google, load_saved_events, load_agent_position, load_market_prices
-from predibench.backend.pnl import get_all_markets_pnls, get_historical_returns, compute_pnl_series_per_model
+from predibench.backend.pnl import get_historical_returns, compute_pnl_series_per_model
 from predibench.backend.brier import compute_brier_scores_df
 from predibench.agent.dataclasses import ModelInvestmentDecisions
 
