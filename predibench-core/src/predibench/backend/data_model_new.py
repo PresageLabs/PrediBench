@@ -5,6 +5,7 @@ import pandas as pd
 from datetime import datetime
 
 from predibench.polymarket_api import Market, Event
+from predibench.agent.dataclasses import ModelInvestmentDecisions
 
 
 class TimeseriesPointBackend(BaseModel):
@@ -55,7 +56,21 @@ class EventBackend(Event):
             **event.model_dump(exclude={"markets"}),
             markets=[MarketBackend.from_market(m) for m in event.markets]
         )
-
+class EventPnlBackend(BaseModel):
+    event_id: str
+    pnl: list[TimeseriesPointBackend]
+    
+class MarketPnlBackend(BaseModel):
+    market_id: str
+    pnl: list[TimeseriesPointBackend]
+    
+class EventBrierScoreBackend(BaseModel):
+    event_id: str
+    brier_score: list[TimeseriesPointBackend]
+    
+class MarketBrierScoreBackend(BaseModel):
+    market_id: str
+    brier_score: list[TimeseriesPointBackend]
 
 class AgentPerformanceBackend(BaseModel):
     model_name: str
@@ -65,12 +80,12 @@ class AgentPerformanceBackend(BaseModel):
     trades_dates: list[str]
     
     bried_scores: list[TimeseriesPointBackend]
-    event_bried_scores: dict[str, list[TimeseriesPointBackend]]
-    market_bried_scores: dict[str, list[TimeseriesPointBackend]]
+    event_bried_scores: list[EventBrierScoreBackend]
+    market_bried_scores: list[MarketBrierScoreBackend]
     
     cummulative_pnl: list[TimeseriesPointBackend]
-    event_pnls: dict[str, list[TimeseriesPointBackend]]
-    market_pnls: dict[str, list[TimeseriesPointBackend]]
+    event_pnls: list[EventPnlBackend]
+    market_pnls: list[MarketPnlBackend]
 
 
 class BackendData(BaseModel):
@@ -78,4 +93,5 @@ class BackendData(BaseModel):
     # Core data - matches API endpoints exactly
     leaderboard: list[LeaderboardEntryBackend]
     events: list[EventBackend]
+    model_results: list[ModelInvestmentDecisions]
     performance: list[AgentPerformanceBackend]
