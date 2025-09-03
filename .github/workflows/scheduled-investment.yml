@@ -66,7 +66,6 @@ jobs:
           - google
           - perplexity
           - anthropic
-          - o3-deep-research
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
