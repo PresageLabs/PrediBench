@@ -95,3 +95,61 @@ class BackendData(BaseModel):
     events: list[EventBackend]
     model_results: list[ModelInvestmentDecisions]
     performance: list[AgentPerformanceBackend]
+    
+    @property
+    def prediction_dates(self) -> list[str]:
+        """Derive unique prediction dates from model_results"""
+        dates = set()
+        for result in self.model_results:
+            dates.add(str(result.target_date))
+        return sorted(list(dates))
+    
+    @property
+    def model_results_by_id(self) -> dict[str, list[ModelInvestmentDecisions]]:
+        """Group model results by model_id"""
+        result = {}
+        for model_result in self.model_results:
+            if model_result.model_id not in result:
+                result[model_result.model_id] = []
+            result[model_result.model_id].append(model_result)
+        return result
+    
+    @property
+    def model_results_by_date(self) -> dict[str, list[ModelInvestmentDecisions]]:
+        """Group model results by prediction date"""
+        result = {}
+        for model_result in self.model_results:
+            date_str = str(model_result.target_date)
+            if date_str not in result:
+                result[date_str] = []
+            result[date_str].append(model_result)
+        return result
+    
+    @property
+    def model_results_by_id_and_date(self) -> dict[str, dict[str, ModelInvestmentDecisions]]:
+        """Group model results by model_id and date"""
+        result = {}
+        for model_result in self.model_results:
+            model_id = model_result.model_id
+            date_str = str(model_result.target_date)
+            if model_id not in result:
+                result[model_id] = {}
+            result[model_id][date_str] = model_result
+        return result
+    
+    @property
+    def model_results_by_event_id(self) -> dict[str, list[ModelInvestmentDecisions]]:
+        """Group model results by event_id"""
+        result = {}
+        for model_result in self.model_results:
+            for event_decision in model_result.event_investment_decisions:
+                event_id = event_decision.event_id
+                if event_id not in result:
+                    result[event_id] = []
+                result[event_id].append(model_result)
+        return result
+    
+    @property
+    def event_details(self) -> dict[str, EventBackend]:
+        """Create event lookup dictionary"""
+        return {event.id: event for event in self.events}
