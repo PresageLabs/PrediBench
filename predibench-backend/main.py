@@ -59,20 +59,91 @@ app.add_middleware(
 
 # API Endpoints
 @app.get("/")
-@profile_time
 def root():
     return {"message": "Polymarket LLM Benchmark API", "version": "1.0.0"}
 
 
+########################################################
+# New Routes
+########################################################
+
 @app.get("/api/leaderboard", response_model=list[LeaderboardEntryBackend])
-@profile_time
+def get_leaderboard_endpoint():
+    """Get the current leaderboard with LLM performance data"""
+    return load_backend_cache().leaderboard
+
+@app.get("/api/prediction_dates", response_model=list[str])
+def get_prediction_dates_endpoint():
+    return load_backend_cache().prediction_dates
+    pass
+
+@app.get("/api/model_results", response_model=list[ModelInvestmentDecisionBackend])
+def get_model_results_endpoint():
+    return load_backend_cache().model_results
+
+@app.get("/api/model_results/{model_id}", response_model=list[ModelInvestmentDecisionBackend])
+def get_model_results_by_id_endpoint(model_id: str):
+    return load_backend_cache().model_results_by_id[model_id]
+
+@app.get("/api/model_results/{prediction_date}", response_model=dict[str, list[PricePointBackend]])
+def get_model_results_by_date_endpoint(prediction_date: str):
+    return load_backend_cache().model_results_by_date[prediction_date]
+
+@app.get("/api/model_results/{model_id}/{prediction_date}", response_model=list[ModelInvestmentDecisionBackend])
+def get_model_results_by_id_and_date_endpoint(model_id: str, prediction_date: str):
+    return load_backend_cache().model_results_by_id_and_date[model_id][prediction_date]
+
+@app.get("/api/model_results/{event_id}", response_model=list[ModelInvestmentDecisionBackend])
+def get_model_results_by_event_id_endpoint(event_id: str):
+    return load_backend_cache().model_results_by_event_id[event_id]
+
+@app.get("/api/pnl/{model_id}", response_model=...)
+def get_pnl_endpoint(model_id: str):
+    """
+    For each model, the pnl (between each prediction date), the cummulative pnl is returned
+    
+    This data is retured accross all events, and by event
+    """
+    return load_backend_cache().pnl[model_id]
+
+@app.get("/api/pnl/{model_id}/{event_id}", response_model=...)
+def get_pnl_by_id_and_event_id_endpoint(model_id: str, event_id: str):
+    """
+    For each model, the pnl (between each prediction date), the cummulative pnl is returned
+    
+    This data is returned by event
+    """
+    return load_backend_cache().pnl_by_id_and_event_id[model_id][event_id]
+
+@app.get("/api/events", response_model=list[EventBackend])
+def get_events_endpoint(
+    search: str = "",
+    sort_by: str = "volume",
+    order: str = "desc",
+    limit: int = 50,
+):
+    """Get active Polymarket events with search and filtering"""
+    events = load_backend_cache().events
+    return events
+
+
+@app.get("/api/events/{event_id}", response_model=EventBackend)
+def get_event_endpoint(event_id: str):
+    """Get a specific event"""
+    return load_backend_cache().event_details[event_id]
+
+
+
+########################################################
+# Old Routes
+########################################################
+@app.get("/api/leaderboard", response_model=list[LeaderboardEntryBackend])
 def get_leaderboard_endpoint():
     """Get the current leaderboard with LLM performance data"""
     return load_backend_cache().leaderboard
 
 
 @app.get("/api/events", response_model=list[EventBackend])
-@profile_time
 def get_events_endpoint(
     search: str = "",
     sort_by: str = "volume",
@@ -110,14 +181,12 @@ def get_events_endpoint(
 
 
 @app.get("/api/stats", response_model=StatsBackend)
-@profile_time
 def get_stats():
     """Get overall benchmark statistics"""
     return load_backend_cache().stats
 
 
 @app.get("/api/model/{model_id}", response_model=LeaderboardEntryBackend)
-@profile_time
 def get_model_details_endpoint(model_id: str):
     """Get detailed information for a specific model"""
     data = load_backend_cache()
@@ -127,7 +196,6 @@ def get_model_details_endpoint(model_id: str):
 
 
 @app.get("/api/model/{agent_id}/pnl", response_model=ModelMarketDetails)
-@profile_time
 def get_model_investment_details_endpoint(agent_id: str):
     """Get market-level position and PnL data for a specific model"""
     data = load_backend_cache()
@@ -137,7 +205,6 @@ def get_model_investment_details_endpoint(agent_id: str):
 
 
 @app.get("/api/event/{event_id}", response_model=EventBackend)
-@profile_time
 def get_event_details(event_id: str):
     """Get detailed information for a specific event including all its markets"""
     data = load_backend_cache()
@@ -147,7 +214,6 @@ def get_event_details(event_id: str):
 
 
 @app.get("/api/event/{event_id}/market_prices", response_model=dict[str, list[PricePointBackend]])
-@profile_time
 def get_event_market_prices_endpoint(event_id: str):
     """Get price history for all markets in an event"""
     data = load_backend_cache()
@@ -160,13 +226,13 @@ def get_event_market_prices_endpoint(event_id: str):
     "/api/event/{event_id}/investment_decisions",
     response_model=list[MarketInvestmentDecisionBackend],
 )
-@profile_time
 def get_event_investment_decisions_endpoint(event_id: str):
     """Get real investment choices for a specific event"""
     data = load_backend_cache()
     if event_id not in data.event_investment_decisions:
         raise HTTPException(status_code=404, detail="Event investment decisions not found")
     return data.event_investment_decisions[event_id]
+
 
 
 if __name__ == "__main__":
