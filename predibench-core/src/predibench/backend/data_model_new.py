@@ -73,35 +73,9 @@ class AgentPerformanceBackend(BaseModel):
     market_pnls: dict[str, list[TimeseriesPointBackend]]
 
 
-# Typed results for PnL calculations
-class AgentPerformanceBackend(BaseModel):
-    """Clean, typed result from PnL calculation"""
-    cumulative_pnl: list[DataPointBackend]  # Time series for frontend charts
-    final_pnl: float                 # Final cumulative value
-    market_pnls: dict[str, list[PnlPointBackend]]  # Per-market cumulative PnL over time
-    
-    class Config:
-        arbitrary_types_allowed = True
-
-
 class BackendData(BaseModel):
     """Comprehensive pre-computed data for all backend routes"""
     # Core data - matches API endpoints exactly
     leaderboard: list[LeaderboardEntryBackend]
     events: list[EventBackend]
-    stats: StatsBackend
-    
-    # Model-specific data: model_id -> LeaderboardEntry
-    model_details: dict[str, LeaderboardEntryBackend]
-    
-    # Model investment data: model_id -> market data dict
-    model_investment_details: dict[str, ModelMarketDetails]
-    
-    # Event-specific data: event_id -> event details
-    event_details: dict[str, EventBackend]
-    
-    # Event market prices: event_id -> market_id -> price data points
-    event_market_prices: dict[str, dict[str, list[PricePointBackend]]]
-    
-    # Event investment decisions: event_id -> list of decisions
-    event_investment_decisions: dict[str, list[MarketInvestmentDecisionBackend]]
+    performance: list[AgentPerformanceBackend]
