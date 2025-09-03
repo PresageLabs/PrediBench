@@ -11,7 +11,7 @@ import pandas as pd
 def load_investment_choices_from_google() -> list[ModelInvestmentDecisions]:
     # Has bucket access, load directly from GCP bucket
 
-    model_results = []
+    model_results: list[ModelInvestmentDecisions] = []
     bucket = get_bucket()
     blobs = bucket.list_blobs(prefix="")
 

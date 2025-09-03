@@ -95,7 +95,8 @@ class BackendData(BaseModel):
     leaderboard: list[LeaderboardEntryBackend]
     events: list[EventBackend]
     model_results: list[ModelInvestmentDecisions]
-    performance: list[ModelPerformanceBackend]
+    performance_per_day: list[ModelPerformanceBackend]
+    performance_per_bet: list[ModelPerformanceBackend]
     
     @property
     def prediction_dates(self) -> list[str]:

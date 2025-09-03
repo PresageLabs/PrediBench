@@ -89,7 +89,7 @@ def get_model_results_by_event_id_endpoint(event_id: str):
 
 @app.get("/api/performance", response_model=list[ModelPerformanceBackend])
 def get_performance_endpoint():
-    return load_backend_cache().performance
+    return load_backend_cache().performance_per_day
 
 @app.get("/api/performance/{model_id}", response_model=ModelPerformanceBackend)
 def get_performance_endpoint(model_id: str):
@@ -98,7 +98,7 @@ def get_performance_endpoint(model_id: str):
     
     This data is retured accross all events, and by event
     """
-    return load_backend_cache().performance[model_id]
+    return load_backend_cache().performance_per_day[model_id]
 
 
 @app.get("/api/events", response_model=list[EventBackend])

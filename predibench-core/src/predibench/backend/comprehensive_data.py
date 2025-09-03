@@ -14,10 +14,40 @@ from predibench.backend.data_model_new import (
 )
 from predibench.backend.leaderboard import get_leaderboard
 from predibench.backend.events import get_non_duplicated_events
-from predibench.backend.data_loader import load_investment_choices_from_google, load_saved_events, load_agent_position, load_market_prices
+from predibench.backend.data_loader import (
+    load_investment_choices_from_google,
+    load_saved_events,
+    load_agent_position,
+    load_market_prices,
+)
 from predibench.backend.pnl import get_historical_returns, compute_pnl_series_per_model
 from predibench.backend.brier import compute_brier_scores_df
 from predibench.agent.dataclasses import ModelInvestmentDecisions
+from datetime import date, datetime as dt
+
+
+def _to_date_index(df: pd.DataFrame) -> pd.DataFrame:
+    """Return a copy of df with index converted to Python date objects.
+
+    Ensures consistent comparisons and intersections between positions (date)
+    and prices indices. Duplicates (same day) keep the last value.
+    """
+    if df is None or len(df.index) == 0:
+        return df
+    new_index: list[date] = []
+    for idx in df.index:
+        if isinstance(idx, dt):
+            new_index.append(idx.date())
+        elif hasattr(idx, "date") and not isinstance(idx, date):
+            # e.g., pandas Timestamp
+            new_index.append(idx.date())
+        else:
+            new_index.append(idx)
+    df2 = df.copy()
+    df2.index = pd.Index(new_index)
+    # remove duplicates by keeping last
+    df2 = df2[~df2.index.duplicated(keep="last")]
+    return df2
 
 
 def get_data_for_backend() -> BackendData:
@@ -37,6 +67,7 @@ def get_data_for_backend() -> BackendData:
     positions_df = load_agent_position(model_results)     # Load once - pass model_results
     market_prices = load_market_prices(events)      # Load once
     prices_df = get_historical_returns(market_prices)     # Load once
+    prices_df = _to_date_index(prices_df)
     
     # Step 1.5: Convert Polymarket Event models to backend Event models
     backend_events = [EventBackend.from_event(e) for e in events]
@@ -48,6 +79,12 @@ def get_data_for_backend() -> BackendData:
         prices_df=prices_df,
         backend_events=backend_events,
     )
+    performance_per_bet = _compute_model_performance_list(
+        positions_df=positions_df,
+        prices_df=prices_df,
+        backend_events=backend_events,
+        by_bet=True,
+    )
 
     # Step 3: Compute leaderboard from performance
     print("Building leaderboard from performance data...")
@@ -58,7 +95,7 @@ def get_data_for_backend() -> BackendData:
     return BackendData(
         leaderboard=leaderboard,
         events=backend_events,
-        performance=performance,
+        performance_per_day=performance,
         model_results=model_results,
     )
 
@@ -67,6 +104,7 @@ def _compute_model_performance_list(
     positions_df: pd.DataFrame,
     prices_df: pd.DataFrame,
     backend_events: List[EventBackend],
+    by_bet: bool = False,
 ) -> List[ModelPerformanceBackend]:
     """Compute ModelPerformanceBackend data for each model.
 
@@ -102,21 +140,51 @@ def _compute_model_performance_list(
             model_positions.pivot(index="date", columns="market_id", values="odds")
         )
 
+        # Choose price index: daily or bet dates (plus final for closure)
+        if by_bet:
+            bet_dates = list(positions_pivot.index)
+            if len(prices_df.index) > 0:
+                final_date = prices_df.index.max()
+                price_index = sorted(set(bet_dates + [final_date]))
+            else:
+                price_index = sorted(set(bet_dates))
+            prices_for_calc = prices_df.reindex(price_index, method="ffill")
+        else:
+            prices_for_calc = prices_df
+
         # Compute PnL series
         portfolio_cum_pnl, market_cum_pnls = compute_pnl_series_per_model(
-            positions_agent_df=positions_pivot, prices_df=prices_df
+            positions_agent_df=positions_pivot, prices_df=prices_for_calc
         )
+
+        # If per-bet, fold final move back onto last bet so index shows only bet dates
+        if by_bet:
+            bet_index = pd.Index(sorted(positions_pivot.index))
+            if len(portfolio_cum_pnl) > 0:
+                portfolio_cum_pnl = portfolio_cum_pnl.reindex(bet_index, method="ffill")
+            market_cum_pnls = {
+                m_id: (s.reindex(bet_index, method="ffill") if len(s) > 0 else s)
+                for m_id, s in market_cum_pnls.items()
+            }
 
         # Convert overall cumulative pnl to backend points
         overall_cum_pnl_points = [
-            TimeseriesPointBackend(date=str(idx), value=float(val)) for idx, val in portfolio_cum_pnl.items()
+            TimeseriesPointBackend(
+                date=(idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)),
+                value=float(val),
+            )
+            for idx, val in portfolio_cum_pnl.items()
         ]
 
         # Market-level PnL to backend
         market_pnls_backend: list[MarketPnlBackend] = []
         for market_id, cum_series in market_cum_pnls.items():
             market_points = [
-                TimeseriesPointBackend(date=str(idx), value=float(val)) for idx, val in cum_series.items()
+                TimeseriesPointBackend(
+                    date=(idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)),
+                    value=float(val),
+                )
+                for idx, val in cum_series.items()
             ]
             market_pnls_backend.append(
                 MarketPnlBackend(market_id=market_id, pnl=market_points)
@@ -138,19 +206,43 @@ def _compute_model_performance_list(
             aligned = pd.concat(series_list, axis=1).fillna(0.0)
             event_cum = aligned.sum(axis=1)
             event_points = [
-                TimeseriesPointBackend(date=str(idx), value=float(val)) for idx, val in event_cum.items()
+                TimeseriesPointBackend(
+                    date=(idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)),
+                    value=float(val),
+                )
+                for idx, val in event_cum.items()
             ]
             event_pnls_backend.append(
                 EventPnlBackend(event_id=event_id, pnl=event_points)
             )
 
         # Compute Brier score series
-        brier_df = compute_brier_scores_df(decisions_df=decisions_pivot, prices_df=prices_df)
+        if by_bet:
+            # Include final outcome row for outcome reference
+            if len(prices_df.index) > 0:
+                final_date = prices_df.index.max()
+                brier_index = sorted(set(list(decisions_pivot.index) + [final_date]))
+                prices_for_brier = prices_df.reindex(brier_index, method="ffill")
+            else:
+                prices_for_brier = prices_for_calc
+            brier_df_all = compute_brier_scores_df(
+                decisions_df=decisions_pivot, prices_df=prices_for_brier
+            )
+            # Keep only bet dates (rows) in the output
+            brier_df = brier_df_all.reindex(decisions_pivot.index)
+        else:
+            brier_df = compute_brier_scores_df(
+                decisions_df=decisions_pivot, prices_df=prices_for_calc
+            )
 
         # Overall per-date brier (mean across markets)
         overall_brier_series = brier_df.mean(axis=1)
         overall_brier_points = [
-            TimeseriesPointBackend(date=str(idx), value=float(val)) for idx, val in overall_brier_series.dropna().items()
+            TimeseriesPointBackend(
+                date=(idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)),
+                value=float(val),
+            )
+            for idx, val in overall_brier_series.dropna().items()
         ]
         # Final brier = mean across all available predictions
         final_brier_score = float(brier_df.stack().mean()) if not brier_df.empty else 0.0
@@ -162,7 +254,11 @@ def _compute_model_performance_list(
             if market_series.empty:
                 continue
             points = [
-                TimeseriesPointBackend(date=str(idx), value=float(val)) for idx, val in market_series.items()
+                TimeseriesPointBackend(
+                    date=(idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)),
+                    value=float(val),
+                )
+                for idx, val in market_series.items()
             ]
             market_brier_backend.append(
                 MarketBrierScoreBackend(market_id=market_id, brier_score=points)
@@ -176,7 +272,11 @@ def _compute_model_performance_list(
                 continue
             ev_series = brier_df[cols].mean(axis=1).dropna()
             ev_points = [
-                TimeseriesPointBackend(date=str(idx), value=float(val)) for idx, val in ev_series.items()
+                TimeseriesPointBackend(
+                    date=(idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)),
+                    value=float(val),
+                )
+                for idx, val in ev_series.items()
             ]
             event_brier_backend.append(
                 EventBrierScoreBackend(event_id=event_id, brier_score=ev_points)
@@ -188,6 +288,7 @@ def _compute_model_performance_list(
                 model_name=model_name,
                 final_pnl=float(portfolio_cum_pnl.iloc[-1]) if len(portfolio_cum_pnl) else 0.0,
                 final_brier_score=final_brier_score,
+                trades=trades_count,
                 trades_dates=trade_dates,
                 bried_scores=overall_brier_points,
                 event_bried_scores=event_brier_backend,
@@ -195,8 +296,6 @@ def _compute_model_performance_list(
                 cummulative_pnl=overall_cum_pnl_points,
                 event_pnls=event_pnls_backend,
                 market_pnls=market_pnls_backend,
-                # Inject trades count for leaderboard if model allows extra fields
-                **({"trades": trades_count} if True else {}),
             )
         )
 

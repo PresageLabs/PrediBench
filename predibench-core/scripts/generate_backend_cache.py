@@ -40,7 +40,7 @@ def main():
     print(f"\nData summary:")
     print(f"  - Leaderboard entries: {len(backend_data.leaderboard)}")
     print(f"  - Events: {len(backend_data.events)}")
-    print(f"  - Performance entries: {len(backend_data.performance)}")
+    print(f"  - Performance entries: {len(backend_data.performance_per_day)}")
     print(f"  - Model results: {len(backend_data.model_results)}")
     print(f"  - Prediction dates: {len(backend_data.prediction_dates)}")
     print(f"  - Event details: {len(backend_data.event_details)}")
