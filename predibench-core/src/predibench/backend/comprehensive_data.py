@@ -8,7 +8,7 @@ from datetime import datetime
 import pandas as pd
 
 from predibench.backend.data_model_new import (
-    BackendData, LeaderboardEntryBackend, EventBackend, AgentPerformanceBackend,
+    BackendData, LeaderboardEntryBackend, EventBackend, ModelPerformanceBackend,
     TimeseriesPointBackend, EventPnlBackend, MarketPnlBackend, 
     EventBrierScoreBackend, MarketBrierScoreBackend
 )
@@ -48,7 +48,7 @@ def get_data_for_backend() -> BackendData:
     # Step 3: Compute AgentPerformanceBackend for each model
     print("Computing agent performance data...")
     pnl_results = get_all_markets_pnls(positions_df, prices_df)
-    performance = _compute_agent_performance_list(model_results, leaderboard, pnl_results, positions_df, prices_df, backend_events)
+    performance = _compute_model_performance_list(model_results, leaderboard, pnl_results, positions_df, prices_df, backend_events)
     
     print("Finished computing comprehensive backend data!")
     
@@ -60,90 +60,18 @@ def get_data_for_backend() -> BackendData:
     )
 
 
-def _compute_agent_performance_list(
+def _compute_model_performance_list(
     model_results: List[ModelInvestmentDecisions],
     leaderboard: List[LeaderboardEntryBackend], 
     pnl_results: dict, 
     positions_df: pd.DataFrame, 
     prices_df: pd.DataFrame,
     backend_events: List[EventBackend]
-) -> List[AgentPerformanceBackend]:
-    """Compute AgentPerformanceBackend data for each model."""
+) -> List[ModelPerformanceBackend]:
+    """Compute ModelPerformanceBackend data for each model."""
     
-    performance_list = []
-    
-    # Create leaderboard lookup
-    leaderboard_dict = {entry.id: entry for entry in leaderboard}
-    
-    # Create event and market lookups
-    event_dict = {event.id: event for event in backend_events}
-    market_dict = {}
-    for event in backend_events:
-        for market in event.markets:
-            market_dict[market.id] = market
-    
-    for agent_id, pnl_result in pnl_results.items():
-        if agent_id not in leaderboard_dict:
-            continue
-            
-        leaderboard_entry = leaderboard_dict[agent_id]
-        
-        # Get trade dates for this agent
-        agent_positions = positions_df[positions_df["model_name"] == agent_id]
-        trades_dates = sorted(agent_positions["date"].dt.strftime("%Y-%m-%d").unique().tolist()) if not agent_positions.empty else []
-        
-        # Convert cumulative PnL to TimeseriesPointBackend
-        cummulative_pnl = [TimeseriesPointBackend(date=dp.date, value=dp.value) for dp in pnl_result.cumulative_pnl]
-        
-        # Compute event-level PnL
-        event_pnls = []
-        for event_id in event_dict.keys():
-            # Get markets for this event
-            event_markets = [m.id for m in event_dict[event_id].markets]
-            
-            # Aggregate PnL for all markets in this event
-            event_pnl_series = pd.Series(dtype=float)
-            for market_id in event_markets:
-                if market_id in pnl_result.market_pnls:
-                    market_pnl_series = pd.Series({point.date: point.pnl for point in pnl_result.market_pnls[market_id]})
-                    if event_pnl_series.empty:
-                        event_pnl_series = market_pnl_series
-                    else:
-                        event_pnl_series = event_pnl_series.add(market_pnl_series, fill_value=0)
-            
-            event_pnls.append(EventPnlBackend(
-                event_id=event_id,
-                pnl=TimeseriesPointBackend.from_series_to_timeseries_points(event_pnl_series)
-            ))
-        
-        # Compute market-level PnL
-        market_pnls = []
-        for market_id, market_pnl_points in pnl_result.market_pnls.items():
-            market_pnl_series = pd.Series({point.date: point.pnl for point in market_pnl_points})
-            market_pnls.append(MarketPnlBackend(
-                market_id=market_id,
-                pnl=TimeseriesPointBackend.from_series_to_timeseries_points(market_pnl_series)
-            ))
-        
-        # Compute Brier scores (placeholder for now - we'll need to implement proper calculation)
-        bried_scores = []  # Will be filled with actual Brier score computation
-        event_bried_scores = []  # Will be filled with event-level Brier scores
-        market_bried_scores = []  # Will be filled with market-level Brier scores
-        
-        performance_list.append(AgentPerformanceBackend(
-            model_name=agent_id,
-            final_pnl=leaderboard_entry.final_cumulative_pnl,
-            final_brier_score=leaderboard_entry.avg_brier_score,
-            trades_dates=trades_dates,
-            bried_scores=bried_scores,
-            event_bried_scores=event_bried_scores,
-            market_bried_scores=market_bried_scores,
-            cummulative_pnl=cummulative_pnl,
-            event_pnls=event_pnls,
-            market_pnls=market_pnls,
-        ))
-    
-    return performance_list
+
+    pass
 
 
 

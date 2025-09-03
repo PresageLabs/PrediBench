@@ -72,7 +72,7 @@ class MarketBrierScoreBackend(BaseModel):
     market_id: str
     brier_score: list[TimeseriesPointBackend]
 
-class AgentPerformanceBackend(BaseModel):
+class ModelPerformanceBackend(BaseModel):
     model_name: str
     final_pnl: float
     final_brier_score: float
@@ -94,7 +94,7 @@ class BackendData(BaseModel):
     leaderboard: list[LeaderboardEntryBackend]
     events: list[EventBackend]
     model_results: list[ModelInvestmentDecisions]
-    performance: list[AgentPerformanceBackend]
+    performance: list[ModelPerformanceBackend]
     
     @property
     def prediction_dates(self) -> list[str]:

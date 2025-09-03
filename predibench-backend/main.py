@@ -8,7 +8,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from predibench.backend.profile import profile_time
 from predibench.agent.dataclasses import ModelInvestmentDecisions
-from predibench.backend.data_model_new import LeaderboardEntryBackend, AgentPerformanceBackend, EventBackend, BackendData
+from predibench.backend.data_model_new import LeaderboardEntryBackend, ModelPerformanceBackend, EventBackend, BackendData
 
 from predibench.storage_utils import read_from_storage
 from predibench.common import DATA_PATH
@@ -87,11 +87,11 @@ def get_model_results_by_id_and_date_endpoint(model_id: str, prediction_date: st
 def get_model_results_by_event_id_endpoint(event_id: str):
     return load_backend_cache().model_results_by_event_id[event_id]
 
-@app.get("/api/performance", response_model=list[AgentPerformanceBackend])
+@app.get("/api/performance", response_model=list[ModelPerformanceBackend])
 def get_performance_endpoint():
     return load_backend_cache().performance
 
-@app.get("/api/performance/{model_id}", response_model=AgentPerformanceBackend)
+@app.get("/api/performance/{model_id}", response_model=ModelPerformanceBackend)
 def get_performance_endpoint(model_id: str):
     """
     For each model, the pnl (between each prediction date), the cummulative pnl is returned
