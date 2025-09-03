@@ -7,7 +7,7 @@ from predibench.models import ModelInfo
 import time
 import pytest
 
-@pytest.xfail(reason="This will pollute the bucket, needs to work without bucket")
+@pytest.skip(reason="This will pollute the bucket, needs to work without bucket")
 def test_invest():
     models = [
         ModelInfo(

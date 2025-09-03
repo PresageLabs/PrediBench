@@ -4,7 +4,6 @@ import pandas as pd
 
 from predibench.backend.data_loader import load_agent_position
 from predibench.logger_config import get_logger
-from predibench.backend.data_model import PnlResultBackend, DataPointBackend, PnlPointBackend
 
 logger = get_logger(__name__)
 
