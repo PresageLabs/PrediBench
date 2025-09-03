@@ -245,3 +245,6 @@ def _compute_event_investment_decisions(event_id: str, model_results: List[Model
             ))
     
     return market_investments
+
+if __name__ == "__main__":
+    get_data_for_backend()

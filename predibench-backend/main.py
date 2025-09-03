@@ -7,7 +7,15 @@ from cachetools import TTLCache, cached
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from predibench.backend.profile import profile_time
-from predibench.backend.data_model import LeaderboardEntryBackend, StatsBackend, BackendData, EventBackend
+from predibench.backend.data_model import (
+    LeaderboardEntryBackend, 
+    StatsBackend, 
+    BackendData, 
+    EventBackend, 
+    MarketInvestmentDecisionBackend,
+    ModelMarketDetails,
+    PricePointBackend
+)
 from predibench.storage_utils import read_from_storage
 from predibench.common import DATA_PATH
 
@@ -118,7 +126,7 @@ def get_model_details_endpoint(model_id: str):
     return data.model_details[model_id]
 
 
-@app.get("/api/model/{agent_id}/pnl")
+@app.get("/api/model/{agent_id}/pnl", response_model=ModelMarketDetails)
 @profile_time
 def get_model_investment_details_endpoint(agent_id: str):
     """Get market-level position and PnL data for a specific model"""
@@ -128,7 +136,7 @@ def get_model_investment_details_endpoint(agent_id: str):
     return data.model_investment_details[agent_id]
 
 
-@app.get("/api/event/{event_id}")
+@app.get("/api/event/{event_id}", response_model=EventBackend)
 @profile_time
 def get_event_details(event_id: str):
     """Get detailed information for a specific event including all its markets"""
@@ -138,7 +146,7 @@ def get_event_details(event_id: str):
     return data.event_details[event_id]
 
 
-@app.get("/api/event/{event_id}/market_prices")
+@app.get("/api/event/{event_id}/market_prices", response_model=dict[str, list[PricePointBackend]])
 @profile_time
 def get_event_market_prices_endpoint(event_id: str):
     """Get price history for all markets in an event"""
@@ -150,7 +158,7 @@ def get_event_market_prices_endpoint(event_id: str):
 
 @app.get(
     "/api/event/{event_id}/investment_decisions",
-    response_model=list[dict],
+    response_model=list[MarketInvestmentDecisionBackend],
 )
 @profile_time
 def get_event_investment_decisions_endpoint(event_id: str):

@@ -91,7 +91,7 @@ class MarketInvestmentDecisionBackend(BaseModel):
     market_id: str
     model_name: str
     model_id: str
-    bet: str
+    bet: float
     odds: float
     confidence: float
     rationale: str
