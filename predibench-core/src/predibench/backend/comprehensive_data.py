@@ -96,6 +96,7 @@ def get_data_for_backend() -> BackendData:
         leaderboard=leaderboard,
         events=backend_events,
         performance_per_day=performance,
+        performance_per_bet=performance_per_bet,
         model_results=model_results,
     )
 

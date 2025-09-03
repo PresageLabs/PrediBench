@@ -8,7 +8,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from predibench.backend.profile import profile_time
 from predibench.agent.dataclasses import ModelInvestmentDecisions
-from predibench.backend.data_model_new import LeaderboardEntryBackend, ModelPerformanceBackend, EventBackend, BackendData
+from predibench.backend.data_model_new import (
+    LeaderboardEntryBackend,
+    ModelPerformanceBackend,
+    EventBackend,
+    BackendData,
+)
 
 from predibench.storage_utils import read_from_storage
 from predibench.common import DATA_PATH
@@ -65,40 +70,66 @@ def get_leaderboard_endpoint():
 @app.get("/api/prediction_dates", response_model=list[str])
 def get_prediction_dates_endpoint():
     return load_backend_cache().prediction_dates
-    pass
 
 @app.get("/api/model_results", response_model=list[ModelInvestmentDecisions])
 def get_model_results_endpoint():
     return load_backend_cache().model_results
 
-@app.get("/api/model_results/{model_id}", response_model=list[ModelInvestmentDecisions])
+@app.get("/api/model_results/by_id/{model_id}", response_model=list[ModelInvestmentDecisions])
 def get_model_results_by_id_endpoint(model_id: str):
-    return load_backend_cache().model_results_by_id[model_id]
+    data = load_backend_cache()
+    results = data.model_results_by_id.get(model_id)
+    if results is None:
+        raise HTTPException(status_code=404, detail="model_id not found")
+    return results
 
-@app.get("/api/model_results/{prediction_date}", response_model=list[ModelInvestmentDecisions])
+@app.get("/api/model_results/by_date/{prediction_date}", response_model=list[ModelInvestmentDecisions])
 def get_model_results_by_date_endpoint(prediction_date: str):
-    return load_backend_cache().model_results_by_date[prediction_date]
+    data = load_backend_cache()
+    results = data.model_results_by_date.get(prediction_date)
+    if results is None:
+        raise HTTPException(status_code=404, detail="prediction_date not found")
+    return results
 
-@app.get("/api/model_results/{model_id}/{prediction_date}", response_model=ModelInvestmentDecisions)
+@app.get("/api/model_results/by_id_and_date/{model_id}/{prediction_date}", response_model=ModelInvestmentDecisions)
 def get_model_results_by_id_and_date_endpoint(model_id: str, prediction_date: str):
-    return load_backend_cache().model_results_by_id_and_date[model_id][prediction_date]
+    data = load_backend_cache()
+    by_id = data.model_results_by_id_and_date.get(model_id)
+    if by_id is None:
+        raise HTTPException(status_code=404, detail="model_id not found")
+    result = by_id.get(prediction_date)
+    if result is None:
+        raise HTTPException(status_code=404, detail="prediction_date not found for model_id")
+    return result
 
-@app.get("/api/model_results/{event_id}", response_model=list[ModelInvestmentDecisions])
+@app.get("/api/model_results/by_event/{event_id}", response_model=list[ModelInvestmentDecisions])
 def get_model_results_by_event_id_endpoint(event_id: str):
-    return load_backend_cache().model_results_by_event_id[event_id]
+    data = load_backend_cache()
+    results = data.model_results_by_event_id.get(event_id)
+    if results is None:
+        raise HTTPException(status_code=404, detail="event_id not found")
+    return results
 
 @app.get("/api/performance", response_model=list[ModelPerformanceBackend])
-def get_performance_endpoint():
-    return load_backend_cache().performance_per_day
+def get_performance_endpoint(by: str = "day"):
+    """Return model performance by day or by bet.
 
-@app.get("/api/performance/{model_id}", response_model=ModelPerformanceBackend)
-def get_performance_endpoint(model_id: str):
+    Query param 'by' can be 'day' (default) or 'bet'.
     """
-    For each model, the pnl (between each prediction date), the cummulative pnl is returned
-    
-    This data is retured accross all events, and by event
-    """
-    return load_backend_cache().performance_per_day[model_id]
+    data = load_backend_cache()
+    if by == "bet":
+        return data.performance_per_bet
+    return data.performance_per_day
+
+@app.get("/api/performance/{model_name}", response_model=ModelPerformanceBackend)
+def get_performance_by_model_endpoint(model_name: str, by: str = "day"):
+    """Return performance for a specific model, by day or by bet."""
+    data = load_backend_cache()
+    perf_list = data.performance_per_bet if by == "bet" else data.performance_per_day
+    for perf in perf_list:
+        if perf.model_name == model_name:
+            return perf
+    raise HTTPException(status_code=404, detail="model_name not found")
 
 
 @app.get("/api/events", response_model=list[EventBackend])
@@ -127,12 +158,13 @@ def get_events_endpoint(
         ]
 
     # Apply sorting
-    if sort_by == "volume" and hasattr(events[0] if events else None, "volume"):
-        events.sort(key=lambda x: x.volume or 0, reverse=(order == "desc"))
-    elif sort_by == "date" and hasattr(events[0] if events else None, "end_datetime"):
-        events.sort(
-            key=lambda x: x.end_datetime or datetime.min, reverse=(order == "desc")
-        )
+    if events:
+        if sort_by == "volume" and hasattr(events[0], "volume"):
+            events.sort(key=lambda x: x.volume or 0, reverse=(order == "desc"))
+        elif sort_by == "date" and hasattr(events[0], "end_datetime"):
+            events.sort(
+                key=lambda x: x.end_datetime or datetime.min, reverse=(order == "desc")
+            )
 
     # Apply limit
     return events[:limit]
@@ -141,7 +173,11 @@ def get_events_endpoint(
 @app.get("/api/events/{event_id}", response_model=EventBackend)
 def get_event_endpoint(event_id: str):
     """Get a specific event"""
-    return load_backend_cache().event_details[event_id]
+    data = load_backend_cache()
+    event = data.event_details.get(event_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail="event_id not found")
+    return event
 
 
 
