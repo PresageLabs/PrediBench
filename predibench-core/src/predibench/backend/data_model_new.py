@@ -76,6 +76,7 @@ class ModelPerformanceBackend(BaseModel):
     model_name: str
     final_pnl: float
     final_brier_score: float
+    trades: int | None = None
     
     trades_dates: list[str]
     
