@@ -40,14 +40,13 @@ def main():
     print(f"\nData summary:")
     print(f"  - Leaderboard entries: {len(backend_data.leaderboard)}")
     print(f"  - Events: {len(backend_data.events)}")
-    print(f"  - Model details: {len(backend_data.model_details)}")
-    print(f"  - Model investment details: {len(backend_data.model_investment_details)}")
+    print(f"  - Performance entries: {len(backend_data.performance_per_day)}")
+    print(f"  - Model results: {len(backend_data.model_results)}")
+    print(f"  - Prediction dates: {len(backend_data.prediction_dates)}")
     print(f"  - Event details: {len(backend_data.event_details)}")
-    print(f"  - Event market prices: {len(backend_data.event_market_prices)}")
-    print(f"  - Event investment decisions: {len(backend_data.event_investment_decisions)}")
     
     print(f"\n✓ Backend cache saved successfully!")
-    print(f"Cache location: backend_cache.json")
+    print(f"Cache location: {cache_file_path}")
 
 
 if __name__ == "__main__":

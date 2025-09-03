@@ -5,7 +5,7 @@ import sys
 import os
 
 
-from predibench.backend.pnl import compute_pnl_per_model
+from predibench.backend.pnl import compute_pnl_series_per_model
 
 
 def test_calculate_pnl_with_nans():
@@ -37,7 +37,7 @@ def test_calculate_pnl_with_nans():
         'market_B': [None, None, None, None, 0.30, 0.32, 0.28, 0.35, 0.38, 0.36]
     }, index=dates)
     
-    result = compute_pnl_per_model(positions_df, prices_df)
+    portfolio_cum_pnl, market_cum_pnls = compute_pnl_series_per_model(positions_df, prices_df)
     
     # Manual calculation with new realistic data (with price interpolation and position forward-filling):
     # market_A (days 3-10, with position forward-filling):
@@ -63,29 +63,24 @@ def test_calculate_pnl_with_nans():
     
     # Total expected: $35 + $12.5 = $47.5
     
-    assert abs(result.final_pnl - 47.5) < 0.01  # Allow for floating point precision
+    assert abs(portfolio_cum_pnl.iloc[-1] - 47.5) < 0.01  # Allow for floating point precision
     
     # Verify that sum of market PnLs equals total cumulative PnL
-    for total_point in result.cumulative_pnl:
-        date_str = total_point.date
-        total_pnl = total_point.value
-        
-        # Sum market PnLs for this date
+    for date_idx, total_pnl in portfolio_cum_pnl.items():
+        # Sum market cumulative PnLs for this date, treating missing as 0
         market_sum = 0.0
-        for market_points in result.market_pnls.values():
-            # Find the point for this date in each market
-            market_point = next((p for p in market_points if p.date == date_str), None)
-            if market_point:
-                market_sum += market_point.pnl
-        
+        for market_series in market_cum_pnls.values():
+            market_sum += float(market_series.reindex([date_idx]).fillna(0.0).iloc[0])
         # Check they match (within floating point precision)
-        assert abs(total_pnl - market_sum) < 0.01, f"Day {date_str}: Total PnL ${total_pnl:.2f} != Sum of markets ${market_sum:.2f}"
+        assert abs(total_pnl - market_sum) < 0.01, (
+            f"Day {date_idx}: Total PnL ${total_pnl:.2f} != Sum of markets ${market_sum:.2f}"
+        )
     
-    print(f"✓ Test passed: Final PnL = ${result.final_pnl}")
+    print(f"✓ Test passed: Final PnL = ${portfolio_cum_pnl.iloc[-1]}")
     print("✓ Sum validation passed: Market PnLs sum to total PnL")
     print("Daily progression:")
-    for point in result.cumulative_pnl:
-        print(f"  {point.date}: ${point.value}")
+    for date_idx, value in portfolio_cum_pnl.items():
+        print(f"  {date_idx}: ${value}")
 
 
 if __name__ == "__main__":

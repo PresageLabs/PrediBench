@@ -4,26 +4,16 @@ from predibench.agent.dataclasses import ModelInvestmentDecisions
 
 
 
-def get_events_that_received_predictions(model_results: list[ModelInvestmentDecisions]) -> list[Event]:
-    """Get events based that models ran predictions on"""
-    # Working with Pydantic models from GCP
-    event_ids = set()
-    for model_result in model_results:
-        for event_decision in model_result.event_investment_decisions:
-            event_ids.add(event_decision.event_id)
-    event_ids = tuple(event_ids)
+def get_non_duplicated_events(events: list[Event]) -> list[Event]:
+    """Remove duplicated events based on id and set market prices to latest available price"""
+    # Remove duplicates based on event id
+    unique_events = {}
+    for event in events:
+        if event.id not in unique_events:
+            unique_events[event.id] = event
+    
+    # Convert to list and set latest market prices
+    unique_events_list = list(unique_events.values())
+    
+    return unique_events_list
 
-    return get_events_by_ids(event_ids)
-
-
-
-def get_events_by_ids(event_ids: tuple[str, ...]) -> list[Event]:
-    """Cached wrapper for EventsRequestParameters.get_events()"""
-    events = []
-    for event_id in event_ids:
-        events_request_parameters = EventsRequestParameters(
-            id=event_id,
-            limit=1,
-        )
-        events.append(events_request_parameters.get_events()[0])
-    return events

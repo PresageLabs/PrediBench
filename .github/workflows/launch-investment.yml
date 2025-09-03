@@ -68,5 +68,5 @@ jobs:
           PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
         run: |
           cd predibench-core
-          uv run python scripts/main.py ${{ github.event.inputs.provider }}
+          uv run python scripts/run_investments.py ${{ github.event.inputs.provider }}
 

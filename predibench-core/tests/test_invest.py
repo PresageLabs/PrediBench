@@ -5,7 +5,9 @@ from predibench.invest import run_investments_for_specific_date
 from predibench.models import ModelInfo
 
 import time
+import pytest
 
+@pytest.skip(reason="This will pollute the bucket, needs to work without bucket")
 def test_invest():
     models = [
         ModelInfo(

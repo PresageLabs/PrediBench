@@ -1,27 +1,20 @@
+from __future__ import annotations
 from pydantic import BaseModel
-from typing import Optional, Dict, List, Literal
+from typing import Optional, Literal
 import pandas as pd
+from datetime import datetime
+
+from predibench.polymarket_api import Market, Event
+from predibench.agent.dataclasses import ModelInvestmentDecisions
 
 
-class DataPointBackend(BaseModel):
+class TimeseriesPointBackend(BaseModel):
     date: str
     value: float
-
-
-class PricePointBackend(BaseModel):
-    date: str
-    price: float
-
-
-class PositionPointBackend(BaseModel):
-    date: str
-    position: float
-
-
-class PnlPointBackend(BaseModel):
-    date: str
-    pnl: float
-
+    
+    @staticmethod
+    def from_series_to_timeseries_points(series: pd.Series) -> list[TimeseriesPointBackend]:
+        return [TimeseriesPointBackend(date=str(date), value=float(value)) for date, value in series.items()]
 
 class LeaderboardEntryBackend(BaseModel):
     id: str
@@ -30,123 +23,135 @@ class LeaderboardEntryBackend(BaseModel):
     trades: int
     lastUpdated: str
     trend: Literal['up', 'down', 'stable']
-    pnl_history: List[DataPointBackend]
+    pnl_history: list[TimeseriesPointBackend]
     avg_brier_score: float
 
+class MarketBackend(Market):
+    """Backend-compatible market model with serializable price data"""
+    prices: Optional[list[TimeseriesPointBackend]] = None
 
-class MarketOutcomeBackend(BaseModel):
-    clob_token_id: str
-    name: str
-    price: float
+    @classmethod
+    def from_market(cls, market: Market) -> "MarketBackend":
+        """Convert core Market to backend Market with serializable prices"""
+        prices_backend = None
+        if market.prices is not None:
+            prices_backend = [
+                TimeseriesPointBackend(date=str(date), value=float(price))
+                for date, price in market.prices.items()
+            ]
+        
+        return cls(
+            **market.model_dump(exclude={"prices"}),
+            prices=prices_backend
+        )
 
-
-class MarketBackend(BaseModel):
-    id: str
-    question: str
-    slug: str
-    description: str
-    outcomes: List[MarketOutcomeBackend]
-
-
-class EventBackend(BaseModel):
-    id: str
-    slug: str
-    title: str
-    tags: Optional[List[str]] = None
-    description: Optional[str] = None
-    start_datetime: Optional[str] = None
-    end_datetime: Optional[str] = None
-    creation_datetime: str
-    volume: Optional[float] = None
-    volume24hr: Optional[float] = None
-    volume1wk: Optional[float] = None
-    volume1mo: Optional[float] = None
-    volume1yr: Optional[float] = None
-    liquidity: Optional[float] = None
-    markets: List[MarketBackend]
-
-
-class MarketData(BaseModel):
+class EventBackend(Event):
+    """Backend-compatible event model with backend markets"""
+    markets: list[MarketBackend]
+    
+    @classmethod
+    def from_event(cls, event: Event) -> "EventBackend":
+        """Convert core Event to backend Event"""
+        return cls(
+            **event.model_dump(exclude={"markets"}),
+            markets=[MarketBackend.from_market(m) for m in event.markets]
+        )
+class EventPnlBackend(BaseModel):
+    event_id: str
+    pnl: list[TimeseriesPointBackend]
+    
+class MarketPnlBackend(BaseModel):
     market_id: str
-    question: str
-    prices: List[PricePointBackend]
-    positions: List[PositionPointBackend]
-    pnl_data: List[PnlPointBackend]
-
-
-# ModelMarketDetails is just a type alias for a dictionary
-# This represents: { [marketId: string]: MarketData }
-ModelMarketDetails = Dict[str, MarketData]
-
-
-class StatsBackend(BaseModel):
-    topFinalCumulativePnl: float
-    avgPnl: float
-    totalTrades: int
-    totalProfit: float
-
-
-class MarketInvestmentDecisionBackend(BaseModel):
-    """Investment decision data for a specific market - matches frontend interface"""
+    pnl: list[TimeseriesPointBackend]
+    
+class EventBrierScoreBackend(BaseModel):
+    event_id: str
+    brier_score: list[TimeseriesPointBackend]
+    
+class MarketBrierScoreBackend(BaseModel):
     market_id: str
+    brier_score: list[TimeseriesPointBackend]
+
+class ModelPerformanceBackend(BaseModel):
     model_name: str
-    model_id: str
-    bet: str
-    odds: float
-    confidence: float
-    rationale: str
-    date: str
+    final_pnl: float
+    final_brier_score: float
+    trades: int | None = None
+    
+    trades_dates: list[str]
+    
+    bried_scores: list[TimeseriesPointBackend]
+    event_bried_scores: list[EventBrierScoreBackend]
+    market_bried_scores: list[MarketBrierScoreBackend]
+    
+    cummulative_pnl: list[TimeseriesPointBackend]
+    event_pnls: list[EventPnlBackend]
+    market_pnls: list[MarketPnlBackend]
 
 
 class BackendData(BaseModel):
     """Comprehensive pre-computed data for all backend routes"""
     # Core data - matches API endpoints exactly
-    leaderboard: List[LeaderboardEntryBackend]
-    events: List[EventBackend]
-    stats: StatsBackend
+    leaderboard: list[LeaderboardEntryBackend]
+    events: list[EventBackend]
+    model_results: list[ModelInvestmentDecisions]
+    performance_per_day: list[ModelPerformanceBackend]
+    performance_per_bet: list[ModelPerformanceBackend]
     
-    # Model-specific data: model_id -> LeaderboardEntry
-    model_details: Dict[str, LeaderboardEntryBackend]
+    @property
+    def prediction_dates(self) -> list[str]:
+        """Derive unique prediction dates from model_results"""
+        dates = set()
+        for result in self.model_results:
+            dates.add(str(result.target_date))
+        return sorted(list(dates))
     
-    # Model investment data: model_id -> market data dict
-    model_investment_details: Dict[str, ModelMarketDetails]
+    @property
+    def model_results_by_id(self) -> dict[str, list[ModelInvestmentDecisions]]:
+        """Group model results by model_id"""
+        result = {}
+        for model_result in self.model_results:
+            if model_result.model_id not in result:
+                result[model_result.model_id] = []
+            result[model_result.model_id].append(model_result)
+        return result
     
-    # Event-specific data: event_id -> event details
-    event_details: Dict[str, EventBackend]
+    @property
+    def model_results_by_date(self) -> dict[str, list[ModelInvestmentDecisions]]:
+        """Group model results by prediction date"""
+        result = {}
+        for model_result in self.model_results:
+            date_str = str(model_result.target_date)
+            if date_str not in result:
+                result[date_str] = []
+            result[date_str].append(model_result)
+        return result
     
-    # Event market prices: event_id -> market_id -> price data points
-    event_market_prices: Dict[str, Dict[str, List[PricePointBackend]]]
+    @property
+    def model_results_by_id_and_date(self) -> dict[str, dict[str, ModelInvestmentDecisions]]:
+        """Group model results by model_id and date"""
+        result = {}
+        for model_result in self.model_results:
+            model_id = model_result.model_id
+            date_str = str(model_result.target_date)
+            if model_id not in result:
+                result[model_id] = {}
+            result[model_id][date_str] = model_result
+        return result
     
-    # Event investment decisions: event_id -> list of decisions
-    event_investment_decisions: Dict[str, List[MarketInvestmentDecisionBackend]]
-
-
-# Typed results for PnL calculations
-class PnlResultBackend(BaseModel):
-    """Clean, typed result from PnL calculation"""
-    cumulative_pnl: List[DataPointBackend]  # Time series for frontend charts
-    final_pnl: float                 # Final cumulative value
-    market_pnls: Dict[str, List[PnlPointBackend]]  # Per-market cumulative PnL over time
+    @property
+    def model_results_by_event_id(self) -> dict[str, list[ModelInvestmentDecisions]]:
+        """Group model results by event_id"""
+        result = {}
+        for model_result in self.model_results:
+            for event_decision in model_result.event_investment_decisions:
+                event_id = event_decision.event_id
+                if event_id not in result:
+                    result[event_id] = []
+                result[event_id].append(model_result)
+        return result
     
-    class Config:
-        arbitrary_types_allowed = True
-
-
-class AgentPerformance(BaseModel):
-    """Complete performance metrics for a single agent/model"""
-    model_name: str
-    final_cumulative_pnl: float
-    pnl_history: List[DataPointBackend]
-    avg_brier_score: float
-    trades: int
-
-
-class BrierResult(BaseModel):
-    """Clean, typed result from Brier score calculation"""
-    # DataFrame of per-date Brier scores per market (nullable when no decisions)
-    brier_scores: pd.DataFrame
-    # Average Brier score across all available predictions
-    avg_brier_score: float
-    
-    class Config:
-        arbitrary_types_allowed = True
+    @property
+    def event_details(self) -> dict[str, EventBackend]:
+        """Create event lookup dictionary"""
+        return {event.id: event for event in self.events}
