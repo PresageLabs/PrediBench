@@ -75,10 +75,10 @@ def has_bucket_write_access() -> bool:
 
     try:
         random_string = str(uuid.uuid4())
-        blob = bucket.blob(f"ping/ping_{random_string}.txt")
-        blob.upload_from_string("ping")
+        blob = bucket.blob(f"ping/ping.txt")
+        blob.upload_from_string(f"ping__{random_string}")
         file_content = blob.download_as_bytes().decode("utf-8")
-        assert file_content == "ping"
+        assert file_content == f"ping__{random_string}"
         blob.delete()
         return True
     except ClientError as e:
@@ -86,7 +86,7 @@ def has_bucket_write_access() -> bool:
         raise e
     except AssertionError as e:
         print(
-            f"Error while uploading file: {e}, file content is {file_content}, not 'ping'"
+            f"Error while uploading file: {e}, file content is {file_content}, not 'ping__{random_string}'"
         )
         raise e
     except Exception as e:
