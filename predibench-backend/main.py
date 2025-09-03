@@ -3,6 +3,7 @@ import json
 from datetime import datetime
 import threading
 from cachetools import TTLCache, cached
+from pydantic import ValidationError
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,8 +16,9 @@ from predibench.backend.data_model_new import (
     BackendData,
 )
 
-from predibench.storage_utils import read_from_storage
+from predibench.storage_utils import read_from_storage, write_to_storage
 from predibench.common import DATA_PATH
+from predibench.backend.comprehensive_data import get_data_for_backend
 
 print("Successfully imported predibench modules")
 
@@ -27,11 +29,25 @@ _cache_lock = threading.RLock()
 # Load cached backend data with TTL invalidation
 @cached(cache=_backend_cache, lock=_cache_lock)
 def load_backend_cache() -> BackendData:
-    """Load pre-computed backend data from cache (TTL-controlled)."""
+    """Load pre-computed backend data from cache or recompute if missing/outdated."""
     cache_file_path = DATA_PATH / "backend_cache.json"
-    json_content = read_from_storage(cache_file_path)
-    cached_data = json.loads(json_content)
-    return BackendData.model_validate(cached_data)
+    try:
+        json_content = read_from_storage(cache_file_path)
+        cached_data = json.loads(json_content)
+        # Basic migration: ensure required fields exist
+        required = {"leaderboard", "events", "model_results", "performance_per_day", "performance_per_bet"}
+        if not required.issubset(set(cached_data.keys())):
+            raise KeyError("backend cache missing required fields")
+        return BackendData.model_validate(cached_data)
+    except (FileNotFoundError, ValidationError, KeyError, json.JSONDecodeError) as e:
+        print(f"Cache invalid or missing, recomputing backend data: {e}")
+        data = get_data_for_backend()
+        try:
+            write_to_storage(cache_file_path, data.model_dump_json(indent=2))
+            print("✅ Wrote refreshed backend cache to storage")
+        except Exception as w:
+            print(f"⚠️ Could not write backend cache: {w}")
+        return data
 
 # Warm cache at startup (and print status)
 _initial_data = load_backend_cache()
@@ -75,7 +91,7 @@ def get_prediction_dates_endpoint():
 def get_model_results_endpoint():
     return load_backend_cache().model_results
 
-@app.get("/api/model_results/by_id/{model_id}", response_model=list[ModelInvestmentDecisions])
+@app.get("/api/model_results/by_id", response_model=list[ModelInvestmentDecisions])
 def get_model_results_by_id_endpoint(model_id: str):
     data = load_backend_cache()
     results = data.model_results_by_id.get(model_id)
@@ -83,7 +99,7 @@ def get_model_results_by_id_endpoint(model_id: str):
         raise HTTPException(status_code=404, detail="model_id not found")
     return results
 
-@app.get("/api/model_results/by_date/{prediction_date}", response_model=list[ModelInvestmentDecisions])
+@app.get("/api/model_results/by_date", response_model=list[ModelInvestmentDecisions])
 def get_model_results_by_date_endpoint(prediction_date: str):
     data = load_backend_cache()
     results = data.model_results_by_date.get(prediction_date)
@@ -91,7 +107,7 @@ def get_model_results_by_date_endpoint(prediction_date: str):
         raise HTTPException(status_code=404, detail="prediction_date not found")
     return results
 
-@app.get("/api/model_results/by_id_and_date/{model_id}/{prediction_date}", response_model=ModelInvestmentDecisions)
+@app.get("/api/model_results/by_id_and_date", response_model=ModelInvestmentDecisions)
 def get_model_results_by_id_and_date_endpoint(model_id: str, prediction_date: str):
     data = load_backend_cache()
     by_id = data.model_results_by_id_and_date.get(model_id)
@@ -102,7 +118,7 @@ def get_model_results_by_id_and_date_endpoint(model_id: str, prediction_date: st
         raise HTTPException(status_code=404, detail="prediction_date not found for model_id")
     return result
 
-@app.get("/api/model_results/by_event/{event_id}", response_model=list[ModelInvestmentDecisions])
+@app.get("/api/model_results/by_event", response_model=list[ModelInvestmentDecisions])
 def get_model_results_by_event_id_endpoint(event_id: str):
     data = load_backend_cache()
     results = data.model_results_by_event_id.get(event_id)
@@ -121,7 +137,7 @@ def get_performance_endpoint(by: str = "day"):
         return data.performance_per_bet
     return data.performance_per_day
 
-@app.get("/api/performance/{model_name}", response_model=ModelPerformanceBackend)
+@app.get("/api/performance/by_model", response_model=ModelPerformanceBackend)
 def get_performance_by_model_endpoint(model_name: str, by: str = "day"):
     """Return performance for a specific model, by day or by bet."""
     data = load_backend_cache()
@@ -170,7 +186,7 @@ def get_events_endpoint(
     return events[:limit]
 
 
-@app.get("/api/events/{event_id}", response_model=EventBackend)
+@app.get("/api/events/by_id", response_model=EventBackend)
 def get_event_endpoint(event_id: str):
     """Get a specific event"""
     data = load_backend_cache()
