@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from predibench.backend.profile import profile_time
 from predibench.agent.dataclasses import ModelInvestmentDecisions
-from predibench.backend.data_model_new import (
+from predibench.backend.data_model import (
     LeaderboardEntryBackend,
     ModelPerformanceBackend,
     EventBackend,

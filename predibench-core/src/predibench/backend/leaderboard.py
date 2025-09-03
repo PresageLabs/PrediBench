@@ -1,5 +1,5 @@
 from datetime import datetime
-from predibench.backend.data_model_new import (
+from predibench.backend.data_model import (
     LeaderboardEntryBackend,
     ModelPerformanceBackend,
     TimeseriesPointBackend,

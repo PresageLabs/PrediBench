@@ -7,7 +7,7 @@ from typing import List
 from datetime import datetime
 import pandas as pd
 
-from predibench.backend.data_model_new import (
+from predibench.backend.data_model import (
     BackendData, LeaderboardEntryBackend, EventBackend, ModelPerformanceBackend,
     TimeseriesPointBackend, EventPnlBackend, MarketPnlBackend, 
     EventBrierScoreBackend, MarketBrierScoreBackend

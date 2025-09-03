@@ -2,7 +2,7 @@ import pytest
 from predibench.backend.leaderboard import get_leaderboard
 from predibench.backend.data_loader import load_investment_choices_from_google, load_saved_events, load_agent_position, load_market_prices
 from predibench.backend.pnl import get_historical_returns
-from predibench.backend.data_model_new import EventBackend
+from predibench.backend.data_model import EventBackend
 from predibench.backend.comprehensive_data import _compute_model_performance_list, _to_date_index
 
 @pytest.xfail(reason="This will pollute the bucket, needs to work without bucket")

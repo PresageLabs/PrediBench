@@ -1,12 +1,23 @@
 from datetime import date
 
 import pandas as pd
+from pydantic import BaseModel
 
 from predibench.logger_config import get_logger
-from predibench.backend.data_model import BrierResult
 import numpy as np
 
 logger = get_logger(__name__)
+
+
+class BrierResult(BaseModel):
+    """Clean, typed result from Brier score calculation"""
+    # DataFrame of per-date Brier scores per market (nullable when no decisions)
+    brier_scores: pd.DataFrame
+    # Average Brier score across all available predictions
+    avg_brier_score: float
+    
+    class Config:
+        arbitrary_types_allowed = True
 
 
 def _assert_index_is_date(df: pd.DataFrame):
