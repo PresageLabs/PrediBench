@@ -6,7 +6,6 @@ from predibench.backend.data_model import EventBackend
 from predibench.backend.comprehensive_data import _compute_model_performance_list, _to_date_index
 
 
-@pytest.mark.skip(reason="This will pollute the bucket, needs to work without bucket")
 def test_get_leaderboard():
     """End-to-end test that get_leaderboard returns a list of leaderboard entries"""
     # Load real data
