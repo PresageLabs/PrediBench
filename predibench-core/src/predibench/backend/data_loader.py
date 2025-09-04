@@ -3,7 +3,7 @@ from predibench.agent.dataclasses import ModelInvestmentDecisions
 from predibench.polymarket_api import load_market_price, Market, Event
 from predibench.polymarket_data import load_events_from_file
 from predibench.storage_utils import get_bucket
-from predibench.common import DATA_PATH
+from predibench.common import DATA_PATH, PREFIX_MODEL_RESULTS
 from pathlib import Path
 import pandas as pd
 
@@ -13,7 +13,7 @@ def load_investment_choices_from_google() -> list[ModelInvestmentDecisions]:
 
     model_results: list[ModelInvestmentDecisions] = []
     bucket = get_bucket()
-    blobs = bucket.list_blobs(prefix="")
+    blobs = bucket.list_blobs(prefix=PREFIX_MODEL_RESULTS)
 
     for blob in blobs:
         if (
@@ -40,7 +40,7 @@ def load_investment_choices_from_google() -> list[ModelInvestmentDecisions]:
 
 def load_saved_events() -> list[Event]:
     bucket = get_bucket()
-    blobs = bucket.list_blobs(prefix="")
+    blobs = bucket.list_blobs(prefix=PREFIX_MODEL_RESULTS)
     all_events: list[Event] = []
     for blob in blobs:
         if blob.name.endswith("events.json"):
