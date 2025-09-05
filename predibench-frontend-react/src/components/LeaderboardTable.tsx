@@ -1,8 +1,9 @@
 import { ArrowDown, ChevronDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { LeaderboardEntry } from '../api'
-import { ProfitDisplay } from './ui/profit-display'
+import { CompanyDisplay } from './ui/company-display'
 import { InfoTooltip } from './ui/info-tooltip'
+import { ProfitDisplay } from './ui/profit-display'
 import { RedirectButton } from './ui/redirect-button'
 
 type SortKey = 'cumulative_profit' | 'brier_score'
@@ -28,28 +29,28 @@ export function LeaderboardTable({
           // Calculate display scores (rounded to 1 decimal place)
           const aDisplayScore = parseFloat((a.final_cumulative_pnl * 100).toFixed(1))
           const bDisplayScore = parseFloat((b.final_cumulative_pnl * 100).toFixed(1))
-          
+
           // Primary sort by display score (higher first)
           if (bDisplayScore !== aDisplayScore) {
             return bDisplayScore - aDisplayScore
           }
-          
+
           // Tie-breaker: if display scores are identical, use Brier score
           return (1 - b.avg_brier_score) - (1 - a.avg_brier_score)
-          
+
         case 'brier_score':
           // Calculate display scores for Brier (rounded to 1 decimal place)
           const aBrierDisplay = parseFloat(((1 - a.avg_brier_score) * 100).toFixed(1))
           const bBrierDisplay = parseFloat(((1 - b.avg_brier_score) * 100).toFixed(1))
-          
+
           // Primary sort by Brier display score (higher first)
           if (bBrierDisplay !== aBrierDisplay) {
             return bBrierDisplay - aBrierDisplay
           }
-          
+
           // Tie-breaker: if display scores are identical, use PnL
           return b.final_cumulative_pnl - a.final_cumulative_pnl
-          
+
         default:
           return 0
       }
@@ -87,14 +88,15 @@ export function LeaderboardTable({
         </div>
       )}
 
-      <div className="bg-card rounded-xl border border-border/30 overflow-hidden max-w-2xl mx-auto">
+      <div className="bg-card rounded-xl border border-border/30 overflow-hidden max-w-4xl mx-auto">
         <div className="overflow-x-auto">
           <table className="w-full table-fixed">
             <thead className="bg-muted/30">
               <tr>
-                <th className="text-center py-4 px-3 font-semibold w-16">Rank</th>
-                <th className="text-left py-4 px-4 font-semibold w-36">Model Name</th>
-                <th className="text-center py-4 px-4 font-semibold w-36">
+                <th className="text-center py-4 px-3 font-semibold w-12">Rank</th>
+                <th className="text-left py-4 px-4 font-semibold w-24">Model Name</th>
+                <th className="text-left py-4 px-4 font-semibold w-12"></th>
+                <th className="text-center py-4 px-4 font-semibold w-24">
                   <div className="flex items-center justify-center space-x-1 w-full">
                     <button
                       onClick={() => handleSort('cumulative_profit')}
@@ -106,7 +108,7 @@ export function LeaderboardTable({
                     <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
                   </div>
                 </th>
-                <th className="text-center py-4 px-4 font-semibold w-28">
+                <th className="text-center py-4 px-4 font-semibold w-24">
                   <div className="flex items-center justify-center space-x-1 w-full">
                     <button
                       onClick={() => handleSort('brier_score')}
@@ -130,6 +132,9 @@ export function LeaderboardTable({
                     </td>
                     <td className="py-4 px-4">
                       <div className="h-4 bg-gray-200 rounded animate-pulse w-32"></div>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
                     </td>
                     <td className="py-4 px-4 text-center">
                       <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
@@ -157,6 +162,9 @@ export function LeaderboardTable({
                       >
                         {model.model}
                       </a>
+                    </td>
+                    <td className="py-4 px-4">
+                      <CompanyDisplay modelName={model.model} />
                     </td>
                     <td className="py-4 px-4 text-center font-medium">
                       <a href={`/models?selected=${model.id}`} className="block">

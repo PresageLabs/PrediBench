@@ -34,6 +34,8 @@ export function EventDetail({ event }: EventDetailProps) {
   const { trackEvent, trackUserAction } = useAnalytics()
   const [investmentDecisions, setInvestmentDecisions] = useState<MarketInvestmentDecision[]>([])
   const [loading, setLoading] = useState(false)
+  const [latestDecisionDate, setLatestDecisionDate] = useState<string | null>(null)
+  const [modelIdToName, setModelIdToName] = useState<Record<string, string>>({})
 
   // Function to convert URLs in text to clickable links
   const linkify = (text: string | null | undefined) => {
@@ -87,13 +89,18 @@ export function EventDetail({ event }: EventDetailProps) {
 
       // Transform investment decisions to match the component's expected format
       const transformedDecisions: MarketInvestmentDecision[] = []
+      let maxDate: string | null = null
       investmentDecisions.forEach(modelResult => {
         modelResult.event_investment_decisions.forEach(eventDecision => {
           if (eventDecision.event_id === eventId) {
+            // use the top-level decision target_date as the model's decision date
+            if (modelResult.target_date) {
+              if (!maxDate || modelResult.target_date > maxDate) maxDate = modelResult.target_date
+            }
             eventDecision.market_investment_decisions.forEach(marketDecision => {
               transformedDecisions.push({
                 market_id: marketDecision.market_id,
-                model_name: modelResult.model_id,
+                model_name: modelResult.model_id, // keep id here; we map to pretty name for display
                 bet: marketDecision.model_decision.bet,
                 odds: marketDecision.model_decision.odds,
                 rationale: marketDecision.model_decision.rationale
@@ -105,6 +112,7 @@ export function EventDetail({ event }: EventDetailProps) {
 
       setMarketPricesData(transformedPrices)
       setInvestmentDecisions(transformedDecisions)
+      setLatestDecisionDate(maxDate)
     } catch (error) {
       console.error('Error loading event details:', error)
     } finally {
@@ -122,6 +130,22 @@ export function EventDetail({ event }: EventDetailProps) {
       })
     }
   }, [event, trackEvent])
+
+  // Build a map of model_id -> pretty model name using performance endpoint
+  useEffect(() => {
+    let cancelled = false
+    apiService.getPerformance('day')
+      .then(perfs => {
+        if (cancelled) return
+        const map: Record<string, string> = {}
+        perfs.forEach(p => {
+          map[p.model_id] = p.model_name
+        })
+        setModelIdToName(map)
+      })
+      .catch(console.error)
+    return () => { cancelled = true }
+  }, [])
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
@@ -217,7 +241,6 @@ export function EventDetail({ event }: EventDetailProps) {
 
         {/* Event Description */}
         <div className="mt-8 mb-8">
-          <h3 className="text-lg font-bold mb-4">Description</h3>
           <div className="text-muted-foreground text-base leading-relaxed">
             {linkify(event.description)}
           </div>
@@ -225,8 +248,9 @@ export function EventDetail({ event }: EventDetailProps) {
 
         {/* Latest Model Predictions */}
         <div className="mt-8">
-          <h2 className="text-2xl font-bold mb-6">Latest Predictions</h2>
-          <p className="text-sm text-muted-foreground mb-4">Latest predictions from models</p>
+          <h2 className="text-2xl font-bold mb-6">
+            Latest Predictions{latestDecisionDate ? ` (${new Date(latestDecisionDate).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })})` : ''}
+          </h2>
 
           {loading ? (
             <div className="flex items-center justify-center py-8">
@@ -242,9 +266,11 @@ export function EventDetail({ event }: EventDetailProps) {
                   <tr className="border-b border-border">
                     <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground"></th>
                     {/* Create column headers for each unique model */}
-                    {[...new Set(investmentDecisions.map(decision => decision.model_name))].map(modelName => (
-                      <th key={modelName} className="text-center py-3 px-4 text-sm font-medium text-muted-foreground">
-                        {modelName}
+                    {[...new Set(investmentDecisions.map(decision => decision.model_name))].map(modelId => (
+                      <th key={modelId} className="text-center py-3 px-4 text-sm font-medium text-muted-foreground">
+                        <a href={`/models?selected=${encodeURIComponent(modelId)}`} className="text-foreground hover:underline">
+                          {modelIdToName[modelId] || modelId}
+                        </a>
                       </th>
                     ))}
                   </tr>
@@ -253,10 +279,10 @@ export function EventDetail({ event }: EventDetailProps) {
                   {/* Bet row */}
                   <tr className="border-b border-border bg-muted/50">
                     <td className="py-3 px-4 font-medium text-sm">Bet</td>
-                    {[...new Set(investmentDecisions.map(decision => decision.model_name))].map(modelName => {
-                      const decision = investmentDecisions.find(d => d.model_name === modelName)
+                    {[...new Set(investmentDecisions.map(decision => decision.model_name))].map(modelId => {
+                      const decision = investmentDecisions.find(d => d.model_name === modelId)
                       return (
-                        <td key={modelName} className="py-3 px-4 text-center">
+                        <td key={modelId} className="py-3 px-4 text-center">
                           {decision && (
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${decision.bet < 0
                               ? 'bg-green-100 text-green-800'
@@ -273,10 +299,10 @@ export function EventDetail({ event }: EventDetailProps) {
                   {/* Confidence row */}
                   <tr>
                     <td className="py-3 px-4 font-medium text-sm">Confidence</td>
-                    {[...new Set(investmentDecisions.map(decision => decision.model_name))].map(modelName => {
-                      const decision = investmentDecisions.find(d => d.model_name === modelName)
+                    {[...new Set(investmentDecisions.map(decision => decision.model_name))].map(modelId => {
+                      const decision = investmentDecisions.find(d => d.model_name === modelId)
                       return (
-                        <td key={modelName} className="py-3 px-4 text-center text-sm text-muted-foreground">
+                        <td key={modelId} className="py-3 px-4 text-center text-sm text-muted-foreground">
                           {decision && `${(decision.odds * 100).toFixed(0)}%`}
                         </td>
                       )

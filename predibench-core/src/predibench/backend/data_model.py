@@ -1,20 +1,26 @@
 from __future__ import annotations
-from pydantic import BaseModel
-from typing import Optional, Literal
-import pandas as pd
-from datetime import datetime
 
-from predibench.polymarket_api import Market, Event
+from typing import Literal, Optional
+
+import pandas as pd
 from predibench.agent.dataclasses import ModelInvestmentDecisions
+from predibench.polymarket_api import Event, Market
+from pydantic import BaseModel
 
 
 class TimeseriesPointBackend(BaseModel):
     date: str
     value: float
-    
+
     @staticmethod
-    def from_series_to_timeseries_points(series: pd.Series) -> list[TimeseriesPointBackend]:
-        return [TimeseriesPointBackend(date=str(date), value=float(value)) for date, value in series.items()]
+    def from_series_to_timeseries_points(
+        series: pd.Series,
+    ) -> list[TimeseriesPointBackend]:
+        return [
+            TimeseriesPointBackend(date=str(date), value=float(value))
+            for date, value in series.items()
+        ]
+
 
 class LeaderboardEntryBackend(BaseModel):
     id: str
@@ -22,12 +28,14 @@ class LeaderboardEntryBackend(BaseModel):
     final_cumulative_pnl: float
     trades: int
     lastUpdated: str
-    trend: Literal['up', 'down', 'stable']
+    trend: Literal["up", "down", "stable"]
     pnl_history: list[TimeseriesPointBackend]
     avg_brier_score: float
 
+
 class MarketBackend(Market):
     """Backend-compatible market model with serializable price data"""
+
     prices: Optional[list[TimeseriesPointBackend]] = None
 
     @classmethod
@@ -39,38 +47,43 @@ class MarketBackend(Market):
                 TimeseriesPointBackend(date=str(date), value=float(price))
                 for date, price in market.prices.items()
             ]
-        
-        return cls(
-            **market.model_dump(exclude={"prices"}),
-            prices=prices_backend
-        )
+
+        return cls(**market.model_dump(exclude={"prices"}), prices=prices_backend)
+
 
 class EventBackend(Event):
     """Backend-compatible event model with backend markets"""
+
     markets: list[MarketBackend]
-    
+
     @classmethod
     def from_event(cls, event: Event) -> "EventBackend":
         """Convert core Event to backend Event"""
         return cls(
             **event.model_dump(exclude={"markets"}),
-            markets=[MarketBackend.from_market(m) for m in event.markets]
+            markets=[MarketBackend.from_market(m) for m in event.markets],
         )
+
+
 class EventPnlBackend(BaseModel):
     event_id: str
     pnl: list[TimeseriesPointBackend]
-    
+
+
 class MarketPnlBackend(BaseModel):
     market_id: str
     pnl: list[TimeseriesPointBackend]
-    
+
+
 class EventBrierScoreBackend(BaseModel):
     event_id: str
     brier_score: list[TimeseriesPointBackend]
-    
+
+
 class MarketBrierScoreBackend(BaseModel):
     market_id: str
     brier_score: list[TimeseriesPointBackend]
+
 
 class ModelPerformanceBackend(BaseModel):
     model_name: str
@@ -78,13 +91,13 @@ class ModelPerformanceBackend(BaseModel):
     final_pnl: float
     final_brier_score: float
     trades: int | None = None
-    
+
     trades_dates: list[str]
-    
+
     bried_scores: list[TimeseriesPointBackend]
     event_bried_scores: list[EventBrierScoreBackend]
     market_bried_scores: list[MarketBrierScoreBackend]
-    
+
     cummulative_pnl: list[TimeseriesPointBackend]
     event_pnls: list[EventPnlBackend]
     market_pnls: list[MarketPnlBackend]
@@ -92,13 +105,14 @@ class ModelPerformanceBackend(BaseModel):
 
 class BackendData(BaseModel):
     """Comprehensive pre-computed data for all backend routes"""
+
     # Core data - matches API endpoints exactly
     leaderboard: list[LeaderboardEntryBackend]
     events: list[EventBackend]
     model_results: list[ModelInvestmentDecisions]
     performance_per_day: list[ModelPerformanceBackend]
     performance_per_bet: list[ModelPerformanceBackend]
-    
+
     @property
     def prediction_dates(self) -> list[str]:
         """Derive unique prediction dates from model_results"""
@@ -106,7 +120,7 @@ class BackendData(BaseModel):
         for result in self.model_results:
             dates.add(str(result.target_date))
         return sorted(list(dates))
-    
+
     @property
     def model_results_by_id(self) -> dict[str, list[ModelInvestmentDecisions]]:
         """Group model results by model_id"""
@@ -116,7 +130,7 @@ class BackendData(BaseModel):
                 result[model_result.model_id] = []
             result[model_result.model_id].append(model_result)
         return result
-    
+
     @property
     def model_results_by_date(self) -> dict[str, list[ModelInvestmentDecisions]]:
         """Group model results by prediction date"""
@@ -127,9 +141,11 @@ class BackendData(BaseModel):
                 result[date_str] = []
             result[date_str].append(model_result)
         return result
-    
+
     @property
-    def model_results_by_id_and_date(self) -> dict[str, dict[str, ModelInvestmentDecisions]]:
+    def model_results_by_id_and_date(
+        self,
+    ) -> dict[str, dict[str, ModelInvestmentDecisions]]:
         """Group model results by model_id and date"""
         result = {}
         for model_result in self.model_results:
@@ -139,7 +155,7 @@ class BackendData(BaseModel):
                 result[model_id] = {}
             result[model_id][date_str] = model_result
         return result
-    
+
     @property
     def model_results_by_event_id(self) -> dict[str, list[ModelInvestmentDecisions]]:
         """Group model results by event_id"""
@@ -151,7 +167,7 @@ class BackendData(BaseModel):
                     result[event_id] = []
                 result[event_id].append(model_result)
         return result
-    
+
     @property
     def event_details(self) -> dict[str, EventBackend]:
         """Create event lookup dictionary"""
