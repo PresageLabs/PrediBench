@@ -36,7 +36,7 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
           <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
         </h2>
         <div className="bg-card rounded-xl border border-border/30 p-6">
-          <div className="h-80">
+          <div className="h-[800px]">
             {loading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
@@ -46,9 +46,9 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
               </div>
             ) : (
               <VisxLineChart
-                height={320}
+                height={800}
                 margin={{ left: 60, top: 35, bottom: 38, right: 27 }}
-                series={leaderboard.slice(0, 3).map((model, index) => ({
+                series={leaderboard.map((model, index) => ({
                   dataKey: model.model,
                   data: (model.pnl_history || []).map(point => ({
                     x: point.date,
@@ -58,7 +58,7 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
                   name: model.model
                 }))}
                 yDomain={(() => {
-                  const allValues = leaderboard.slice(0, 3).flatMap(model =>
+                  const allValues = leaderboard.flatMap(model =>
                     (model.pnl_history || []).map(point => point.value)
                   )
                   if (allValues.length === 0) return [0, 1]

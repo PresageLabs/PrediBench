@@ -1,7 +1,9 @@
 import { ArrowDown, ChevronDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { LeaderboardEntry } from '../api'
+import { CompanyDisplay } from './ui/company-display'
 import { InfoTooltip } from './ui/info-tooltip'
+import { ProfitDisplay } from './ui/profit-display'
 import { RedirectButton } from './ui/redirect-button'
 
 type SortKey = 'cumulative_profit' | 'brier_score'
@@ -27,55 +29,34 @@ export function LeaderboardTable({
           // Calculate display scores (rounded to 1 decimal place)
           const aDisplayScore = parseFloat((a.final_cumulative_pnl * 100).toFixed(1))
           const bDisplayScore = parseFloat((b.final_cumulative_pnl * 100).toFixed(1))
-          
+
           // Primary sort by display score (higher first)
           if (bDisplayScore !== aDisplayScore) {
             return bDisplayScore - aDisplayScore
           }
-          
+
           // Tie-breaker: if display scores are identical, use Brier score
           return (1 - b.avg_brier_score) - (1 - a.avg_brier_score)
-          
+
         case 'brier_score':
           // Calculate display scores for Brier (rounded to 1 decimal place)
           const aBrierDisplay = parseFloat(((1 - a.avg_brier_score) * 100).toFixed(1))
           const bBrierDisplay = parseFloat(((1 - b.avg_brier_score) * 100).toFixed(1))
-          
+
           // Primary sort by Brier display score (higher first)
           if (bBrierDisplay !== aBrierDisplay) {
             return bBrierDisplay - aBrierDisplay
           }
-          
+
           // Tie-breaker: if display scores are identical, use PnL
           return b.final_cumulative_pnl - a.final_cumulative_pnl
-          
+
         default:
           return 0
       }
     })
   }, [leaderboard, sortKey])
 
-  const getProfitColor = (value: number, minValue: number, maxValue: number): string => {
-    if (value === 0) {
-      return 'rgb(255, 255, 0)' // Pure yellow for zero
-    }
-    
-    if (value < 0) {
-      // Negative values: Yellow to Deep Orange
-      // Normalize between 0 (at zero) and 1 (at most negative)
-      const intensity = Math.abs(value) / Math.abs(minValue)
-      const red = 255
-      const green = Math.round(255 - (90 * intensity)) // 255 (yellow) to 165 (orange)
-      return `rgb(${red}, ${green}, 0)`
-    } else {
-      // Positive values: Yellow to Green
-      // Normalize between 0 (at zero) and 1 (at most positive)
-      const intensity = value / maxValue
-      const red = Math.round(255 * (1 - intensity)) // 255 (yellow) to 0 (green)
-      const green = 255
-      return `rgb(${red}, ${green}, 0)`
-    }
-  }
 
   const handleSort = (key: SortKey) => {
     setSortKey(key)
@@ -107,33 +88,38 @@ export function LeaderboardTable({
         </div>
       )}
 
-      <div className="bg-card rounded-xl border border-border/30 overflow-hidden max-w-2xl mx-auto">
+      <div className="bg-card rounded-xl border border-border/30 overflow-hidden max-w-4xl mx-auto">
         <div className="overflow-x-auto">
           <table className="w-full table-fixed">
             <thead className="bg-muted/30">
               <tr>
-                <th className="text-center py-4 px-3 font-semibold w-16">Rank</th>
-                <th className="text-left py-4 px-4 font-semibold w-36">Model Name</th>
-                <th className="text-center py-4 px-4 font-semibold w-36">
-                  <button
-                    onClick={() => handleSort('cumulative_profit')}
-                    className="flex items-center justify-center space-x-1 w-full hover:text-primary transition-colors whitespace-nowrap"
-                  >
-                    <ArrowDown className={`h-4 w-4 ${sortKey === 'cumulative_profit' ? 'text-primary' : 'opacity-40'}`} />
-                    <span>Cumulative Profit</span>
+                <th className="text-center py-4 px-3 font-semibold w-12">Rank</th>
+                <th className="text-left py-4 px-4 font-semibold w-24">Model Name</th>
+                <th className="text-left py-4 px-4 font-semibold w-12"></th>
+                <th className="text-center py-4 px-4 font-semibold w-24">
+                  <div className="flex items-center justify-center space-x-1 w-full">
+                    <button
+                      onClick={() => handleSort('cumulative_profit')}
+                      className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
+                    >
+                      <ArrowDown className={`h-4 w-4 ${sortKey === 'cumulative_profit' ? 'text-primary' : 'opacity-40'}`} />
+                      <span>Cumulative Profit</span>
+                    </button>
                     <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
-                  </button>
+                  </div>
                 </th>
-                <th className="text-center py-4 px-4 font-semibold w-28">
-                  <button
-                    onClick={() => handleSort('brier_score')}
-                    className="flex items-center justify-center space-x-1 w-full hover:text-primary transition-colors whitespace-nowrap"
-                    title="Brier Score - Higher values indicate better prediction accuracy (1 - original Brier score)"
-                  >
-                    <ArrowDown className={`h-4 w-4 ${sortKey === 'brier_score' ? 'text-primary' : 'opacity-40'}`} />
-                    <span>Brier Score</span>
+                <th className="text-center py-4 px-4 font-semibold w-24">
+                  <div className="flex items-center justify-center space-x-1 w-full">
+                    <button
+                      onClick={() => handleSort('brier_score')}
+                      className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
+                      title="Brier Score - Higher values indicate better prediction accuracy (1 - original Brier score)"
+                    >
+                      <ArrowDown className={`h-4 w-4 ${sortKey === 'brier_score' ? 'text-primary' : 'opacity-40'}`} />
+                      <span>Brier Score</span>
+                    </button>
                     <InfoTooltip content="A measure of prediction accuracy. Lower values indicate better calibration - how well the model's confidence matches actual outcomes (0 = perfect, 1 = worst)" />
-                  </button>
+                  </div>
                 </th>
               </tr>
             </thead>
@@ -146,6 +132,9 @@ export function LeaderboardTable({
                     </td>
                     <td className="py-4 px-4">
                       <div className="h-4 bg-gray-200 rounded animate-pulse w-32"></div>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
                     </td>
                     <td className="py-4 px-4 text-center">
                       <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
@@ -174,15 +163,17 @@ export function LeaderboardTable({
                         {model.model}
                       </a>
                     </td>
+                    <td className="py-4 px-4">
+                      <CompanyDisplay modelName={model.model} />
+                    </td>
                     <td className="py-4 px-4 text-center font-medium">
                       <a href={`/models?selected=${model.id}`} className="block">
-                        <span 
-                          style={{ 
-                            color: getProfitColor(model.final_cumulative_pnl, profitRange.min, profitRange.max) 
-                          }}
-                        >
-                          {(model.final_cumulative_pnl * 100).toFixed(1)}%
-                        </span>
+                        <ProfitDisplay
+                          value={model.final_cumulative_pnl}
+                          minValue={profitRange.min}
+                          maxValue={profitRange.max}
+                          formatValue={(v) => `${(v * 100).toFixed(1)}%`}
+                        />
                       </a>
                     </td>
                     <td className="py-4 px-4 text-center font-medium">

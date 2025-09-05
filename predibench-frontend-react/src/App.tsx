@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Route, BrowserRouter as Router, Routes, useLocation } from 'react-router-dom'
-import type { Event, LeaderboardEntry, Stats } from './api'
+import type { Event, LeaderboardEntry } from './api'
 import { apiService } from './api'
 import { AboutPage } from './components/AboutPage'
 import { EventDetail } from './components/EventDetail'
@@ -15,7 +15,7 @@ import { useAnalytics } from './hooks/useAnalytics'
 function AppContent() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [events, setEvents] = useState<Event[]>([])
-  const [, setStats] = useState<Stats | null>(null)
+  // Removed deprecated Stats usage
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const location = useLocation()
@@ -23,22 +23,14 @@ function AppContent() {
 
   const loadData = async () => {
     try {
-      console.log('Starting to load data...')
       const [leaderboardData, eventsData] = await Promise.all([
-        apiService.getLeaderboard().then(data => {
-          console.log('Leaderboard data received:', data)
-          return data
-        }),
-        apiService.getEvents().then(data => {
-          console.log('Events data received:', data)
-          return data
-        }),
+        apiService.getLeaderboard(),
+        apiService.getEvents(),
       ])
 
       setLeaderboard(leaderboardData)
       setEvents(eventsData)
-      setStats(null)
-      console.log('All data loaded successfully')
+      // no-op: Stats removed
     } catch (error) {
       console.error('Error loading data:', error)
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
