@@ -23,22 +23,14 @@ function AppContent() {
 
   const loadData = async () => {
     try {
-      console.log('Starting to load data...')
       const [leaderboardData, eventsData] = await Promise.all([
-        apiService.getLeaderboard().then(data => {
-          console.log('Leaderboard data received:', data)
-          return data
-        }),
-        apiService.getEvents().then(data => {
-          console.log('Events data received:', data)
-          return data
-        }),
+        apiService.getLeaderboard(),
+        apiService.getEvents(),
       ])
 
       setLeaderboard(leaderboardData)
       setEvents(eventsData)
       setStats(null)
-      console.log('All data loaded successfully')
     } catch (error) {
       console.error('Error loading data:', error)
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'

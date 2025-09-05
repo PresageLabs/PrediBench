@@ -95,25 +95,29 @@ export function LeaderboardTable({
                 <th className="text-center py-4 px-3 font-semibold w-16">Rank</th>
                 <th className="text-left py-4 px-4 font-semibold w-36">Model Name</th>
                 <th className="text-center py-4 px-4 font-semibold w-36">
-                  <button
-                    onClick={() => handleSort('cumulative_profit')}
-                    className="flex items-center justify-center space-x-1 w-full hover:text-primary transition-colors whitespace-nowrap"
-                  >
-                    <ArrowDown className={`h-4 w-4 ${sortKey === 'cumulative_profit' ? 'text-primary' : 'opacity-40'}`} />
-                    <span>Cumulative Profit</span>
+                  <div className="flex items-center justify-center space-x-1 w-full">
+                    <button
+                      onClick={() => handleSort('cumulative_profit')}
+                      className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
+                    >
+                      <ArrowDown className={`h-4 w-4 ${sortKey === 'cumulative_profit' ? 'text-primary' : 'opacity-40'}`} />
+                      <span>Cumulative Profit</span>
+                    </button>
                     <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
-                  </button>
+                  </div>
                 </th>
                 <th className="text-center py-4 px-4 font-semibold w-28">
-                  <button
-                    onClick={() => handleSort('brier_score')}
-                    className="flex items-center justify-center space-x-1 w-full hover:text-primary transition-colors whitespace-nowrap"
-                    title="Brier Score - Higher values indicate better prediction accuracy (1 - original Brier score)"
-                  >
-                    <ArrowDown className={`h-4 w-4 ${sortKey === 'brier_score' ? 'text-primary' : 'opacity-40'}`} />
-                    <span>Brier Score</span>
+                  <div className="flex items-center justify-center space-x-1 w-full">
+                    <button
+                      onClick={() => handleSort('brier_score')}
+                      className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
+                      title="Brier Score - Higher values indicate better prediction accuracy (1 - original Brier score)"
+                    >
+                      <ArrowDown className={`h-4 w-4 ${sortKey === 'brier_score' ? 'text-primary' : 'opacity-40'}`} />
+                      <span>Brier Score</span>
+                    </button>
                     <InfoTooltip content="A measure of prediction accuracy. Lower values indicate better calibration - how well the model's confidence matches actual outcomes (0 = perfect, 1 = worst)" />
-                  </button>
+                  </div>
                 </th>
               </tr>
             </thead>

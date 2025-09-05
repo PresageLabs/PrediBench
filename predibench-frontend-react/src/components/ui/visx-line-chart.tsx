@@ -161,7 +161,6 @@ export function VisxLineChart({
       ]
 
       // Utility: compute tick domain and count for an interval
-      const roundTo = (v: number, step: number) => Math.round(v / step) * step
       const computeFor = (step: number) => {
         const maxAbove = Math.max(0, dataMax)
         const maxBelowAbs = Math.max(0, -Math.min(0, dataMin))
@@ -376,39 +375,39 @@ export function VisxLineChart({
     // Prune queue if it gets too large (keep only quantiles)
     const pruneThreshold = 5
     const quantiles = 4 // Can be adjusted: 4=quartiles, 10=deciles, etc.
-    
+
     if (calculationQueueRef.current.length > pruneThreshold) {
       const queue = calculationQueueRef.current
       const prunedQueue: { x: number; timestamp: number }[] = []
-      
+
       // Keep quantiles of the queue
       const step = Math.floor(queue.length / quantiles)
       for (let i = step - 1; i < queue.length; i += step) {
         prunedQueue.push(queue[i])
       }
-      
+
       // Always keep the last item (most recent)
       if (prunedQueue[prunedQueue.length - 1] !== queue[queue.length - 1]) {
         prunedQueue.push(queue[queue.length - 1])
       }
-      
+
       calculationQueueRef.current = prunedQueue
     }
 
     // Process queue if not already processing
     if (!isProcessingRef.current && calculationQueueRef.current.length > 0) {
       isProcessingRef.current = true
-      
+
       const processNext = () => {
         if (calculationQueueRef.current.length === 0) {
           isProcessingRef.current = false
           return
         }
-        
+
         // Take the most recent item from queue
         const item = calculationQueueRef.current.pop()!
         processCalculationQueue(item.x)
-        
+
         // Continue processing if there are more items
         if (calculationQueueRef.current.length > 0) {
           setTimeout(processNext, 0) // Use setTimeout to avoid blocking
@@ -416,7 +415,7 @@ export function VisxLineChart({
           isProcessingRef.current = false
         }
       }
-      
+
       processNext()
     }
   }, [processCalculationQueue])
