@@ -75,7 +75,8 @@ def has_bucket_write_access() -> bool:
 
     try:
         random_string = str(uuid.uuid4())
-        blob = bucket.blob(f"ping/ping.txt")
+        random_filename = str(uuid.uuid4())
+        blob = bucket.blob(f"ping/{random_filename}.txt")
         blob.upload_from_string(f"ping__{random_string}")
         file_content = blob.download_as_bytes().decode("utf-8")
         assert file_content == f"ping__{random_string}"

@@ -1,5 +1,6 @@
 data
 bucket
+bucket-prod
 
 # Python-generated files
 __pycache__/

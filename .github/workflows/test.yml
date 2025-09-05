@@ -37,5 +37,6 @@ jobs:
     - name: Run tests
       env:
         HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        BUCKET_PREDIBENCH: "predibench"
       run: |
         cd predibench-core && uv run python -m pytest tests/
