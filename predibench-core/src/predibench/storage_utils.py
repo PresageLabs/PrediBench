@@ -23,14 +23,16 @@ logger = get_logger(__name__)
 BUCKET_ENV_VAR = "BUCKET_PREDIBENCH"
 
 # Automatically determine storage mode based on bucket availability
-def _get_storage_mode() -> bool:
+def _storage_using_bucket() -> bool:
     """Determine if we should use bucket storage based on environment variable."""
+    if os.environ.get("USE_LOCAL_STORAGE", "false").lower() == "true":
+        return False
     if BUCKET_ENV_VAR not in os.environ:
         logger.info(f"Bucket environment variable {BUCKET_ENV_VAR} not set. Using local storage mode.")
         return False
     return True
 
-STORAGE_MODE_BUCKET = _get_storage_mode()
+STORAGE_MODE_BUCKET = _storage_using_bucket()
 
 try:
     bucket_json_key = os.getenv("BUCKET_JSON_KEY")
