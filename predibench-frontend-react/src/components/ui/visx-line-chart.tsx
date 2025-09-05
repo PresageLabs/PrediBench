@@ -2,7 +2,6 @@ import { scaleLinear, scaleTime } from '@visx/scale'
 import {
   AnimatedLineSeries,
   Axis,
-  Grid,
   XYChart
 } from '@visx/xychart'
 import { extent } from 'd3-array'
@@ -13,9 +12,8 @@ import styled from 'styled-components'
 const tickLabelOffset = 10
 
 interface DataPoint {
-  x: string | Date
-  y: number
-  position?: number
+  x?: string | Date | null
+  y?: number | null
   [key: string]: unknown
 }
 
@@ -39,8 +37,18 @@ interface VisxLineChartProps {
 }
 
 const defaultAccessors = {
-  xAccessor: (d: DataPoint) => new Date(d.x as string),
-  yAccessor: (d: DataPoint) => d.y
+  // Be tolerant to null/undefined values to support discontinuities.
+  xAccessor: (d: DataPoint) => {
+    if (!d || d.x == null) return new Date(NaN)
+    const val = d.x
+    const date = val instanceof Date ? val : new Date(val as string)
+    return isNaN(date.getTime()) ? new Date(NaN) : date
+  },
+  yAccessor: (d: DataPoint) => {
+    if (!d || d.y == null) return NaN
+    const num = Number(d.y)
+    return Number.isFinite(num) ? num : NaN
+  }
 }
 
 interface TooltipState {
@@ -75,6 +83,32 @@ export function VisxLineChart({
 
   const [containerWidth, setContainerWidth] = useState(800)
 
+  // Safe wrappers to guard against bad data points provided by callers
+  const safeXAccessor = useCallback(
+    (d: DataPoint) => {
+      try {
+        const v = xAccessor(d)
+        return v instanceof Date ? v : new Date(v as any)
+      } catch {
+        return new Date(NaN)
+      }
+    },
+    [xAccessor]
+  )
+
+  const safeYAccessor = useCallback(
+    (d: DataPoint) => {
+      try {
+        const v = yAccessor(d)
+        const num = Number(v as any)
+        return Number.isFinite(num) ? num : NaN
+      } catch {
+        return NaN
+      }
+    },
+    [yAccessor]
+  )
+
   // Update container width when component mounts/resizes
   useEffect(() => {
     const updateWidth = () => {
@@ -103,43 +137,103 @@ export function VisxLineChart({
 
   // Create scales for proper coordinate conversion
   const scales = useMemo(() => {
-    const allData = series.flatMap(s => s.data)
+    const allData = series.flatMap(s => s.data).filter(d => d != null)
     if (allData.length === 0) return null
 
-    const xExtent = extent(allData, xAccessor) as [Date, Date]
-    let yExtent = yDomain || extent(allData, yAccessor) as [number, number]
+    const xExtent = extent(allData, safeXAccessor) as [Date, Date]
+    let yExtent = yDomain || (extent(allData, safeYAccessor) as [number, number])
 
-    // Ensure Y domain supports at least 4 meaningful ticks (apply to both provided and calculated domains)
-    const shouldAdjustDomain = true // Always adjust for better tick count
-    if (shouldAdjustDomain) {
+    // Simplified tick/domain calculation per 20% rule
+    let actualTickCount = effectiveNumTicks
+    let yTicks: number[] | undefined
+    let yStep: number | undefined
+    if (!yDomain) {
       const [dataMin, dataMax] = yExtent
+      // Guard for degenerate ranges: handled via interval computation below
 
       // Nice intervals in ascending order
-      const niceIntervals = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000]
+      const niceIntervals = [
+        0.001, 0.002, 0.005,
+        0.01, 0.02, 0.05,
+        0.1, 0.2, 0.25, 0.5,
+        1, 2, 5, 10, 20, 50,
+        100, 200, 500, 1000
+      ]
 
-      // Function to count how many ticks an interval would produce
-      const countTicks = (interval: number, min: number, max: number) => {
-        const minTick = Math.floor(min / interval) * interval
-        const maxTick = Math.ceil(max / interval) * interval
-        return Math.round((maxTick - minTick) / interval) + 1
+      // Utility: compute tick domain and count for an interval
+      const roundTo = (v: number, step: number) => Math.round(v / step) * step
+      const computeFor = (step: number) => {
+        let lo = roundTo(dataMin, step)
+        let hi = roundTo(dataMax, step)
+        const threshold = 0.2 * step
+        if (dataMax - hi > threshold) hi += step
+        if (lo - dataMin > threshold) lo -= step
+        if (hi === lo) hi = lo + step
+        const count = Math.floor((hi - lo) / step) + 1
+        return { lo, hi, count }
       }
 
-      // Find the largest interval that still gives us at least effectiveNumTicks
-      let bestInterval = niceIntervals[0]
-      for (let i = niceIntervals.length - 1; i >= 0; i--) {
-        const interval = niceIntervals[i]
-        if (countTicks(interval, dataMin, dataMax) >= effectiveNumTicks) {
-          bestInterval = interval
+      // Aim for 4-9 ticks; scan from SMALLEST interval and stop at the first that fits.
+      const minTicks = 4
+      const maxTicks = 9
+      let chosen = null as null | { lo: number; hi: number; count: number; step: number }
+      for (const ni of niceIntervals) {
+        const r = computeFor(ni)
+        if (r.count >= minTicks && r.count <= maxTicks) {
+          chosen = { ...r, step: ni }
           break
         }
       }
+      // No explicit fallback: if none found, subsequent access will fail loudly
 
-      // Calculate final domain
-      const minTick = Math.floor(dataMin / bestInterval) * bestInterval
-      const maxTick = Math.ceil(dataMax / bestInterval) * bestInterval
-
-      yExtent = [minTick, maxTick]
-
+      yExtent = [chosen.lo, chosen.hi]
+      actualTickCount = chosen.count
+      yStep = chosen.step
+      // Generate explicit tick values to lock step
+      if (Number.isFinite(yExtent[0]) && Number.isFinite(yExtent[1]) && Number.isFinite(yStep)) {
+        const decimals = Math.max(0, (yStep.toString().split('.')[1]?.length || 0))
+        const roundFix = (v: number) => Number(v.toFixed(decimals))
+        const n = Math.max(2, Math.floor((yExtent[1] - yExtent[0]) / (yStep as number)) + 1)
+        const t: number[] = []
+        for (let i = 0; i < n; i++) t.push(roundFix(yExtent[0] + i * (yStep as number)))
+        yTicks = t
+      }
+    } else {
+      // yDomain provided: keep it as-is, but still compute ticks explicitly with a nice interval
+      const [minD, maxD] = yDomain
+      const domainRange = maxD - minD
+      // If domain is invalid, subsequent code will fail naturally
+      const niceIntervals = [
+        0.001, 0.002, 0.005,
+        0.01, 0.02, 0.05,
+        0.1, 0.2, 0.25, 0.5,
+        1, 2, 5, 10, 20, 50,
+        100, 200, 500, 1000
+      ]
+      const minTicks = 4
+      const maxTicks = 9
+      let chosenStep: number | null = null
+      for (const ni of niceIntervals) {
+        // ceil/floor to ensure ticks fall within domain
+        const start = Math.ceil(minD / ni) * ni
+        const end = Math.floor(maxD / ni) * ni
+        const count = start <= end ? Math.floor((end - start) / ni) + 1 : 0
+        if (count >= minTicks && count <= maxTicks) {
+          chosenStep = ni
+          break
+        }
+      }
+      // No explicit fallback/errors
+      // Build ticks within the provided domain bounds
+      const step = chosenStep as number
+      const decimals = Math.max(0, (step.toString().split('.')[1]?.length || 0))
+      const roundFix = (v: number) => Number(v.toFixed(decimals))
+      const start = Math.ceil(minD / step) * step
+      const end = Math.floor(maxD / step) * step
+      const n = Math.floor((end - start) / step) + 1
+      yTicks = Array.from({ length: n }, (_, i) => roundFix(start + i * step))
+      // Preserve the provided domain
+      actualTickCount = yTicks.length
     }
 
     const xScale = scaleTime({
@@ -152,8 +246,8 @@ export function VisxLineChart({
       range: [height - margin.bottom, margin.top]
     })
 
-    return { xScale, yScale, yDomain: yExtent }
-  }, [series, xAccessor, yAccessor, yDomain, margin, height, containerWidth, effectiveNumTicks])
+    return { xScale, yScale, yDomain: yExtent, actualTickCount, yTicks, yStep }
+  }, [series, safeXAccessor, safeYAccessor, yDomain, margin, height, containerWidth, effectiveNumTicks])
 
   const processCalculationQueue = useCallback((targetX: number) => {
     if (!containerRef.current || !scales) return
@@ -162,23 +256,38 @@ export function VisxLineChart({
     const newTooltips: TooltipState[] = []
 
     series.forEach((line) => {
-      if (line.data.length === 0) return
+      if (!line.data || line.data.length === 0) return
 
-      // Find closest data point by time
-      let closestPoint = line.data[0]
+      // Consider only valid data points
+      const validPoints = line.data.filter((p) => {
+        const xd = safeXAccessor(p)
+        const yd = safeYAccessor(p)
+        return xd instanceof Date && !isNaN(xd.getTime()) && Number.isFinite(yd)
+      })
+      if (validPoints.length === 0) return
+
+      // Skip this line if hovered x is outside this series' x-range (discontinuous support)
+      const minX = validPoints.reduce((m, p) => Math.min(m, safeXAccessor(p).getTime()), Infinity)
+      const maxX = validPoints.reduce((m, p) => Math.max(m, safeXAccessor(p).getTime()), -Infinity)
+      const ht = hoveredTime.getTime()
+      if (!(ht >= minX && ht <= maxX)) return
+
+      // Find closest data point by time within this series
+      let closestPoint = validPoints[0]
       let minDistance = Infinity
-
-      line.data.forEach((point) => {
-        const distance = Math.abs(xAccessor(point).getTime() - hoveredTime.getTime())
+      for (const point of validPoints) {
+        const t = safeXAccessor(point).getTime()
+        const distance = Math.abs(t - ht)
         if (distance < minDistance) {
           minDistance = distance
           closestPoint = point
         }
-      })
+      }
 
       // Use scales to get exact screen coordinates
-      const xPos = scales.xScale(xAccessor(closestPoint))
-      const yPos = scales.yScale(yAccessor(closestPoint))
+      const xPos = scales.xScale(safeXAccessor(closestPoint))
+      const yPos = scales.yScale(safeYAccessor(closestPoint))
+      if (!Number.isFinite(xPos) || !Number.isFinite(yPos)) return
 
       newTooltips.push({
         x: xPos,
@@ -193,7 +302,7 @@ export function VisxLineChart({
     let hasSeenZero = false
 
     newTooltips.forEach(tooltip => {
-      const yValue = yAccessor(tooltip.datum)
+      const yValue = safeYAccessor(tooltip.datum)
       // Check if the value would display as "0.00" when formatted with .toFixed(2)
       const displayValue = yValue.toFixed(2)
       const isDisplayZero = displayValue === '0.00'
@@ -216,7 +325,38 @@ export function VisxLineChart({
       xPosition: alignedXPosition,
       tooltips: filteredTooltips
     })
-  }, [series, xAccessor, yAccessor, scales, containerRef])
+  }, [series, safeXAccessor, safeYAccessor, scales, containerRef])
+
+  // Compute marker points: one circle per x-point, except the very first
+  // point of each continuous segment. If clipTime is provided, only include
+  // points with x <= clipTime so markers align with hover clipping.
+  const getMarkerPoints = useCallback(
+    (data: DataPoint[], clipTime?: Date) => {
+      const points: DataPoint[] = []
+      let inSegment = false
+      for (const p of data) {
+        const xd = safeXAccessor(p)
+        const yd = safeYAccessor(p)
+        const valid = xd instanceof Date && !isNaN(xd.getTime()) && Number.isFinite(yd)
+        if (!valid) {
+          inSegment = false
+          continue
+        }
+        // entering a new segment: skip the first point
+        if (!inSegment) {
+          inSegment = true
+          continue
+        }
+        if (clipTime) {
+          if (xd.getTime() <= clipTime.getTime()) points.push(p)
+        } else {
+          points.push(p)
+        }
+      }
+      return points
+    },
+    [safeXAccessor, safeYAccessor]
+  )
 
   const handlePointerMove = useCallback((params: { event?: React.PointerEvent<Element> | React.FocusEvent<Element, Element>; svgPoint?: { x: number; y: number } }) => {
     if (!params.event || !containerRef.current || !scales) return
@@ -330,19 +470,26 @@ export function VisxLineChart({
             </clipPath>
           ))}
         </defs>
-        {/* Horizontal grid lines for each Y tick */}
+        {/* Horizontal grid lines for each Y tick (locked to our computed ticks if available) */}
         {showGrid && (
-          <Grid
-            columns={false}
-            rows={true}
-            numTicks={effectiveNumTicks}
-            lineStyle={{
-              stroke: 'hsl(var(--border))',
-              strokeLinecap: 'round',
-              strokeWidth: 1,
-              strokeOpacity: 0.5
-            }}
-          />
+          <g>
+            {scales.yTicks!.map((t: number, i: number) => {
+              const y = scales.yScale(t)
+              return (
+                <line
+                  key={`grid-y-${i}`}
+                  x1={margin.left}
+                  x2={containerWidth - margin.right}
+                  y1={y}
+                  y2={y}
+                  stroke="hsl(var(--border))"
+                  strokeLinecap="round"
+                  strokeWidth={1}
+                  opacity={0.5}
+                />
+              )
+            })}
+          </g>
         )}
 
         <Axis
@@ -353,25 +500,23 @@ export function VisxLineChart({
           numTicks={effectiveNumTicks}
         />
         <Axis
-          hideAxisLine
+          hideAxisLine={false}
           hideTicks
           orientation="left"
-          numTicks={effectiveNumTicks}
+          numTicks={scales.actualTickCount}
+          tickValues={scales.yTicks}
           tickLabelProps={() => ({ dx: -10 })}
         />
 
         {series.map((line, index) => (
           <g key={line.dataKey}>
-            {/* Gray background line */}
+            {/* Gray background line - shows full line */}
             <AnimatedLineSeries
               stroke="hsl(var(--muted-foreground))"
               dataKey={`${line.dataKey}-gray`}
               data={line.data}
-              xAccessor={xAccessor}
-              yAccessor={yAccessor}
-              style={{
-                clipPath: 'url(#reveal-clip)'
-              }}
+              xAccessor={safeXAccessor}
+              yAccessor={safeYAccessor}
             />
 
             {/* Colored line clipped to hover position */}
@@ -379,12 +524,37 @@ export function VisxLineChart({
               stroke={line.stroke}
               dataKey={`${line.dataKey}-colored`}
               data={line.data}
-              xAccessor={xAccessor}
-              yAccessor={yAccessor}
+              xAccessor={safeXAccessor}
+              yAccessor={safeYAccessor}
               style={{
-                clipPath: hoverState ? `url(#hover-clip-${index})` : 'url(#reveal-clip)'
+                clipPath: hoverState ? `url(#hover-clip-${index})` : undefined
               }}
             />
+
+            {/* Markers for colored series only: one per x-point except segment starts */}
+            {(() => {
+              const clipTime = hoverState ? scales.xScale.invert(hoverState.xPosition) : undefined
+              const markerPoints = getMarkerPoints(line.data, clipTime)
+              return (
+                <g clipPath={hoverState ? `url(#hover-clip-${index})` : 'url(#reveal-clip)'}>
+                  {markerPoints.map((pt, i) => {
+                    const cx = scales.xScale(safeXAccessor(pt))
+                    const cy = scales.yScale(safeYAccessor(pt))
+                    if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null
+                    return (
+                      <circle
+                        key={`${line.dataKey}-marker-${i}`}
+                        cx={cx}
+                        cy={cy}
+                        r={3}
+                        fill={line.stroke}
+                        pointerEvents="none"
+                      />
+                    )
+                  })}
+                </g>
+              )
+            })()}
           </g>
         ))}
       </XYChart>
@@ -432,7 +602,7 @@ export function VisxLineChart({
                 whiteSpace: 'nowrap'
               }}
             >
-              {hoverState.tooltips.length > 0 && formatTooltipX(xAccessor(hoverState.tooltips[0].datum))}
+              {hoverState.tooltips.length > 0 && formatTooltipX(safeXAccessor(hoverState.tooltips[0].datum))}
             </div>
 
             {/* Tooltips and hover points - positioned relative to container */}
@@ -494,7 +664,7 @@ export function VisxLineChart({
                       boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                     }}
                   >
-                    <strong>{yAccessor(tooltip.datum).toFixed(2)}</strong> - {(tooltip.lineConfig.name || tooltip.lineConfig.dataKey).substring(0, 20)}
+                    <strong>{safeYAccessor(tooltip.datum).toFixed(2)}</strong> - {(tooltip.lineConfig.name || tooltip.lineConfig.dataKey).substring(0, 20)}
                   </div>
                 </div>
               ))
@@ -502,6 +672,7 @@ export function VisxLineChart({
           </div>
         )
       })()}
+      {/* Debug overlay removed to keep code minimal */}
     </ChartWrapper>
   )
 }

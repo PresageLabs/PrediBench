@@ -8,6 +8,7 @@ from datetime import datetime as dt
 from typing import List
 
 import pandas as pd
+from predibench.agent.dataclasses import ModelInvestmentDecisions
 from predibench.backend.brier import compute_brier_scores_df
 from predibench.backend.data_loader import (
     load_agent_position,

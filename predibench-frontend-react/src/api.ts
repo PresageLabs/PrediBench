@@ -98,6 +98,7 @@ export interface SingleModelDecision {
 
 export interface ModelPerformance {
   model_name: string
+  model_id: string
   final_pnl: number
   final_brier_score: number
   trades: number | null
@@ -239,8 +240,8 @@ class ApiService {
     return await response.json()
   }
 
-  async getPerformanceByModel(modelName: string, by: 'day' | 'bet' = 'day'): Promise<ModelPerformance> {
-    const response = await this.fetchWithTimeout(`${API_BASE_URL}/performance/by_model?model_name=${encodeURIComponent(modelName)}&by=${by}`)
+  async getPerformanceByModel(modelId: string, by: 'day' | 'bet' = 'day'): Promise<ModelPerformance> {
+    const response = await this.fetchWithTimeout(`${API_BASE_URL}/performance/by_model?model_id=${encodeURIComponent(modelId)}&by=${by}`)
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }

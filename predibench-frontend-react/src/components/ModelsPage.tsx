@@ -1,8 +1,8 @@
 import * as Select from '@radix-ui/react-select'
-import { ChevronDown, ChevronLeft, ChevronRight, X, Calendar } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import type { LeaderboardEntry, ModelInvestmentDecision } from '../api'
+import type { LeaderboardEntry, ModelInvestmentDecision, ModelPerformance } from '../api'
 import { apiService } from '../api'
 import { getChartColor } from './ui/chart-colors'
 import { InfoTooltip } from './ui/info-tooltip'
@@ -18,15 +18,31 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
   const navigate = useNavigate()
   const [selectedModel, setSelectedModel] = useState<string>(leaderboard[0]?.id || '')
   const [modelDecisions, setModelDecisions] = useState<ModelInvestmentDecision[]>([])
-  const [loading, setLoading] = useState(false)
+  // const [loading, setLoading] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [showEventPopup, setShowEventPopup] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<{
     eventDecision: any;
     decisionDate: string;
   } | null>(null)
-  const [showCalendar, setShowCalendar] = useState(false)
   const [calendarDate, setCalendarDate] = useState(new Date())
+  const [modelPerformance, setModelPerformance] = useState<ModelPerformance | null>(null)
+
+  // Popup price data for selected event
+  const [popupPrices, setPopupPrices] = useState<Record<string, { date: string; price: number }[]>>({})
+  const [popupMarketNames, setPopupMarketNames] = useState<Record<string, string>>({})
+
+  const formatLongDate = (dateStr: string) => {
+    if (!dateStr) return ''
+    const [y, m, d] = dateStr.split('-').map(Number)
+    const dt = new Date(y, (m || 1) - 1, d || 1)
+    return dt.toLocaleDateString(undefined, {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+  }
 
   const selectedModelData = leaderboard.find(m => m.id === selectedModel)
 
@@ -41,23 +57,37 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     }
   }, [leaderboard, selectedModel, location.search])
 
+  // Map model_name -> model_id using performance endpoint once
+  const [nameToIdMap, setNameToIdMap] = useState<Record<string, string>>({})
   useEffect(() => {
-    if (selectedModel) {
-      setLoading(true)
-      apiService.getModelResultsById(selectedModel)
+    let cancelled = false
+    apiService.getPerformance('day')
+      .then(perfs => {
+        if (cancelled) return
+        const map: Record<string, string> = {}
+        perfs.forEach(p => {
+          map[p.model_name] = p.model_id
+          map[p.model_id] = p.model_id // allow id passthrough
+        })
+        setNameToIdMap(map)
+      })
+      .catch(console.error)
+    return () => { cancelled = true }
+  }, [])
+
+  // Resolve the backend model_id to query
+  const resolvedModelId = useMemo(() => nameToIdMap[selectedModel] || selectedModel, [nameToIdMap, selectedModel])
+  const mapReady = useMemo(() => Object.keys(nameToIdMap).length > 0, [nameToIdMap])
+
+  useEffect(() => {
+    if (resolvedModelId && mapReady) {
+      apiService.getModelResultsById(resolvedModelId)
         .then(setModelDecisions)
         .catch(console.error)
-        .finally(() => setLoading(false))
     }
-  }, [selectedModel])
+  }, [resolvedModelId, mapReady])
 
-  // Initialize calendar to a month with decisions
-  useEffect(() => {
-    if (modelDecisions.length > 0) {
-      const firstDecisionDate = new Date(modelDecisions[0].target_date)
-      setCalendarDate(new Date(firstDecisionDate.getFullYear(), firstDecisionDate.getMonth(), 1))
-    }
-  }, [modelDecisions])
+  // Always show calendar at current month - no override
 
 
 
@@ -70,6 +100,40 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     setSelectedEvent({ eventDecision, decisionDate })
     setShowEventPopup(true)
   }
+
+  // Load prices for selected event in popup and filter from decision date
+  useEffect(() => {
+    let cancelled = false
+    const loadPrices = async () => {
+      if (!selectedEvent) return
+      try {
+        const event = await apiService.getEventDetails(selectedEvent.eventDecision.event_id)
+        const marketIds = new Set(
+          selectedEvent.eventDecision.market_investment_decisions.map((md: any) => md.market_id)
+        )
+        const prices: Record<string, { date: string; price: number }[]> = {}
+        const names: Record<string, string> = {}
+        event.markets.forEach(m => {
+          if (marketIds.has(m.id)) {
+            names[m.id] = m.question
+            if (m.prices) {
+              prices[m.id] = m.prices
+                .filter(p => p.date >= selectedEvent.decisionDate)
+                .map(p => ({ date: p.date, price: p.value }))
+            }
+          }
+        })
+        if (!cancelled) {
+          setPopupMarketNames(names)
+          setPopupPrices(prices)
+        }
+      } catch (e) {
+        console.error('Failed to load event prices', e)
+      }
+    }
+    loadPrices()
+    return () => { cancelled = true }
+  }, [selectedEvent])
 
   const navigateCalendar = (direction: 'prev' | 'next') => {
     const newDate = new Date(calendarDate)
@@ -121,6 +185,74 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     
     return days
   }
+
+  // Fetch model performance for event-level PnL series
+  useEffect(() => {
+    let cancelled = false
+    if (resolvedModelId && mapReady) {
+      apiService.getPerformanceByModel(resolvedModelId, 'day')
+        .then(perf => { if (!cancelled) setModelPerformance(perf) })
+        .catch(console.error)
+    }
+    return () => { cancelled = true }
+  }, [resolvedModelId, mapReady])
+
+  // Build mapping for event titles and decision dates
+  const eventMeta = useMemo(() => {
+    const titles: Record<string, string> = {}
+    const decisions: Record<string, string[]> = {}
+    modelDecisions.forEach(d => {
+      d.event_investment_decisions.forEach(ev => {
+        titles[ev.event_id] = ev.event_title
+        if (!decisions[ev.event_id]) decisions[ev.event_id] = []
+        if (!decisions[ev.event_id].includes(d.target_date)) decisions[ev.event_id].push(d.target_date)
+      })
+    })
+    // sort decision dates per event
+    Object.keys(decisions).forEach(eid => decisions[eid].sort())
+    return { titles, decisions }
+  }, [modelDecisions])
+
+  // Compute event-based tree PnL series starting at 0 at each decision and stopping at the next one
+  const eventTreeSeries = useMemo(() => {
+    if (!modelPerformance) return [] as { dataKey: string; data: { x: string; y: number }[]; stroke: string; name?: string }[]
+    const series: { dataKey: string; data: { x: string; y: number }[]; stroke: string; name?: string }[] = []
+
+    modelPerformance.event_pnls.forEach((evPnl) => {
+      const eventId = evPnl.event_id
+      const decisionDates = eventMeta.decisions[eventId]
+      if (!decisionDates || decisionDates.length === 0) return
+
+      // Helper to get cumulative pnl at or before a date
+      const getValueAtOrBefore = (dateStr: string) => {
+        // since dates are ISO strings, lexicographic compare works
+        let val = evPnl.pnl.length > 0 ? evPnl.pnl[0].value : 0
+        for (let i = 0; i < evPnl.pnl.length; i++) {
+          const pt = evPnl.pnl[i]
+          if (pt.date <= dateStr) val = pt.value
+          else break
+        }
+        return val
+      }
+
+      for (let i = 0; i < decisionDates.length; i++) {
+        const startDate = decisionDates[i]
+        const endDate = i + 1 < decisionDates.length ? decisionDates[i + 1] : (evPnl.pnl.length ? evPnl.pnl[evPnl.pnl.length - 1].date : startDate)
+        const baseline = getValueAtOrBefore(startDate)
+        const seg: { x: string; y: number }[] = []
+        // Ensure starting at 0
+        seg.push({ x: startDate, y: 0 })
+        evPnl.pnl.forEach(pt => {
+          if (pt.date >= startDate && pt.date < endDate) {
+            seg.push({ x: pt.date, y: pt.value - baseline })
+          }
+        })
+        const name = `${(eventMeta.titles[eventId] || eventId).substring(0, 30)}... (${startDate})`
+        series.push({ dataKey: `event_${eventId}_${startDate}`, data: seg, stroke: getChartColor(series.length), name })
+      }
+    })
+    return series
+  }, [modelPerformance, eventMeta])
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -208,62 +340,32 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
             </div >
 
             {/* Event-based Cumulative Profit Chart */}
-            {loading ? (
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold mb-4">Event-based Cumulative Profit</h3>
-                <div className="h-[500px] bg-muted/20 rounded-lg flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-2"></div>
-                    <div className="text-sm text-muted-foreground">Loading decision data...</div>
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold mb-4 flex items-center">
+                Event-based Cumulative Profit
+                <InfoTooltip content="Each line starts at 0 on the decision date for that event and stops at the next decision on the same event." />
+              </h3>
+              <div className="h-[500px]">
+                {eventTreeSeries.length === 0 ? (
+                  <div className="h-full bg-muted/20 rounded-lg flex items-center justify-center">
+                    <div className="text-sm text-muted-foreground">No event PnL data available.</div>
                   </div>
-                </div>
-              </div>
-            ) : modelDecisions.length > 0 ? (
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold mb-4 flex items-center">
-                  Event-based Cumulative Profit
-                  <InfoTooltip content="Each line shows the cumulative profit from a single event decision, starting from 0 when the decision was made" />
-                </h3>
-                <div className="h-[500px]">
+                ) : (
                   <VisxLineChart
                     height={500}
                     margin={{ left: 60, top: 35, bottom: 38, right: 27 }}
-                    series={modelDecisions.flatMap((decision, decisionIndex) =>
-                      decision.event_investment_decisions.map((eventDecision, eventIndex) => ({
-                        dataKey: `event_${eventDecision.event_id}_${decision.target_date}`,
-                        data: [
-                          { x: decision.target_date, y: 0 }, // Start at 0 when decision was made
-                          // Here we would need PnL evolution data for each event
-                          // For now, showing placeholder data
-                          { x: new Date(new Date(decision.target_date).getTime() + 30*24*60*60*1000).toISOString().split('T')[0], y: Math.random() * 0.1 - 0.05 }
-                        ],
-                        stroke: getChartColor(decisionIndex * decision.event_investment_decisions.length + eventIndex),
-                        name: `${eventDecision.event_title.substring(0, 30)}... (${decision.target_date})`
-                      }))
-                    )}
+                    series={eventTreeSeries}
                   />
-                </div>
+                )}
               </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground mb-8">
-                No decision data available for this model.
-              </div>
-            )}
+            </div>
 
             {/* Decisions Calendar */}
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Decisions Calendar</h3>
-                <button
-                  onClick={() => setShowCalendar(!showCalendar)}
-                  className="flex items-center gap-2 px-3 py-2 text-sm border border-border rounded-lg hover:bg-accent"
-                >
-                  <Calendar size={16} />
-                  {showCalendar ? 'Hide Calendar' : 'Show Calendar'}
-                </button>
               </div>
-              
-              {showCalendar && modelDecisions.length > 0 && (
+              {modelDecisions.length > 0 && (
                 <div className="mb-6 p-4 bg-card rounded-lg border">
                   {/* Calendar Navigation */}
                   <div className="flex items-center justify-between mb-4">
@@ -324,44 +426,23 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
               )}
 
               <div className="bg-muted/10 rounded-lg p-6">
-                {modelDecisions.length > 0 && (
-                  <div>
-                    <div className="text-sm font-medium mb-4">Decision dates available:</div>
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {modelDecisions.map((decision, index) => (
+                {modelDecisions.length > 0 && selectedDate && (
+                  <div className="p-4 bg-card rounded-lg border">
+                    <h4 className="font-medium mb-3">Decisions for {selectedDate}:</h4>
+                    {modelDecisions
+                      .find(d => d.target_date === selectedDate)
+                      ?.event_investment_decisions.map((eventDecision, index) => (
                         <button
                           key={index}
-                          onClick={() => setSelectedDate(decision.target_date)}
-                          className={`px-3 py-1 text-xs rounded-md border transition-colors ${
-                            selectedDate === decision.target_date
-                              ? 'bg-primary text-primary-foreground border-primary'
-                              : 'bg-background border-border hover:bg-accent'
-                          }`}
+                          onClick={() => handleEventClick(eventDecision, selectedDate)}
+                          className="w-full mb-3 p-3 bg-muted/20 rounded hover:bg-muted/30 transition-colors text-left"
                         >
-                          {decision.target_date} ({decision.event_investment_decisions.length} events)
+                          <div className="font-medium text-sm">{eventDecision.event_title}</div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {eventDecision.market_investment_decisions.length} market decisions • Click to view details
+                          </div>
                         </button>
                       ))}
-                    </div>
-                    
-                    {selectedDate && (
-                      <div className="p-4 bg-card rounded-lg border">
-                        <h4 className="font-medium mb-3">Decisions for {selectedDate}:</h4>
-                        {modelDecisions
-                          .find(d => d.target_date === selectedDate)
-                          ?.event_investment_decisions.map((eventDecision, index) => (
-                            <button
-                              key={index}
-                              onClick={() => handleEventClick(eventDecision, selectedDate)}
-                              className="w-full mb-3 p-3 bg-muted/20 rounded hover:bg-muted/30 transition-colors text-left"
-                            >
-                              <div className="font-medium text-sm">{eventDecision.event_title}</div>
-                              <div className="text-xs text-muted-foreground mt-1">
-                                {eventDecision.market_investment_decisions.length} market decisions • Click to view details
-                              </div>
-                            </button>
-                          ))}
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -388,75 +469,75 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
             </div>
             
             <div className="p-6">
-              <div className="mb-6">
-                <div className="text-sm text-muted-foreground mb-2">
-                  Decision made on: {selectedEvent.decisionDate}
-                </div>
-                <div className="text-sm text-muted-foreground mb-4">
-                  {selectedEvent.eventDecision.event_description || 'No description available'}
+              <div className="mb-6 space-y-2">
+                <div className="text-sm text-muted-foreground">
+                  Decision made on: {formatLongDate(selectedEvent.decisionDate)}
                 </div>
                 <div className="text-sm">
-                  <span className="font-medium">Unallocated capital:</span> {(selectedEvent.eventDecision.unallocated_capital * 100).toFixed(1)}%
+                  <span className="font-medium">Unallocated capital:</span> ${selectedEvent.eventDecision.unallocated_capital.toFixed(2)}
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Left side: Market decisions */}
-                <div>
-                  <h4 className="font-medium mb-4">Market Decisions ({selectedEvent.eventDecision.market_investment_decisions.length})</h4>
-                  <div className="space-y-3">
-                    {selectedEvent.eventDecision.market_investment_decisions.map((marketDecision: any, index: number) => (
-                      <div key={index} className="p-3 bg-muted/20 rounded-lg">
-                        <div className="font-medium text-sm mb-2">
-                          {marketDecision.market_question || `Market ${marketDecision.market_id}`}
-                        </div>
-                        <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground mb-2">
-                          <div>
-                            <span className="font-medium">Bet:</span> {(marketDecision.model_decision.bet * 100).toFixed(1)}%
-                          </div>
-                          <div>
-                            <span className="font-medium">Odds:</span> {(marketDecision.model_decision.odds * 100).toFixed(1)}%
-                          </div>
-                          <div>
-                            <span className="font-medium">Confidence:</span> {marketDecision.model_decision.confidence}/10
-                          </div>
-                        </div>
-                        <div className="text-xs italic bg-background p-2 rounded">
-                          "{marketDecision.model_decision.rationale}"
-                        </div>
+                {/* Consolidated rationales */}
+                <div className="mt-3">
+                  <h4 className="font-medium mb-2">Decision rationale</h4>
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    {selectedEvent.eventDecision.market_investment_decisions.map((md: any, idx: number) => (
+                      <div key={idx} className="bg-muted/20 p-2 rounded">
+                        <span className="font-medium text-foreground">{md.market_question || `Market ${md.market_id}`}:</span>{' '}
+                        <span className="italic">{md.model_decision.rationale}</span>
                       </div>
                     ))}
                   </div>
                 </div>
+              </div>
 
-                {/* Right side: Market price evolution chart */}
-                <div>
-                  <h4 className="font-medium mb-4">Market Price Evolution Since Decision</h4>
-                  <div className="h-80 bg-muted/10 rounded-lg flex items-center justify-center">
-                    <div className="text-center text-muted-foreground">
-                      <div className="text-sm">Interactive price evolution chart</div>
-                      <div className="text-xs mt-2">
-                        This would show how market prices changed since the decision was made on {selectedEvent.decisionDate}
-                      </div>
-                      <div className="mt-4 h-64">
-                        <VisxLineChart
-                          height={240}
-                          margin={{ left: 40, top: 20, bottom: 30, right: 20 }}
-                          yDomain={[0, 1]}
-                          series={selectedEvent.eventDecision.market_investment_decisions.map((marketDecision: any, index: number) => ({
-                            dataKey: `market_${marketDecision.market_id}`,
-                            data: [
-                              { x: selectedEvent.decisionDate, y: marketDecision.model_decision.odds },
-                              { x: new Date(new Date(selectedEvent.decisionDate).getTime() + 7*24*60*60*1000).toISOString().split('T')[0], y: marketDecision.model_decision.odds + (Math.random() - 0.5) * 0.2 },
-                              { x: new Date(new Date(selectedEvent.decisionDate).getTime() + 14*24*60*60*1000).toISOString().split('T')[0], y: marketDecision.model_decision.odds + (Math.random() - 0.5) * 0.3 }
-                            ],
-                            stroke: getChartColor(index),
-                            name: marketDecision.market_question?.substring(0, 20) + '...' || `Market ${index + 1}`
-                          }))}
-                        />
-                      </div>
+              {/* Single table of market decisions */}
+              <div className="mb-6">
+                <h4 className="font-medium mb-3">Market Decisions</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-muted-foreground">
+                        <th className="text-left py-2 px-3">Market</th>
+                        <th className="text-right py-2 px-3">Bet ($)</th>
+                        <th className="text-right py-2 px-3">Odds</th>
+                        <th className="text-right py-2 px-3">Confidence</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedEvent.eventDecision.market_investment_decisions.map((md: any, idx: number) => (
+                        <tr key={idx} className="border-b border-border/50">
+                          <td className="py-2 px-3">{md.market_question || `Market ${md.market_id}`}</td>
+                          <td className="py-2 px-3 text-right">{md.model_decision.bet < 0 ? `-$${Math.abs(md.model_decision.bet).toFixed(2)}` : `$${md.model_decision.bet.toFixed(2)}`}</td>
+                          <td className="py-2 px-3 text-right">{(md.model_decision.odds * 100).toFixed(1)}%</td>
+                          <td className="py-2 px-3 text-right">{md.model_decision.confidence}/10</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Market price evolution since decision */}
+              <div>
+                <h4 className="font-medium mb-4">Market Prices Since Decision</h4>
+                <div className="h-80">
+                  {Object.keys(popupPrices).length === 0 ? (
+                    <div className="h-full bg-muted/10 rounded flex items-center justify-center text-sm text-muted-foreground">
+                      Loading prices or no price data.
                     </div>
-                  </div>
+                  ) : (
+                    <VisxLineChart
+                      height={290}
+                      margin={{ left: 40, top: 20, bottom: 30, right: 20 }}
+                      yDomain={[0, 1]}
+                      series={Object.entries(popupPrices).map(([marketId, points], index) => ({
+                        dataKey: `market_${marketId}`,
+                        data: points.map(p => ({ x: p.date, y: p.price })),
+                        stroke: getChartColor(index),
+                        name: (popupMarketNames[marketId] || `Market ${marketId}`).substring(0, 30)
+                      }))}
+                    />
+                  )}
                 </div>
               </div>
             </div>
