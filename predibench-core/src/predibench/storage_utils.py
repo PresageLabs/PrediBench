@@ -25,6 +25,8 @@ BUCKET_ENV_VAR = "BUCKET_PREDIBENCH"
 # Automatically determine storage mode based on bucket availability
 def _storage_using_bucket() -> bool:
     """Determine if we should use bucket storage based on environment variable."""
+    if os.environ.get("USE_LOCAL_STORAGE", "false").lower() == "true":
+        return False
     if BUCKET_ENV_VAR not in os.environ:
         logger.info(f"Bucket environment variable {BUCKET_ENV_VAR} not set. Using local storage mode.")
         return False
