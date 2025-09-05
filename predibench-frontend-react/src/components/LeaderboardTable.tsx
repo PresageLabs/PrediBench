@@ -1,6 +1,7 @@
 import { ArrowDown, ChevronDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { LeaderboardEntry } from '../api'
+import { ProfitDisplay } from './ui/profit-display'
 import { InfoTooltip } from './ui/info-tooltip'
 import { RedirectButton } from './ui/redirect-button'
 
@@ -55,27 +56,6 @@ export function LeaderboardTable({
     })
   }, [leaderboard, sortKey])
 
-  const getProfitColor = (value: number, minValue: number, maxValue: number): string => {
-    if (value === 0) {
-      return 'rgb(255, 255, 0)' // Pure yellow for zero
-    }
-    
-    if (value < 0) {
-      // Negative values: Yellow to Deep Orange
-      // Normalize between 0 (at zero) and 1 (at most negative)
-      const intensity = Math.abs(value) / Math.abs(minValue)
-      const red = 255
-      const green = Math.round(255 - (90 * intensity)) // 255 (yellow) to 165 (orange)
-      return `rgb(${red}, ${green}, 0)`
-    } else {
-      // Positive values: Yellow to Green
-      // Normalize between 0 (at zero) and 1 (at most positive)
-      const intensity = value / maxValue
-      const red = Math.round(255 * (1 - intensity)) // 255 (yellow) to 0 (green)
-      const green = 255
-      return `rgb(${red}, ${green}, 0)`
-    }
-  }
 
   const handleSort = (key: SortKey) => {
     setSortKey(key)
@@ -176,13 +156,12 @@ export function LeaderboardTable({
                     </td>
                     <td className="py-4 px-4 text-center font-medium">
                       <a href={`/models?selected=${model.id}`} className="block">
-                        <span 
-                          style={{ 
-                            color: getProfitColor(model.final_cumulative_pnl, profitRange.min, profitRange.max) 
-                          }}
-                        >
-                          {(model.final_cumulative_pnl * 100).toFixed(1)}%
-                        </span>
+                        <ProfitDisplay
+                          value={model.final_cumulative_pnl}
+                          minValue={profitRange.min}
+                          maxValue={profitRange.max}
+                          formatValue={(v) => `${(v * 100).toFixed(1)}%`}
+                        />
                       </a>
                     </td>
                     <td className="py-4 px-4 text-center font-medium">

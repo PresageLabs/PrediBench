@@ -6,6 +6,7 @@ import type { LeaderboardEntry, ModelInvestmentDecision, ModelPerformance } from
 import { apiService } from '../api'
 import { getChartColor } from './ui/chart-colors'
 import { InfoTooltip } from './ui/info-tooltip'
+import { ProfitDisplay } from './ui/profit-display'
 import { VisxLineChart } from './ui/visx-line-chart'
 
 interface ModelsPageProps {
@@ -87,6 +88,19 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     }
   }, [resolvedModelId, mapReady])
 
+  // Auto-select the latest decision date when modelDecisions are loaded
+  useEffect(() => {
+    if (modelDecisions.length > 0 && !selectedDate) {
+      const sortedDates = modelDecisions
+        .map(decision => decision.target_date)
+        .sort((a, b) => b.localeCompare(a)) // Sort descending to get latest first
+      
+      if (sortedDates.length > 0) {
+        setSelectedDate(sortedDates[0])
+      }
+    }
+  }, [modelDecisions, selectedDate])
+
   // Always show calendar at current month - no override
 
 
@@ -101,39 +115,83 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     setShowEventPopup(true)
   }
 
-  // Load prices for selected event in popup and filter from decision date
+  // Load prices for selected event in popup and calculate realized returns
+  const [realizedReturns, setRealizedReturns] = useState<Record<string, number>>({})
+  const [totalEventPnL, setTotalEventPnL] = useState<number>(0)
+  const [positionEndDate, setPositionEndDate] = useState<string | null>(null)
+
   useEffect(() => {
     let cancelled = false
-    const loadPrices = async () => {
+    const loadPricesAndReturns = async () => {
       if (!selectedEvent) return
       try {
         const event = await apiService.getEventDetails(selectedEvent.eventDecision.event_id)
         const marketIds = new Set(
           selectedEvent.eventDecision.market_investment_decisions.map((md: any) => md.market_id)
         )
+        
+        // Find when this position ended (next decision date for same event)
+        const eventDecisions = modelDecisions
+          .filter(d => d.event_investment_decisions.some(ed => ed.event_id === selectedEvent.eventDecision.event_id))
+          .sort((a, b) => a.target_date.localeCompare(b.target_date))
+        
+        const currentDecisionIndex = eventDecisions.findIndex(d => d.target_date === selectedEvent.decisionDate)
+        const nextDecision = currentDecisionIndex >= 0 && currentDecisionIndex < eventDecisions.length - 1 
+          ? eventDecisions[currentDecisionIndex + 1] 
+          : null
+        const endDate = nextDecision?.target_date || null
+        
         const prices: Record<string, { date: string; price: number }[]> = {}
         const names: Record<string, string> = {}
+        const returns: Record<string, number> = {}
+        let totalPnL = 0
+        
         event.markets.forEach(m => {
           if (marketIds.has(m.id)) {
             names[m.id] = m.question
             if (m.prices) {
+              // All prices from decision date onwards
               prices[m.id] = m.prices
                 .filter(p => p.date >= selectedEvent.decisionDate)
                 .map(p => ({ date: p.date, price: p.value }))
+              
+              // Calculate realized returns if we have an end date
+              if (endDate && m.prices.length > 0) {
+                const startPrice = m.prices.find(p => p.date >= selectedEvent.decisionDate)?.value || 0
+                const endPrice = m.prices
+                  .filter(p => p.date <= endDate)
+                  .sort((a, b) => b.date.localeCompare(a.date))[0]?.value || startPrice
+                
+                // Find the bet amount for this market
+                const marketDecision = selectedEvent.eventDecision.market_investment_decisions
+                  .find((md: any) => md.market_id === m.id)
+                
+                if (marketDecision) {
+                  const betAmount = marketDecision.model_decision.bet
+                  const priceChange = endPrice - startPrice
+                  const realizedReturn = betAmount * priceChange
+                  returns[m.id] = realizedReturn
+                  totalPnL += realizedReturn
+                }
+              }
             }
           }
         })
+        
         if (!cancelled) {
           setPopupMarketNames(names)
           setPopupPrices(prices)
+          setRealizedReturns(returns)
+          setTotalEventPnL(totalPnL)
+          setPositionEndDate(endDate)
         }
       } catch (e) {
-        console.error('Failed to load event prices', e)
+        console.error('Failed to load event prices and returns', e)
       }
     }
-    loadPrices()
+    loadPricesAndReturns()
     return () => { cancelled = true }
-  }, [selectedEvent])
+  }, [selectedEvent, modelDecisions])
 
   const navigateCalendar = (direction: 'prev' | 'next') => {
     const newDate = new Date(calendarDate)
@@ -146,6 +204,14 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
   }
 
   const generateCalendarDays = () => {
+    // Format a Date to YYYY-MM-DD using LOCAL time to avoid timezone shifts
+    const formatLocalYMD = (d: Date) => {
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${y}-${m}-${day}`
+    }
+
     const year = calendarDate.getFullYear()
     const month = calendarDate.getMonth()
     
@@ -165,12 +231,13 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     const current = new Date(startDate)
     
     while (current <= endDate) {
-      const dateStr = current.toISOString().split('T')[0]
+      const dateStr = formatLocalYMD(current)
       const hasDecision = modelDecisions.some(d => d.target_date === dateStr)
       const decisionCount = hasDecision ? 
         modelDecisions.find(d => d.target_date === dateStr)?.event_investment_decisions.length || 0 : 0
       
       const isCurrentMonth = current.getMonth() === month
+      const isToday = formatLocalYMD(current) === formatLocalYMD(new Date())
       
       days.push({
         date: new Date(current),
@@ -178,7 +245,8 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
         hasDecision,
         decisionCount,
         isSelected: selectedDate === dateStr,
-        isCurrentMonth
+        isCurrentMonth,
+        isToday
       })
       current.setDate(current.getDate() + 1)
     }
@@ -197,62 +265,21 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     return () => { cancelled = true }
   }, [resolvedModelId, mapReady])
 
-  // Build mapping for event titles and decision dates
-  const eventMeta = useMemo(() => {
-    const titles: Record<string, string> = {}
-    const decisions: Record<string, string[]> = {}
-    modelDecisions.forEach(d => {
-      d.event_investment_decisions.forEach(ev => {
-        titles[ev.event_id] = ev.event_title
-        if (!decisions[ev.event_id]) decisions[ev.event_id] = []
-        if (!decisions[ev.event_id].includes(d.target_date)) decisions[ev.event_id].push(d.target_date)
-      })
-    })
-    // sort decision dates per event
-    Object.keys(decisions).forEach(eid => decisions[eid].sort())
-    return { titles, decisions }
-  }, [modelDecisions])
+  // Removed event-based series metadata; cumulative series is used instead
 
-  // Compute event-based tree PnL series starting at 0 at each decision and stopping at the next one
-  const eventTreeSeries = useMemo(() => {
+  // Cumulative Profit series since the beginning for the selected model
+  const cumulativeSeries = useMemo(() => {
     if (!modelPerformance) return [] as { dataKey: string; data: { x: string; y: number }[]; stroke: string; name?: string }[]
-    const series: { dataKey: string; data: { x: string; y: number }[]; stroke: string; name?: string }[] = []
-
-    modelPerformance.event_pnls.forEach((evPnl) => {
-      const eventId = evPnl.event_id
-      const decisionDates = eventMeta.decisions[eventId]
-      if (!decisionDates || decisionDates.length === 0) return
-
-      // Helper to get cumulative pnl at or before a date
-      const getValueAtOrBefore = (dateStr: string) => {
-        // since dates are ISO strings, lexicographic compare works
-        let val = evPnl.pnl.length > 0 ? evPnl.pnl[0].value : 0
-        for (let i = 0; i < evPnl.pnl.length; i++) {
-          const pt = evPnl.pnl[i]
-          if (pt.date <= dateStr) val = pt.value
-          else break
-        }
-        return val
+    const data = (modelPerformance.cummulative_pnl || []).map(pt => ({ x: pt.date, y: pt.value }))
+    return [
+      {
+        dataKey: `model_${modelPerformance.model_id}_cum`,
+        data,
+        stroke: getChartColor(0),
+        name: 'Cumulative Profit'
       }
-
-      for (let i = 0; i < decisionDates.length; i++) {
-        const startDate = decisionDates[i]
-        const endDate = i + 1 < decisionDates.length ? decisionDates[i + 1] : (evPnl.pnl.length ? evPnl.pnl[evPnl.pnl.length - 1].date : startDate)
-        const baseline = getValueAtOrBefore(startDate)
-        const seg: { x: string; y: number }[] = []
-        // Ensure starting at 0
-        seg.push({ x: startDate, y: 0 })
-        evPnl.pnl.forEach(pt => {
-          if (pt.date >= startDate && pt.date < endDate) {
-            seg.push({ x: pt.date, y: pt.value - baseline })
-          }
-        })
-        const name = `${(eventMeta.titles[eventId] || eventId).substring(0, 30)}... (${startDate})`
-        series.push({ dataKey: `event_${eventId}_${startDate}`, data: seg, stroke: getChartColor(series.length), name })
-      }
-    })
-    return series
-  }, [modelPerformance, eventMeta])
+    ]
+  }, [modelPerformance])
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -339,14 +366,14 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
               </div >
             </div >
 
-            {/* Event-based Cumulative Profit Chart */}
+            {/* Cumulative Profit Chart */}
             <div className="mb-8">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
-                Event-based Cumulative Profit
-                <InfoTooltip content="Each line starts at 0 on the decision date for that event and stops at the next decision on the same event." />
+                Cumulative Profit
+                <InfoTooltip content="Cumulative profit for this model since the beginning." />
               </h3>
               <div className="h-[500px]">
-                {eventTreeSeries.length === 0 ? (
+                {cumulativeSeries.length === 0 ? (
                   <div className="h-full bg-muted/20 rounded-lg flex items-center justify-center">
                     <div className="text-sm text-muted-foreground">No event PnL data available.</div>
                   </div>
@@ -354,19 +381,19 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                   <VisxLineChart
                     height={500}
                     margin={{ left: 60, top: 35, bottom: 38, right: 27 }}
-                    series={eventTreeSeries}
+                    series={cumulativeSeries}
                   />
                 )}
               </div>
             </div>
 
-            {/* Decisions Calendar */}
+            {/* Decisions through time */}
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Decisions Calendar</h3>
+                <h3 className="text-lg font-semibold">Decisions through time</h3>
               </div>
               {modelDecisions.length > 0 && (
-                <div className="mb-6 p-4 bg-card rounded-lg border">
+                <div className="mb-6 p-4 bg-card rounded-lg border max-w-xl mx-auto">
                   {/* Calendar Navigation */}
                   <div className="flex items-center justify-between mb-4">
                     <button
@@ -381,13 +408,24 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                       {calendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                     </h4>
                     
-                    <button
-                      onClick={() => navigateCalendar('next')}
-                      className="p-2 rounded-lg hover:bg-accent transition-colors"
-                      title="Next month"
-                    >
-                      <ChevronRight size={16} />
-                    </button>
+                    {(() => {
+                      const today = new Date()
+                      const isAtCurrentMonth =
+                        calendarDate.getFullYear() === today.getFullYear() &&
+                        calendarDate.getMonth() === today.getMonth()
+                      return (
+                        <button
+                          onClick={() => !isAtCurrentMonth && navigateCalendar('next')}
+                          className={`p-2 rounded-lg transition-colors ${
+                            isAtCurrentMonth ? 'opacity-50 cursor-not-allowed' : 'hover:bg-accent'
+                          }`}
+                          title="Next month"
+                          disabled={isAtCurrentMonth}
+                        >
+                          <ChevronRight size={16} />
+                        </button>
+                      )
+                    })()}
                   </div>
 
                   {/* Calendar Grid */}
@@ -409,7 +447,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                                   ? 'bg-primary text-primary-foreground'
                                   : 'bg-accent hover:bg-accent/80 cursor-pointer'
                                 : 'text-muted-foreground cursor-default'
-                          }`}
+                          } ${day.isToday ? 'ring-2 ring-white' : ''}`}
                           disabled={!day.hasDecision || !day.isCurrentMonth}
                         >
                           {day.date.getDate()}
@@ -427,22 +465,24 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
 
               <div className="bg-muted/10 rounded-lg p-6">
                 {modelDecisions.length > 0 && selectedDate && (
-                  <div className="p-4 bg-card rounded-lg border">
+                  <div className="p-4 bg-card rounded-lg border max-w-2xl mx-auto">
                     <h4 className="font-medium mb-3">Decisions for {selectedDate}:</h4>
-                    {modelDecisions
-                      .find(d => d.target_date === selectedDate)
-                      ?.event_investment_decisions.map((eventDecision, index) => (
-                        <button
-                          key={index}
-                          onClick={() => handleEventClick(eventDecision, selectedDate)}
-                          className="w-full mb-3 p-3 bg-muted/20 rounded hover:bg-muted/30 transition-colors text-left"
-                        >
-                          <div className="font-medium text-sm">{eventDecision.event_title}</div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {eventDecision.market_investment_decisions.length} market decisions • Click to view details
-                          </div>
-                        </button>
-                      ))}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {modelDecisions
+                        .find(d => d.target_date === selectedDate)
+                        ?.event_investment_decisions.map((eventDecision, index) => (
+                          <button
+                            key={index}
+                            onClick={() => handleEventClick(eventDecision, selectedDate)}
+                            className="w-full p-3 bg-muted/20 rounded hover:bg-muted/30 transition-colors text-left h-full"
+                          >
+                            <div className="font-medium text-sm line-clamp-2">{eventDecision.event_title}</div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {eventDecision.market_investment_decisions.length} market decisions • Click to view details
+                            </div>
+                          </button>
+                        ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -454,8 +494,14 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
 
       {/* Event Details Popup */}
       {showEventPopup && selectedEvent && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-xl border border-border max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowEventPopup(false)}
+        >
+          <div 
+            className="bg-card rounded-xl border border-border max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="sticky top-0 bg-card border-b border-border p-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold">
                 {selectedEvent.eventDecision.event_title}
@@ -469,31 +515,12 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
             </div>
             
             <div className="p-6">
-              <div className="mb-6 space-y-2">
-                <div className="text-sm text-muted-foreground">
-                  Decision made on: {formatLongDate(selectedEvent.decisionDate)}
-                </div>
-                <div className="text-sm">
-                  <span className="font-medium">Unallocated capital:</span> ${selectedEvent.eventDecision.unallocated_capital.toFixed(2)}
-                </div>
-                {/* Consolidated rationales */}
-                <div className="mt-3">
-                  <h4 className="font-medium mb-2">Decision rationale</h4>
-                  <div className="space-y-2 text-sm text-muted-foreground">
-                    {selectedEvent.eventDecision.market_investment_decisions.map((md: any, idx: number) => (
-                      <div key={idx} className="bg-muted/20 p-2 rounded">
-                        <span className="font-medium text-foreground">{md.market_question || `Market ${md.market_id}`}:</span>{' '}
-                        <span className="italic">{md.model_decision.rationale}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Single table of market decisions */}
               <div className="mb-6">
-                <h4 className="font-medium mb-3">Market Decisions</h4>
-                <div className="overflow-x-auto">
+                <div className="text-sm text-muted-foreground mb-4">
+                  Position taken on {formatLongDate(selectedEvent.decisionDate)}{positionEndDate && `, ended on ${formatLongDate(positionEndDate)}`}
+                </div>
+
+                <div className="overflow-x-auto bg-muted/10 rounded-lg p-4">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border text-muted-foreground">
@@ -501,6 +528,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                         <th className="text-right py-2 px-3">Bet ($)</th>
                         <th className="text-right py-2 px-3">Odds</th>
                         <th className="text-right py-2 px-3">Confidence</th>
+                        {positionEndDate && <th className="text-right py-2 px-3">Realized Returns</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -510,10 +538,64 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                           <td className="py-2 px-3 text-right">{md.model_decision.bet < 0 ? `-$${Math.abs(md.model_decision.bet).toFixed(2)}` : `$${md.model_decision.bet.toFixed(2)}`}</td>
                           <td className="py-2 px-3 text-right">{(md.model_decision.odds * 100).toFixed(1)}%</td>
                           <td className="py-2 px-3 text-right">{md.model_decision.confidence}/10</td>
+                          {positionEndDate && (
+                            <td className="py-2 px-3 text-right">
+                              {realizedReturns[md.market_id] !== undefined ? (
+                                <ProfitDisplay
+                                  value={realizedReturns[md.market_id]}
+                                />
+                              ) : (
+                                <span className="text-muted-foreground">N/A</span>
+                              )}
+                            </td>
+                          )}
                         </tr>
                       ))}
+                      
+                      {/* Unallocated capital row */}
+                      <tr className="border-b border-border/50 bg-muted/10">
+                        <td className="py-2 px-3 italic text-muted-foreground">Unallocated capital</td>
+                        <td className="py-2 px-3 text-right">${selectedEvent.eventDecision.unallocated_capital.toFixed(2)}</td>
+                        <td className="py-2 px-3"></td>
+                        <td className="py-2 px-3"></td>
+                        {positionEndDate && <td className="py-2 px-3"></td>}
+                      </tr>
+                      
+                      {/* Overall returns row */}
+                      {positionEndDate && (
+                        <tr className="border-t-2 border-border bg-muted/20 font-medium">
+                          <td className="py-3 px-3" colSpan={4}>Overall returns</td>
+                          <td className="py-3 px-3 text-right">
+                            <ProfitDisplay
+                              value={totalEventPnL}
+                              formatValue={(v) => {
+                                if (Math.abs(v) < 0.005) return '$0.00'
+                                return `${v > 0 ? '+' : ''}$${v.toFixed(2)}`
+                              }}
+                              className="font-bold"
+                            />
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Consolidated rationales */}
+                <div className="mt-3">
+                  <h4 className="font-medium mb-2">Decision rationale</h4>
+                  <div className="space-y-3">
+                    {selectedEvent.eventDecision.market_investment_decisions.map((md: any, idx: number) => (
+                      <div key={idx} className="bg-muted/20 p-3 rounded-lg">
+                        <div className="text-xs text-muted-foreground mb-2">
+                          {md.market_question || `Market ${md.market_id}`}
+                        </div>
+                        <div className="text-sm text-foreground">
+                          ▸ {md.model_decision.rationale}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 

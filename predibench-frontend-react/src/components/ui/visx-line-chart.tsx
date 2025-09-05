@@ -163,11 +163,12 @@ export function VisxLineChart({
       // Utility: compute tick domain and count for an interval
       const roundTo = (v: number, step: number) => Math.round(v / step) * step
       const computeFor = (step: number) => {
-        let lo = roundTo(dataMin, step)
-        let hi = roundTo(dataMax, step)
-        const threshold = 0.2 * step
-        if (dataMax - hi > threshold) hi += step
-        if (lo - dataMin > threshold) lo -= step
+        const maxAbove = Math.max(0, dataMax)
+        const maxBelowAbs = Math.max(0, -Math.min(0, dataMin))
+        const stepsAbove = Math.floor((maxAbove + 0.5 * step) / step)
+        const stepsBelow = Math.floor((maxBelowAbs + 0.5 * step) / step)
+        let lo = -stepsBelow * step
+        let hi = stepsAbove * step
         if (hi === lo) hi = lo + step
         const count = Math.floor((hi - lo) / step) + 1
         return { lo, hi, count }
@@ -184,7 +185,12 @@ export function VisxLineChart({
           break
         }
       }
-      // No explicit fallback: if none found, subsequent access will fail loudly
+      // Fallback to last interval if none matched
+      if (!chosen) {
+        const ni = niceIntervals[niceIntervals.length - 1]
+        const r = computeFor(ni)
+        chosen = { ...r, step: ni }
+      }
 
       yExtent = [chosen.lo, chosen.hi]
       actualTickCount = chosen.count
@@ -201,7 +207,6 @@ export function VisxLineChart({
     } else {
       // yDomain provided: keep it as-is, but still compute ticks explicitly with a nice interval
       const [minD, maxD] = yDomain
-      const domainRange = maxD - minD
       // If domain is invalid, subsequent code will fail naturally
       const niceIntervals = [
         0.001, 0.002, 0.005,
@@ -449,23 +454,23 @@ export function VisxLineChart({
           <clipPath id="reveal-clip">
             <rect
               x={margin.left}
-              y={margin.top}
+              y={0}
               width="0"
-              height={height - margin.top - margin.bottom}
+              height={height}
               style={{
                 animation: 'expandWidth 0.8s ease-out forwards'
               }}
             />
           </clipPath>
 
-          {/* Dynamic hover clip paths for colored lines */}
+          {/* Dynamic hover clip paths for colored lines (horizontal-only clipping) */}
           {hoverState && series.map((_, index) => (
             <clipPath key={index} id={`hover-clip-${index}`}>
               <rect
                 x={margin.left}
-                y={margin.top}
+                y={0}
                 width={Math.max(0, hoverState.xPosition - margin.left)}
-                height={height - margin.top - margin.bottom}
+                height={height}
               />
             </clipPath>
           ))}
@@ -517,6 +522,10 @@ export function VisxLineChart({
               data={line.data}
               xAccessor={safeXAccessor}
               yAccessor={safeYAccessor}
+              style={{
+                // Clip to chart plot area so nothing shows outside Y limits
+                clipPath: 'url(#reveal-clip)'
+              }}
             />
 
             {/* Colored line clipped to hover position */}
