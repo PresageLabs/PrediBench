@@ -36,24 +36,18 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
   useEffect(() => {
     if (selectedModel) {
       setLoading(true)
-      apiService.getModelMarketDetails(selectedModel)
+      // Find the selected model data to get the actual model name
+      const modelData = leaderboard.find(m => m.id === selectedModel)
+      const modelName = modelData?.model || selectedModel
+      
+      apiService.getModelMarketDetails(modelName)
         .then(setMarketDetails)
         .catch(console.error)
         .finally(() => setLoading(false))
     }
-  }, [selectedModel])
+  }, [selectedModel, leaderboard])
 
 
-  // Debug logging
-  // if (marketDetails && marketDetails.markets.length > 0) {
-  //   console.log('Market details:', {
-  //     marketCount: marketDetails.markets.length,
-  //     pnlCount: marketDetails.market_pnls.length,
-  //     priceDataPoints: marketDetails.price_chart_data?.length,
-  //     pnlDataPoints: marketDetails.pnl_chart_data?.length,
-  //     marketInfo: marketDetails.market_info
-  //   })
-  // }
 
   const handleModelSelect = (modelId: string) => {
     setSelectedModel(modelId)
