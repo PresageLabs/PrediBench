@@ -4,11 +4,11 @@ import type { Event, LeaderboardEntry, Stats } from './api'
 import { apiService } from './api'
 import { AboutPage } from './components/AboutPage'
 import { EventDetail } from './components/EventDetail'
+import { EventsPage } from './components/EventsPage'
 import { HomePage } from './components/HomePage'
 import { Layout } from './components/Layout'
 import { LeaderboardPage } from './components/LeaderboardPage'
 import { ModelsPage } from './components/ModelsPage'
-import { EventsPage } from './components/EventsPage'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useAnalytics } from './hooks/useAnalytics'
 
@@ -24,7 +24,7 @@ function AppContent() {
   const loadData = async () => {
     try {
       console.log('Starting to load data...')
-      const [leaderboardData, eventsData, statsData] = await Promise.all([
+      const [leaderboardData, eventsData] = await Promise.all([
         apiService.getLeaderboard().then(data => {
           console.log('Leaderboard data received:', data)
           return data
@@ -33,15 +33,11 @@ function AppContent() {
           console.log('Events data received:', data)
           return data
         }),
-        apiService.getStats().then(data => {
-          console.log('Stats data received:', data)
-          return data
-        })
       ])
 
       setLeaderboard(leaderboardData)
       setEvents(eventsData)
-      setStats(statsData)
+      setStats(null)
       console.log('All data loaded successfully')
     } catch (error) {
       console.error('Error loading data:', error)

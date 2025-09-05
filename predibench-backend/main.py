@@ -1,30 +1,30 @@
-import os
 import json
-from datetime import datetime
+import os
 import threading
-from cachetools import TTLCache, cached
-from pydantic import ValidationError
+from datetime import datetime
+from typing import Literal
 
+from cachetools import TTLCache, cached
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from predibench.backend.profile import profile_time
 from predibench.agent.dataclasses import ModelInvestmentDecisions
+from predibench.backend.comprehensive_data import get_data_for_backend
 from predibench.backend.data_model import (
+    BackendData,
+    EventBackend,
     LeaderboardEntryBackend,
     ModelPerformanceBackend,
-    EventBackend,
-    BackendData,
 )
-
-from predibench.storage_utils import read_from_storage, write_to_storage
 from predibench.common import DATA_PATH
-from predibench.backend.comprehensive_data import get_data_for_backend
+from predibench.storage_utils import read_from_storage, write_to_storage
+from pydantic import ValidationError
 
 print("Successfully imported predibench modules")
 
 CACHE_TTL_SECONDS = 3600
 _backend_cache = TTLCache(maxsize=1, ttl=CACHE_TTL_SECONDS)
 _cache_lock = threading.RLock()
+
 
 # Load cached backend data with TTL invalidation
 @cached(cache=_backend_cache, lock=_cache_lock)
@@ -35,7 +35,13 @@ def load_backend_cache() -> BackendData:
         json_content = read_from_storage(cache_file_path)
         cached_data = json.loads(json_content)
         # Basic migration: ensure required fields exist
-        required = {"leaderboard", "events", "model_results", "performance_per_day", "performance_per_bet"}
+        required = {
+            "leaderboard",
+            "events",
+            "model_results",
+            "performance_per_day",
+            "performance_per_bet",
+        }
         if not required.issubset(set(cached_data.keys())):
             raise KeyError("backend cache missing required fields")
         return BackendData.model_validate(cached_data)
@@ -49,11 +55,12 @@ def load_backend_cache() -> BackendData:
             print(f"⚠️ Could not write backend cache: {w}")
         return data
 
+
 # Warm cache at startup (and print status)
 _initial_data = load_backend_cache()
-print(f"✅ Loaded backend cache with {len(_initial_data.leaderboard)} leaderboard entries (TTL={CACHE_TTL_SECONDS}s)")
-
-
+print(
+    f"✅ Loaded backend cache with {len(_initial_data.leaderboard)} leaderboard entries (TTL={CACHE_TTL_SECONDS}s)"
+)
 
 
 app = FastAPI(title="Polymarket LLM Benchmark API", version="1.0.0")
@@ -72,6 +79,7 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
+
 # API Endpoints
 @app.get("/")
 def root():
@@ -83,13 +91,16 @@ def get_leaderboard_endpoint():
     """Get the current leaderboard with LLM performance data"""
     return load_backend_cache().leaderboard
 
+
 @app.get("/api/prediction_dates", response_model=list[str])
 def get_prediction_dates_endpoint():
     return load_backend_cache().prediction_dates
 
+
 @app.get("/api/model_results", response_model=list[ModelInvestmentDecisions])
 def get_model_results_endpoint():
     return load_backend_cache().model_results
+
 
 @app.get("/api/model_results/by_id", response_model=list[ModelInvestmentDecisions])
 def get_model_results_by_id_endpoint(model_id: str):
@@ -99,6 +110,7 @@ def get_model_results_by_id_endpoint(model_id: str):
         raise HTTPException(status_code=404, detail="model_id not found")
     return results
 
+
 @app.get("/api/model_results/by_date", response_model=list[ModelInvestmentDecisions])
 def get_model_results_by_date_endpoint(prediction_date: str):
     data = load_backend_cache()
@@ -106,6 +118,7 @@ def get_model_results_by_date_endpoint(prediction_date: str):
     if results is None:
         raise HTTPException(status_code=404, detail="prediction_date not found")
     return results
+
 
 @app.get("/api/model_results/by_id_and_date", response_model=ModelInvestmentDecisions)
 def get_model_results_by_id_and_date_endpoint(model_id: str, prediction_date: str):
@@ -115,8 +128,11 @@ def get_model_results_by_id_and_date_endpoint(model_id: str, prediction_date: st
         raise HTTPException(status_code=404, detail="model_id not found")
     result = by_id.get(prediction_date)
     if result is None:
-        raise HTTPException(status_code=404, detail="prediction_date not found for model_id")
+        raise HTTPException(
+            status_code=404, detail="prediction_date not found for model_id"
+        )
     return result
+
 
 @app.get("/api/model_results/by_event", response_model=list[ModelInvestmentDecisions])
 def get_model_results_by_event_id_endpoint(event_id: str):
@@ -126,8 +142,9 @@ def get_model_results_by_event_id_endpoint(event_id: str):
         raise HTTPException(status_code=404, detail="event_id not found")
     return results
 
+
 @app.get("/api/performance", response_model=list[ModelPerformanceBackend])
-def get_performance_endpoint(by: str = "day"):
+def get_performance_endpoint(by: Literal["day", "bet"] = "day"):
     """Return model performance by day or by bet.
 
     Query param 'by' can be 'day' (default) or 'bet'.
@@ -137,8 +154,11 @@ def get_performance_endpoint(by: str = "day"):
         return data.performance_per_bet
     return data.performance_per_day
 
+
 @app.get("/api/performance/by_model", response_model=ModelPerformanceBackend)
-def get_performance_by_model_endpoint(model_name: str, by: str = "day"):
+def get_performance_by_model_endpoint(
+    model_name: str, by: Literal["day", "bet"] = "day"
+):
     """Return performance for a specific model, by day or by bet."""
     data = load_backend_cache()
     perf_list = data.performance_per_bet if by == "bet" else data.performance_per_day
@@ -151,8 +171,8 @@ def get_performance_by_model_endpoint(model_name: str, by: str = "day"):
 @app.get("/api/events", response_model=list[EventBackend])
 def get_events_endpoint(
     search: str = "",
-    sort_by: str = "volume",
-    order: str = "desc",
+    sort_by: Literal["volume", "date"] = "volume",
+    order: Literal["desc", "asc"] = "desc",
     limit: int = 50,
 ):
     """Get active Polymarket events with search and filtering"""
@@ -194,8 +214,6 @@ def get_event_endpoint(event_id: str):
     if event is None:
         raise HTTPException(status_code=404, detail="event_id not found")
     return event
-
-
 
 
 if __name__ == "__main__":
