@@ -82,11 +82,13 @@ def get_data_for_backend() -> BackendData:
         positions_df=positions_df,
         prices_df=prices_df,
         backend_events=backend_events,
+        model_results=model_results,
     )
     performance_per_bet = _compute_model_performance_list(
         positions_df=positions_df,
         prices_df=prices_df,
         backend_events=backend_events,
+        model_results=model_results,
         by_bet=True,
     )
 
@@ -109,6 +111,7 @@ def _compute_model_performance_list(
     positions_df: pd.DataFrame,
     prices_df: pd.DataFrame,
     backend_events: List[EventBackend],
+    model_results: List[ModelInvestmentDecisions],
     by_bet: bool = False,
 ) -> List[ModelPerformanceBackend]:
     """Compute ModelPerformanceBackend data for each model.
@@ -127,21 +130,29 @@ def _compute_model_performance_list(
 
     performance_list: list[ModelPerformanceBackend] = []
 
-    # Iterate unique models by pretty name (as used in positions_df)
-    for model_name in positions_df["model_name"].unique():
+    # Iterate unique models by model_id
+    for model_id in positions_df["model_id"].unique():
         # Filter positions/predictions for this model
-        model_positions = positions_df[positions_df["model_name"] == model_name]
+        model_positions = positions_df[positions_df["model_id"] == model_id]
+        # Get the model_name for this model_id (they should be consistent within a model_id)
+        model_name = model_positions["model_name"].iloc[0]
 
         # Trades metadata
         trade_rows = model_positions[model_positions["choice"] != 0]
         trade_dates = sorted({str(d) for d in trade_rows["date"].unique()})
         trades_count = int(len(trade_rows))
 
+        # Handle duplicates by keeping the last entry (most recent decision)
+        # This handles cases where the same model made multiple decisions for the same market on the same date
+        model_positions_deduped = model_positions.drop_duplicates(
+            subset=["date", "market_id"], keep="last"
+        )
+
         # Pivot to date x market for positions and predictions
-        positions_pivot = model_positions.pivot(
+        positions_pivot = model_positions_deduped.pivot(
             index="date", columns="market_id", values="choice"
         )
-        decisions_pivot = model_positions.pivot(
+        decisions_pivot = model_positions_deduped.pivot(
             index="date", columns="market_id", values="odds"
         )
 
@@ -313,6 +324,7 @@ def _compute_model_performance_list(
         performance_list.append(
             ModelPerformanceBackend(
                 model_name=model_name,
+                model_id=model_id,
                 final_pnl=float(portfolio_cum_pnl.iloc[-1])
                 if len(portfolio_cum_pnl)
                 else 0.0,

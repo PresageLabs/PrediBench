@@ -74,6 +74,7 @@ class MarketBrierScoreBackend(BaseModel):
 
 class ModelPerformanceBackend(BaseModel):
     model_name: str
+    model_id: str
     final_pnl: float
     final_brier_score: float
     trades: int | None = None

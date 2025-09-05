@@ -156,16 +156,14 @@ def get_performance_endpoint(by: Literal["day", "bet"] = "day"):
 
 
 @app.get("/api/performance/by_model", response_model=ModelPerformanceBackend)
-def get_performance_by_model_endpoint(
-    model_name: str, by: Literal["day", "bet"] = "day"
-):
+def get_performance_by_model_endpoint(model_id: str, by: Literal["day", "bet"] = "day"):
     """Return performance for a specific model, by day or by bet."""
     data = load_backend_cache()
     perf_list = data.performance_per_bet if by == "bet" else data.performance_per_day
     for perf in perf_list:
-        if perf.model_name == model_name:
+        if perf.model_id == model_id:
             return perf
-    raise HTTPException(status_code=404, detail="model_name not found")
+    raise HTTPException(status_code=404, detail="model_id not found")
 
 
 @app.get("/api/events", response_model=list[EventBackend])

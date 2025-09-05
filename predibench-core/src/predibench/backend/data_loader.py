@@ -2,7 +2,7 @@ from functools import lru_cache
 from predibench.agent.dataclasses import ModelInvestmentDecisions
 from predibench.polymarket_api import load_market_price, Market, Event
 from predibench.polymarket_data import load_events_from_file
-from predibench.storage_utils import get_bucket
+from predibench.storage_utils import get_bucket, _storage_using_bucket
 from predibench.common import DATA_PATH, PREFIX_MODEL_RESULTS
 from pathlib import Path
 import pandas as pd
@@ -12,22 +12,37 @@ def load_investment_choices_from_google() -> list[ModelInvestmentDecisions]:
     # Has bucket access, load directly from GCP bucket
 
     model_results: list[ModelInvestmentDecisions] = []
-    bucket = get_bucket()
-    blobs = bucket.list_blobs(prefix=PREFIX_MODEL_RESULTS)
+    if _storage_using_bucket():
+        bucket = get_bucket()
+        blobs = bucket.list_blobs(prefix=PREFIX_MODEL_RESULTS)
 
-    for blob in blobs:
-        if (
-            blob.name.endswith("model_investment_decisions.json")
-        ):
-            try:
-                json_content = blob.download_as_text()
-                model_result = ModelInvestmentDecisions.model_validate_json(
-                    json_content
-                )
-                model_results.append(model_result)
-            except Exception as e:
-                print(f"Error reading {blob.name}: {e}")
-                continue
+        for blob in blobs:
+            if (
+                blob.name.endswith("model_investment_decisions.json")
+            ):
+                try:
+                    json_content = blob.download_as_text()
+                    model_result = ModelInvestmentDecisions.model_validate_json(
+                        json_content
+                    )
+                    model_results.append(model_result)
+                except Exception as e:
+                    print(f"Error reading {blob.name}: {e}")
+                    continue
+    else:
+        # Fallback to local files when bucket is not available
+        for file_path in DATA_PATH.rglob("*.json"):
+            if file_path.name == "model_investment_decisions.json":
+                try:
+                    with open(file_path, 'r') as f:
+                        json_content = f.read()
+                    model_result = ModelInvestmentDecisions.model_validate_json(
+                        json_content
+                    )
+                    model_results.append(model_result)
+                except Exception as e:
+                    print(f"Error reading {file_path}: {e}")
+                    continue
 
     # Sort by target_date
     model_results.sort(key=lambda x: x.target_date)
@@ -39,14 +54,29 @@ def load_investment_choices_from_google() -> list[ModelInvestmentDecisions]:
     return model_results
 
 def load_saved_events() -> list[Event]:
-    bucket = get_bucket()
-    blobs = bucket.list_blobs(prefix=PREFIX_MODEL_RESULTS)
     all_events: list[Event] = []
-    for blob in blobs:
-        if blob.name.endswith("events.json"):
-            file_path = DATA_PATH / Path(blob.name)
-            loaded = load_events_from_file(file_path)
-            all_events.extend(loaded)
+    
+    if _storage_using_bucket():
+        # Load from bucket
+        bucket = get_bucket()
+        if bucket is not None:
+            blobs = bucket.list_blobs(prefix=PREFIX_MODEL_RESULTS)
+            for blob in blobs:
+                if blob.name.endswith("events.json"):
+                    file_path = DATA_PATH / Path(blob.name)
+                    loaded = load_events_from_file(file_path)
+                    all_events.extend(loaded)
+    else:
+        # Fallback to local files when bucket is not available
+        for file_path in DATA_PATH.rglob("*.json"):
+            if file_path.name == "events.json":
+                try:
+                    loaded = load_events_from_file(file_path)
+                    all_events.extend(loaded)
+                except Exception as e:
+                    print(f"Error reading {file_path}: {e}")
+                    continue
+    
     return all_events
 
 def load_market_prices(events: list[Event]) -> dict[str, pd.Series | None]:
