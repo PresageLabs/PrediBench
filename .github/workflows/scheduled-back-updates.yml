@@ -44,6 +44,10 @@ jobs:
           cd predibench-core
           uv run python scripts/generate_backend_cache.py
 
+      - name: Sync buckets
+        run: |
+          gcloud storage rsync --recursive gs://predibench-prod gs://predibench/
+
       - name: Log completion
         run: |
           echo "Backend cache update completed at $(date)"
