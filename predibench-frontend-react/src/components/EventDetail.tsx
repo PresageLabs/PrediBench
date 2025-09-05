@@ -74,11 +74,25 @@ export function EventDetail({ event }: EventDetailProps) {
       // Get market investment decisions by event
       const investmentDecisions = await apiService.getModelResultsByEvent(eventId)
 
-      // Extract market prices from event.markets (they're already available)
+      // Extract market prices from event.markets
+      // Filter to last 2 months only to reduce frontend load
+      const twoMonthsAgo = new Date()
+      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2)
+
       const transformedPrices: { [marketId: string]: PriceData[] } = {}
       event.markets.forEach(market => {
         if (market.prices) {
-          transformedPrices[market.id] = market.prices.map(pricePoint => ({
+          const filteredPrices = market.prices.filter(pricePoint => {
+            try {
+              const priceDate = new Date(pricePoint.date)
+              return priceDate >= twoMonthsAgo
+            } catch {
+              // If date parsing fails, include the price point to be safe
+              return true
+            }
+          })
+
+          transformedPrices[market.id] = filteredPrices.map(pricePoint => ({
             date: pricePoint.date,
             price: pricePoint.value,
             marketId: market.id,
