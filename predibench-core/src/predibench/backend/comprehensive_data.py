@@ -2,28 +2,32 @@
 Comprehensive data computation for backend caching.
 This module pre-computes all data needed for all backend API endpoints.
 """
-from functools import lru_cache
-from typing import List
-from datetime import datetime
-import pandas as pd
 
-from predibench.backend.data_model import (
-    BackendData, LeaderboardEntryBackend, EventBackend, ModelPerformanceBackend,
-    TimeseriesPointBackend, EventPnlBackend, MarketPnlBackend, 
-    EventBrierScoreBackend, MarketBrierScoreBackend
-)
-from predibench.backend.leaderboard import get_leaderboard
-from predibench.backend.events import get_non_duplicated_events
-from predibench.backend.data_loader import (
-    load_investment_choices_from_google,
-    load_saved_events,
-    load_agent_position,
-    load_market_prices,
-)
-from predibench.backend.pnl import get_historical_returns, compute_pnl_series_per_model
+from datetime import date
+from datetime import datetime as dt
+from typing import List
+
+import pandas as pd
 from predibench.backend.brier import compute_brier_scores_df
-from predibench.agent.dataclasses import ModelInvestmentDecisions
-from datetime import date, datetime as dt
+from predibench.backend.data_loader import (
+    load_agent_position,
+    load_investment_choices_from_google,
+    load_market_prices,
+    load_saved_events,
+)
+from predibench.backend.data_model import (
+    BackendData,
+    EventBackend,
+    EventBrierScoreBackend,
+    EventPnlBackend,
+    MarketBrierScoreBackend,
+    MarketPnlBackend,
+    ModelPerformanceBackend,
+    TimeseriesPointBackend,
+)
+from predibench.backend.events import get_non_duplicated_events
+from predibench.backend.leaderboard import get_leaderboard
+from predibench.backend.pnl import compute_pnl_series_per_model, get_historical_returns
 
 
 def _to_date_index(df: pd.DataFrame) -> pd.DataFrame:
@@ -53,25 +57,25 @@ def _to_date_index(df: pd.DataFrame) -> pd.DataFrame:
 def get_data_for_backend() -> BackendData:
     """
     Pre-compute all data needed for backend API endpoints.
-    
+
     This function loads all data sources only once and computes everything needed
     for maximum performance at runtime.
     """
     print("Starting comprehensive backend data computation...")
-    
+
     # Step 1: Load all base data sources (load once, use everywhere)
     print("Loading base data sources...")
     model_results = load_investment_choices_from_google()  # Load once
-    _saved_events = load_saved_events()                     # Load once
+    _saved_events = load_saved_events()  # Load once
     events = get_non_duplicated_events(_saved_events)
-    positions_df = load_agent_position(model_results)     # Load once - pass model_results
-    market_prices = load_market_prices(events)      # Load once
-    prices_df = get_historical_returns(market_prices)     # Load once
+    positions_df = load_agent_position(model_results)  # Load once - pass model_results
+    market_prices = load_market_prices(events)  # Load once
+    prices_df = get_historical_returns(market_prices)  # Load once
     prices_df = _to_date_index(prices_df)
-    
+
     # Step 1.5: Convert Polymarket Event models to backend Event models
     backend_events = [EventBackend.from_event(e) for e in events]
-    
+
     # Step 2: Compute ModelPerformanceBackend for each model
     print("Computing model performance data (PnL + Brier)...")
     performance = _compute_model_performance_list(
@@ -89,9 +93,9 @@ def get_data_for_backend() -> BackendData:
     # Step 3: Compute leaderboard from performance
     print("Building leaderboard from performance data...")
     leaderboard = get_leaderboard(performance)
-    
+
     print("Finished computing comprehensive backend data!")
-    
+
     return BackendData(
         leaderboard=leaderboard,
         events=backend_events,
@@ -134,11 +138,11 @@ def _compute_model_performance_list(
         trades_count = int(len(trade_rows))
 
         # Pivot to date x market for positions and predictions
-        positions_pivot = (
-            model_positions.pivot(index="date", columns="market_id", values="choice")
+        positions_pivot = model_positions.pivot(
+            index="date", columns="market_id", values="choice"
         )
-        decisions_pivot = (
-            model_positions.pivot(index="date", columns="market_id", values="odds")
+        decisions_pivot = model_positions.pivot(
+            index="date", columns="market_id", values="odds"
         )
 
         # Choose price index: daily or bet dates (plus final for closure)
@@ -171,7 +175,9 @@ def _compute_model_performance_list(
         # Convert overall cumulative pnl to backend points
         overall_cum_pnl_points = [
             TimeseriesPointBackend(
-                date=(idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)),
+                date=(
+                    idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)
+                ),
                 value=float(val),
             )
             for idx, val in portfolio_cum_pnl.items()
@@ -182,7 +188,11 @@ def _compute_model_performance_list(
         for market_id, cum_series in market_cum_pnls.items():
             market_points = [
                 TimeseriesPointBackend(
-                    date=(idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)),
+                    date=(
+                        idx.strftime("%Y-%m-%d")
+                        if hasattr(idx, "strftime")
+                        else str(idx)
+                    ),
                     value=float(val),
                 )
                 for idx, val in cum_series.items()
@@ -208,7 +218,11 @@ def _compute_model_performance_list(
             event_cum = aligned.sum(axis=1)
             event_points = [
                 TimeseriesPointBackend(
-                    date=(idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)),
+                    date=(
+                        idx.strftime("%Y-%m-%d")
+                        if hasattr(idx, "strftime")
+                        else str(idx)
+                    ),
                     value=float(val),
                 )
                 for idx, val in event_cum.items()
@@ -240,13 +254,17 @@ def _compute_model_performance_list(
         overall_brier_series = brier_df.mean(axis=1)
         overall_brier_points = [
             TimeseriesPointBackend(
-                date=(idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)),
+                date=(
+                    idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)
+                ),
                 value=float(val),
             )
             for idx, val in overall_brier_series.dropna().items()
         ]
         # Final brier = mean across all available predictions
-        final_brier_score = float(brier_df.stack().mean()) if not brier_df.empty else 0.0
+        final_brier_score = (
+            float(brier_df.stack().mean()) if not brier_df.empty else 0.0
+        )
 
         # Market-level brier
         market_brier_backend: list[MarketBrierScoreBackend] = []
@@ -256,7 +274,11 @@ def _compute_model_performance_list(
                 continue
             points = [
                 TimeseriesPointBackend(
-                    date=(idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)),
+                    date=(
+                        idx.strftime("%Y-%m-%d")
+                        if hasattr(idx, "strftime")
+                        else str(idx)
+                    ),
                     value=float(val),
                 )
                 for idx, val in market_series.items()
@@ -274,7 +296,11 @@ def _compute_model_performance_list(
             ev_series = brier_df[cols].mean(axis=1).dropna()
             ev_points = [
                 TimeseriesPointBackend(
-                    date=(idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)),
+                    date=(
+                        idx.strftime("%Y-%m-%d")
+                        if hasattr(idx, "strftime")
+                        else str(idx)
+                    ),
                     value=float(val),
                 )
                 for idx, val in ev_series.items()
@@ -287,7 +313,9 @@ def _compute_model_performance_list(
         performance_list.append(
             ModelPerformanceBackend(
                 model_name=model_name,
-                final_pnl=float(portfolio_cum_pnl.iloc[-1]) if len(portfolio_cum_pnl) else 0.0,
+                final_pnl=float(portfolio_cum_pnl.iloc[-1])
+                if len(portfolio_cum_pnl)
+                else 0.0,
                 final_brier_score=final_brier_score,
                 trades=trades_count,
                 trades_dates=trade_dates,
@@ -301,7 +329,6 @@ def _compute_model_performance_list(
         )
 
     return performance_list
-
 
 
 if __name__ == "__main__":
