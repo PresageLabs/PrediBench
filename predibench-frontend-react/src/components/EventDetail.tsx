@@ -1,6 +1,7 @@
 import { ExternalLink } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { Event, LeaderboardEntry } from '../api'
+import { apiService } from '../api'
 import { useAnalytics } from '../hooks/useAnalytics'
 import { formatVolume } from '../lib/utils'
 import { getChartColor } from './ui/chart-colors'
@@ -68,23 +69,42 @@ export function EventDetail({ event }: EventDetailProps) {
   const loadEventDetails = async (eventId: string) => {
     setLoading(true)
     try {
-      const [marketPrices, investmentDecisions] = await Promise.all([
-        fetch(`http://localhost:8080/api/event/${eventId}/market_prices`).then(r => r.json()),
-        fetch(`http://localhost:8080/api/event/${eventId}/investment_decisions`).then(r => r.json())
-      ])
+      // Get market investment decisions by event
+      const investmentDecisions = await apiService.getModelResultsByEvent(eventId)
 
-      // Transform market prices data from {marketId: {date: price}} to {marketId: [{date, price}]}
+      // Extract market prices from event.markets (they're already available)
       const transformedPrices: { [marketId: string]: PriceData[] } = {}
-      Object.entries(marketPrices).forEach(([marketId, pricesByDate]) => {
-        transformedPrices[marketId] = Object.entries(pricesByDate as Record<string, number>).map(([date, price]) => ({
-          date,
-          price,
-          marketId
-        }))
+      event.markets.forEach(market => {
+        if (market.prices) {
+          transformedPrices[market.id] = market.prices.map(pricePoint => ({
+            date: pricePoint.date,
+            price: pricePoint.value,
+            marketId: market.id,
+            marketName: market.question
+          }))
+        }
+      })
+
+      // Transform investment decisions to match the component's expected format
+      const transformedDecisions: MarketInvestmentDecision[] = []
+      investmentDecisions.forEach(modelResult => {
+        modelResult.event_investment_decisions.forEach(eventDecision => {
+          if (eventDecision.event_id === eventId) {
+            eventDecision.market_investment_decisions.forEach(marketDecision => {
+              transformedDecisions.push({
+                market_id: marketDecision.market_id,
+                model_name: modelResult.model_id,
+                bet: marketDecision.model_decision.bet,
+                odds: marketDecision.model_decision.odds,
+                rationale: marketDecision.model_decision.rationale
+              })
+            })
+          }
+        })
       })
 
       setMarketPricesData(transformedPrices)
-      setInvestmentDecisions(investmentDecisions)
+      setInvestmentDecisions(transformedDecisions)
     } catch (error) {
       console.error('Error loading event details:', error)
     } finally {
