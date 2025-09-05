@@ -58,7 +58,7 @@ jobs:
 
       - name: Run investment analysis
         env:
-          BUCKET_PREDIBENCH: ${{ secrets.BUCKET_PREDIBENCH }}
+          BUCKET_PREDIBENCH: "predibench-prod"
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           OPENAI_API_KEY: ${{ (github.event.inputs.provider == 'openai') && secrets.OPENAI_API_KEY_AYMERIC || secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

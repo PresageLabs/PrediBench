@@ -14,10 +14,12 @@ DEFAULT_MAX_EVENTS = 10
 DEFAULT_DAYS_AHEAD = 7 * 6
 DEFAULT_WEEKS_BACK = 7
 
+PREFIX_MODEL_RESULTS = "model_results"
+
 def get_date_output_path(target_date: date) -> Path:
     """
     Get the path to the date output for a given target date.
     """
-    date_output_path = DATA_PATH / target_date.strftime("%Y-%m-%d")
+    date_output_path = DATA_PATH / PREFIX_MODEL_RESULTS / target_date.strftime("%Y-%m-%d")
     date_output_path.mkdir(parents=True, exist_ok=True)
     return date_output_path
