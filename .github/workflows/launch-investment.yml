@@ -70,3 +70,7 @@ jobs:
           cd predibench-core
           uv run python scripts/run_investments.py ${{ github.event.inputs.provider }}
 
+      - name: Sync buckets
+        run: |
+          gcloud storage rsync --recursive gs://predibench-prod gs://predibench/
+

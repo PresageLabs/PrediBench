@@ -104,3 +104,7 @@ jobs:
         run: |
           cd predibench-core
           uv run python scripts/run_investments.py ${{ matrix.provider }}
+
+      - name: Sync buckets
+        run: |
+          gcloud storage rsync --recursive gs://predibench-prod gs://predibench/
