@@ -131,13 +131,6 @@ export interface MarketPnl {
   pnl: TimeseriesPoint[]
 }
 
-export interface Stats {
-  topFinalCumulativePnl: number
-  avgPnl: number
-  totalTrades: number
-  totalProfit: number
-}
-
 class ApiService {
   private async fetchWithTimeout(url: string, options: RequestInit = {}, timeout = 30000): Promise<Response> {
     const controller = new AbortController()
@@ -267,13 +260,13 @@ class ApiService {
     // For backward compatibility, transform performance data to the old format
     try {
       const performance = await this.getPerformanceByModel(modelId)
-      
+
       const marketDetails: ModelMarketDetails = {}
-      
+
       // Get events to get market prices from the events data
       const events = await this.getEvents()
       const marketPricesMap = new Map<string, { date: string; price: number }[]>()
-      
+
       // Extract market prices from events
       events.forEach(event => {
         event.markets.forEach(market => {
@@ -285,7 +278,7 @@ class ApiService {
           }
         })
       })
-      
+
       // Transform market PnLs to the old format
       performance.market_pnls.forEach(marketPnl => {
         marketDetails[marketPnl.market_id] = {
@@ -299,7 +292,7 @@ class ApiService {
           }))
         }
       })
-      
+
       return marketDetails
     } catch (error) {
       console.warn('getModelMarketDetails: falling back to empty result', error)

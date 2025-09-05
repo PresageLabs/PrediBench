@@ -94,7 +94,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
       const sortedDates = modelDecisions
         .map(decision => decision.target_date)
         .sort((a, b) => b.localeCompare(a)) // Sort descending to get latest first
-      
+
       if (sortedDates.length > 0) {
         setSelectedDate(sortedDates[0])
       }
@@ -129,23 +129,23 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
         const marketIds = new Set(
           selectedEvent.eventDecision.market_investment_decisions.map((md: any) => md.market_id)
         )
-        
+
         // Find when this position ended (next decision date for same event)
         const eventDecisions = modelDecisions
           .filter(d => d.event_investment_decisions.some(ed => ed.event_id === selectedEvent.eventDecision.event_id))
           .sort((a, b) => a.target_date.localeCompare(b.target_date))
-        
+
         const currentDecisionIndex = eventDecisions.findIndex(d => d.target_date === selectedEvent.decisionDate)
-        const nextDecision = currentDecisionIndex >= 0 && currentDecisionIndex < eventDecisions.length - 1 
-          ? eventDecisions[currentDecisionIndex + 1] 
+        const nextDecision = currentDecisionIndex >= 0 && currentDecisionIndex < eventDecisions.length - 1
+          ? eventDecisions[currentDecisionIndex + 1]
           : null
         const endDate = nextDecision?.target_date || null
-        
+
         const prices: Record<string, { date: string; price: number }[]> = {}
         const names: Record<string, string> = {}
         const returns: Record<string, number> = {}
         let totalPnL = 0
-        
+
         event.markets.forEach(m => {
           if (marketIds.has(m.id)) {
             names[m.id] = m.question
@@ -154,18 +154,18 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
               prices[m.id] = m.prices
                 .filter(p => p.date >= selectedEvent.decisionDate)
                 .map(p => ({ date: p.date, price: p.value }))
-              
+
               // Calculate realized returns if we have an end date
               if (endDate && m.prices.length > 0) {
                 const startPrice = m.prices.find(p => p.date >= selectedEvent.decisionDate)?.value || 0
                 const endPrice = m.prices
                   .filter(p => p.date <= endDate)
                   .sort((a, b) => b.date.localeCompare(a.date))[0]?.value || startPrice
-                
+
                 // Find the bet amount for this market
                 const marketDecision = selectedEvent.eventDecision.market_investment_decisions
                   .find((md: any) => md.market_id === m.id)
-                
+
                 if (marketDecision) {
                   const betAmount = marketDecision.model_decision.bet
                   const priceChange = endPrice - startPrice
@@ -177,7 +177,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
             }
           }
         })
-        
+
         if (!cancelled) {
           setPopupMarketNames(names)
           setPopupPrices(prices)
@@ -214,31 +214,31 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
 
     const year = calendarDate.getFullYear()
     const month = calendarDate.getMonth()
-    
+
     // First day of the month and last day of the month
     const firstDay = new Date(year, month, 1)
     const lastDay = new Date(year, month + 1, 0)
-    
+
     // Start from the first Sunday of the week containing the first day
     const startDate = new Date(firstDay)
     startDate.setDate(startDate.getDate() - startDate.getDay())
-    
+
     // End at the last Saturday of the week containing the last day
     const endDate = new Date(lastDay)
     endDate.setDate(endDate.getDate() + (6 - endDate.getDay()))
-    
+
     const days = []
     const current = new Date(startDate)
-    
+
     while (current <= endDate) {
       const dateStr = formatLocalYMD(current)
       const hasDecision = modelDecisions.some(d => d.target_date === dateStr)
-      const decisionCount = hasDecision ? 
+      const decisionCount = hasDecision ?
         modelDecisions.find(d => d.target_date === dateStr)?.event_investment_decisions.length || 0 : 0
-      
+
       const isCurrentMonth = current.getMonth() === month
       const isToday = formatLocalYMD(current) === formatLocalYMD(new Date())
-      
+
       days.push({
         date: new Date(current),
         dateStr,
@@ -250,7 +250,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
       })
       current.setDate(current.getDate() + 1)
     }
-    
+
     return days
   }
 
@@ -360,7 +360,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                   <div className="font-medium">{((1 - selectedModelData.avg_brier_score) * 100).toFixed(1)}%</div>
                 </div >
                 <div>
-                  <span className="text-muted-foreground">Trades:</span>
+                  <span className="text-muted-foreground">Bets taken:</span>
                   <div className="font-medium">{selectedModelData.trades}</div>
                 </div>
               </div >
@@ -403,11 +403,11 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                     >
                       <ChevronLeft size={16} />
                     </button>
-                    
+
                     <h4 className="font-medium text-lg">
                       {calendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                     </h4>
-                    
+
                     {(() => {
                       const today = new Date()
                       const isAtCurrentMonth =
@@ -416,9 +416,8 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                       return (
                         <button
                           onClick={() => !isAtCurrentMonth && navigateCalendar('next')}
-                          className={`p-2 rounded-lg transition-colors ${
-                            isAtCurrentMonth ? 'opacity-50 cursor-not-allowed' : 'hover:bg-accent'
-                          }`}
+                          className={`p-2 rounded-lg transition-colors ${isAtCurrentMonth ? 'opacity-50 cursor-not-allowed' : 'hover:bg-accent'
+                            }`}
                           title="Next month"
                           disabled={isAtCurrentMonth}
                         >
@@ -439,15 +438,14 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                       <div key={index} className="relative">
                         <button
                           onClick={() => day.hasDecision && setSelectedDate(day.dateStr)}
-                          className={`w-full p-2 text-xs rounded transition-colors relative ${
-                            !day.isCurrentMonth 
-                              ? 'text-muted-foreground/30 cursor-default'
-                              : day.hasDecision
-                                ? day.isSelected
-                                  ? 'bg-primary text-primary-foreground'
-                                  : 'bg-accent hover:bg-accent/80 cursor-pointer'
-                                : 'text-muted-foreground cursor-default'
-                          } ${day.isToday ? 'ring-2 ring-white' : ''}`}
+                          className={`w-full p-2 text-xs rounded transition-colors relative ${!day.isCurrentMonth
+                            ? 'text-muted-foreground/30 cursor-default'
+                            : day.hasDecision
+                              ? day.isSelected
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-accent hover:bg-accent/80 cursor-pointer'
+                              : 'text-muted-foreground cursor-default'
+                            } ${day.isToday ? 'ring-2 ring-white' : ''}`}
                           disabled={!day.hasDecision || !day.isCurrentMonth}
                         >
                           {day.date.getDate()}
@@ -494,11 +492,11 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
 
       {/* Event Details Popup */}
       {showEventPopup && selectedEvent && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
           onClick={() => setShowEventPopup(false)}
         >
-          <div 
+          <div
             className="bg-card rounded-xl border border-border max-w-4xl w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
@@ -513,7 +511,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                 <X size={20} />
               </button>
             </div>
-            
+
             <div className="p-6">
               <div className="mb-6">
                 <div className="text-sm text-muted-foreground mb-4">
@@ -551,7 +549,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                           )}
                         </tr>
                       ))}
-                      
+
                       {/* Unallocated capital row */}
                       <tr className="border-b border-border/50 bg-muted/10">
                         <td className="py-2 px-3 italic text-muted-foreground">Unallocated capital</td>
@@ -560,7 +558,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                         <td className="py-2 px-3"></td>
                         {positionEndDate && <td className="py-2 px-3"></td>}
                       </tr>
-                      
+
                       {/* Overall returns row */}
                       {positionEndDate && (
                         <tr className="border-t-2 border-border bg-muted/20 font-medium">
