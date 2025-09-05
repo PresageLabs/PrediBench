@@ -39,7 +39,7 @@ jobs:
 
       - name: Update backend cache
         env:
-          BUCKET_PREDIBENCH: ${{ secrets.BUCKET_PREDIBENCH }}
+          BUCKET_PREDIBENCH: "predibench-prod"
         run: |
           cd predibench-core
           uv run python scripts/generate_backend_cache.py
