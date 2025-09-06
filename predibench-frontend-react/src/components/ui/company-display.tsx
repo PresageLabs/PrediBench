@@ -30,7 +30,7 @@ export function CompanyDisplay({ modelName, className = "" }: CompanyDisplayProp
           (e.target as HTMLImageElement).style.display = 'none'
         }}
       />
-      <span className="text-xs font-medium">{companyInfo.name}</span>
+      <span className="text-sm font-normal text-muted-foreground">{companyInfo.name}</span>
     </div>
   )
 }

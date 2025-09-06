@@ -88,14 +88,13 @@ export function LeaderboardTable({
         </div>
       )}
 
-      <div className="bg-card rounded-xl border border-border/30 overflow-hidden max-w-4xl mx-auto">
+      <div className="bg-card rounded-xl border border-border/30 overflow-hidden max-w-3xl mx-auto">
         <div className="overflow-x-auto">
           <table className="w-full table-fixed">
             <thead className="bg-muted/30">
               <tr>
                 <th className="text-center py-4 px-3 font-semibold w-12"></th>
-                <th className="text-left py-4 px-4 font-semibold w-24">Model Name</th>
-                <th className="hidden md:table-cell text-left py-4 px-4 font-semibold w-12"></th>
+                <th className="text-left py-4 px-4 font-semibold w-20">Model Name</th>
                 <th className="text-center py-4 px-4 font-semibold w-24">
                   <div className="flex items-center justify-center space-x-1 w-full">
                     <button
@@ -131,10 +130,8 @@ export function LeaderboardTable({
                       <div className="h-4 bg-gray-200 rounded animate-pulse w-8 mx-auto"></div>
                     </td>
                     <td className="py-4 px-4">
-                      <div className="h-4 bg-gray-200 rounded animate-pulse w-32"></div>
-                    </td>
-                    <td className="hidden md:table-cell py-4 px-4">
-                      <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+                      <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded animate-pulse w-20 ml-2"></div>
                     </td>
                     <td className="py-4 px-4 text-center">
                       <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
@@ -156,15 +153,17 @@ export function LeaderboardTable({
                       </span>
                     </td>
                     <td className="py-4 px-4">
-                      <a
-                        href={`/models?selected=${model.id}`}
-                        className="font-medium hover:text-primary transition-colors whitespace-nowrap"
-                      >
-                        {model.model}
-                      </a>
-                    </td>
-                    <td className="hidden md:table-cell py-4 px-4">
-                      <CompanyDisplay modelName={model.model} />
+                      <div>
+                        <a
+                          href={`/models?selected=${model.id}`}
+                          className="font-medium hover:text-primary transition-colors block"
+                        >
+                          {model.model}
+                        </a>
+                        <div className="ml-2 mt-1">
+                          <CompanyDisplay modelName={model.model} />
+                        </div>
+                      </div>
                     </td>
                     <td className="py-4 px-4 text-center font-medium">
                       <a href={`/models?selected=${model.id}`} className="block">
