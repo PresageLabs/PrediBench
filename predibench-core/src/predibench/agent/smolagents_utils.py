@@ -45,6 +45,18 @@ BET_DESCRIPTION = """1. market_id (str): The market ID
 5. bet (float, -1 to 1): The amount in dollars that you bet on this market (can be negative if you want to buy the opposite of the market)"""
 
 
+class VisitWebpageToolSaveSources(VisitWebpageTool):
+    def __init__(self):
+        super().__init__()
+        self.sources: list[str] = []
+
+    def forward(self, url: str) -> str:
+        content = super().forward(url)
+        self.sources.append(url)
+        self.sources = list(dict.fromkeys(self.sources))
+        return content
+    
+
 class GoogleSearchTool(Tool):
     name = "web_search"
     description = """Performs Google web search and returns top results."""
@@ -52,6 +64,7 @@ class GoogleSearchTool(Tool):
         "query": {"type": "string", "description": "The search query to perform."},
     }
     output_type = "string"
+    
 
     def __init__(self, provider: str, cutoff_date: date | None, api_key: str):
         super().__init__()
@@ -59,6 +72,7 @@ class GoogleSearchTool(Tool):
         self.organic_key = "organic_results" if provider == "serpapi" else "organic"
         self.api_key = api_key
         self.cutoff_date = cutoff_date
+        self.sources: list[str] = []
 
     @retry(
         stop=stop_after_attempt(3),
@@ -121,7 +135,8 @@ class GoogleSearchTool(Tool):
 
                 redacted_version = f"{idx}. [{page['title']}]({page['link']}){date_published}{source}\n{snippet}"
                 web_snippets.append(redacted_version)
-
+                self.sources.append(page["link"])
+        self.sources = list(dict.fromkeys(self.sources))
         return f"## Search Results for '{query}'\n" + "\n\n".join(web_snippets)
 
 
@@ -253,7 +268,8 @@ class ListMarketInvestmentDecisions(BaseModel):
 class CompleteMarketInvestmentDecisions(ListMarketInvestmentDecisions):
     full_response: Any
     token_usage: TokenUsage | None = None
-
+    sources_google: list[str] | None = None
+    sources_visit_webpage: list[str] | None = None
 
 def _should_retry(exception: Exception) -> bool:
     """Check if the exception is a rate limit error."""
@@ -295,11 +311,13 @@ The final_answer tool must contain the arguments rationale and decision.
     if cutoff_date is not None:
         assert cutoff_date < date.today()
 
+    google_search_tool = GoogleSearchTool(
+        provider=search_provider, cutoff_date=cutoff_date, api_key=search_api_key
+    )
+    visit_webpage_tool = VisitWebpageToolSaveSources()
     tools = [
-        GoogleSearchTool(
-            provider=search_provider, cutoff_date=cutoff_date, api_key=search_api_key
-        ),
-        VisitWebpageTool(),
+        google_search_tool,
+        visit_webpage_tool,
         final_answer,
     ]
     if model_info.agent_type == "code":
@@ -324,6 +342,8 @@ The final_answer tool must contain the arguments rationale and decision.
         unallocated_capital=full_result.output[1],
         full_response=full_result.steps,
         token_usage=full_result.token_usage,
+        sources_google=google_search_tool.sources if google_search_tool.sources else None,
+        sources_visit_webpage=visit_webpage_tool.sources if visit_webpage_tool.sources else None,
     )
 
 
