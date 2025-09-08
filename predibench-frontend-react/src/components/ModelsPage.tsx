@@ -324,7 +324,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                         <div>
                           <div className="font-medium">{model.model}</div>
                           <div className="text-xs text-muted-foreground mt-1">
-                            Profit: ${model.final_cumulative_pnl.toFixed(1)} | Brier score: {((1 - model.avg_brier_score) * 100).toFixed(1)}%
+                            Profit: {(model.final_cumulative_pnl * 100).toFixed(1)}% | Brier score: {model.avg_brier_score.toFixed(3)}
                           </div>
                         </div>
                       </div>
@@ -357,7 +357,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                     Brier score:
                     <InfoTooltip content="A measure of prediction accuracy. Lower values indicate better calibration - how well the model's confidence matches actual outcomes (0 = perfect, 1 = worst)" />
                   </div>
-                  <div className="font-medium">{((1 - selectedModelData.avg_brier_score) * 100).toFixed(1)}%</div>
+                  <div className="font-medium">{selectedModelData.avg_brier_score.toFixed(3)}</div>
                 </div >
                 <div>
                   <span className="text-muted-foreground">Bets taken:</span>

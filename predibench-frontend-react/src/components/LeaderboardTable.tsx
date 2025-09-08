@@ -25,7 +25,7 @@ export function LeaderboardTable({
   const sortedLeaderboard = useMemo(() => {
     return [...leaderboard].sort((a, b) => {
       switch (sortKey) {
-        case 'cumulative_profit':
+        case 'cumulative_profit': {
           // Calculate display scores (rounded to 1 decimal place)
           const aDisplayScore = parseFloat((a.final_cumulative_pnl * 100).toFixed(1))
           const bDisplayScore = parseFloat((b.final_cumulative_pnl * 100).toFixed(1))
@@ -35,21 +35,23 @@ export function LeaderboardTable({
             return bDisplayScore - aDisplayScore
           }
 
-          // Tie-breaker: if display scores are identical, use Brier score
-          return (1 - b.avg_brier_score) - (1 - a.avg_brier_score)
+          // Tie-breaker: if display scores are identical, use Brier score (lower is better)
+          return a.avg_brier_score - b.avg_brier_score
+        }
 
-        case 'brier_score':
-          // Calculate display scores for Brier (rounded to 1 decimal place)
-          const aBrierDisplay = parseFloat(((1 - a.avg_brier_score) * 100).toFixed(1))
-          const bBrierDisplay = parseFloat(((1 - b.avg_brier_score) * 100).toFixed(1))
+        case 'brier_score': {
+          // Calculate display scores for Brier (rounded to 3 decimal places)
+          const aBrierDisplay = parseFloat(a.avg_brier_score.toFixed(3))
+          const bBrierDisplay = parseFloat(b.avg_brier_score.toFixed(3))
 
-          // Primary sort by Brier display score (higher first)
-          if (bBrierDisplay !== aBrierDisplay) {
-            return bBrierDisplay - aBrierDisplay
+          // Primary sort by Brier display score (lower first - ascending)
+          if (aBrierDisplay !== bBrierDisplay) {
+            return aBrierDisplay - bBrierDisplay
           }
 
           // Tie-breaker: if display scores are identical, use PnL
           return b.final_cumulative_pnl - a.final_cumulative_pnl
+        }
 
         default:
           return 0
@@ -112,7 +114,7 @@ export function LeaderboardTable({
                     <button
                       onClick={() => handleSort('brier_score')}
                       className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
-                      title="Brier Score - Higher values indicate better prediction accuracy (1 - original Brier score)"
+                      title="Brier Score - Lower values indicate better prediction accuracy (0 = perfect, 1 = worst)"
                     >
                       <ArrowDown className={`h-4 w-4 ${sortKey === 'brier_score' ? 'text-primary' : 'opacity-40'}`} />
                       <span>Brier Score</span>
@@ -177,7 +179,7 @@ export function LeaderboardTable({
                     </td>
                     <td className="py-4 px-4 text-center font-medium">
                       <a href={`/models?selected=${model.id}`} className="block">
-                        {model.avg_brier_score ? `${((1 - model.avg_brier_score) * 100).toFixed(1)}%` : 'N/A'}
+                        {model.avg_brier_score ? model.avg_brier_score.toFixed(3) : 'N/A'}
                       </a>
                     </td>
                   </tr>
