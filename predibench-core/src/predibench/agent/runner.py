@@ -237,9 +237,8 @@ Example: If you bet 0.3 in market A, -0.2 in market B (meaning you buy 0.2 of th
     # Write full response to file
     model_result_path = model_info.get_model_result_path(target_date)
     full_response_file = model_result_path / f"{event.id}_full_response.json"
-    with open(full_response_file, "w") as f:
-        json.dump(full_response_json, f, indent=2)
-
+    write_to_storage(full_response_file, json.dumps(full_response_json, indent=2))
+        
     timing.end_time = time.time()
     event_decisions = EventInvestmentDecisions(
         event_id=event.id,
