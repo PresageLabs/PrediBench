@@ -6,8 +6,10 @@ import {
 } from '@visx/xychart'
 import { extent } from 'd3-array'
 import { format } from 'date-fns'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
+import { MarkerAnnotations } from './MarkerAnnotations'
+import type { ModelInvestmentDecision } from '../../api'
 
 const tickLabelOffset = 10
 
@@ -34,6 +36,16 @@ interface VisxLineChartProps {
   formatTooltipX?: (value: Date) => string
   showGrid?: boolean
   numTicks?: number
+  /** Optional: Show decision point markers with hover annotations */
+  showDecisionMarkers?: boolean
+  /** Optional: Investment decisions data for markers (required if showDecisionMarkers is true) */
+  modelDecisions?: ModelInvestmentDecision[]
+  /** Optional: Custom annotations indexed by date string (YYYY-MM-DD) */
+  additionalAnnotations?: Record<string, {
+    content: React.ReactNode
+    /** Function to calculate the next annotation date for area highlighting */
+    getNextDate?: () => string | null
+  }>
 }
 
 const defaultAccessors = {
@@ -61,6 +73,12 @@ interface TooltipState {
 interface HoverState {
   xPosition: number
   tooltips: TooltipState[]
+  customAnnotation?: {
+    date: Date
+    content: React.ReactNode
+    nextDate?: Date | null
+  }
+  clipEndPosition?: number  // For clipping colored line to end of annotation period
 }
 
 export function VisxLineChart({
@@ -72,7 +90,10 @@ export function VisxLineChart({
   yDomain,
   formatTooltipX = (value: Date) => format(value, 'MMM d, yyyy'),
   showGrid = true,
-  numTicks = 4
+  numTicks = 4,
+  showDecisionMarkers = false,
+  modelDecisions = [],
+  additionalAnnotations = {}
 }: VisxLineChartProps) {
   // Ensure minimum of 4 ticks for better readability
   const effectiveNumTicks = Math.max(numTicks, 4)
@@ -108,6 +129,39 @@ export function VisxLineChart({
     },
     [yAccessor]
   )
+
+
+  // Helper to find which annotation period a date falls into
+  const findAnnotationPeriod = useCallback((date: Date): {
+    startDate: Date
+    endDate: Date | null
+    annotation: typeof additionalAnnotations[string]
+  } | null => {
+    if (Object.keys(additionalAnnotations).length === 0) return null
+    
+    const dateTime = date.getTime()
+    const annotationDates = Object.keys(additionalAnnotations).sort()
+    
+    // Find the annotation period this date falls into
+    for (let i = 0; i < annotationDates.length; i++) {
+      const startDate = new Date(annotationDates[i])
+      const endDate = i < annotationDates.length - 1 ? new Date(annotationDates[i + 1]) : null
+      
+      // Check if date falls within this period
+      const afterStart = dateTime >= startDate.getTime()
+      const beforeEnd = !endDate || dateTime < endDate.getTime()
+      
+      if (afterStart && beforeEnd) {
+        return {
+          startDate,
+          endDate,
+          annotation: additionalAnnotations[annotationDates[i]]
+        }
+      }
+    }
+    
+    return null
+  }, [additionalAnnotations])
 
   // Update container width when component mounts/resizes
   useEffect(() => {
@@ -257,6 +311,36 @@ export function VisxLineChart({
     if (!containerRef.current || !scales) return
 
     const hoveredTime = scales.xScale.invert(targetX)
+    
+    // If additionalAnnotations is provided, completely disable standard tooltips
+    if (Object.keys(additionalAnnotations).length > 0) {
+      const period = findAnnotationPeriod(hoveredTime)
+      
+      if (period) {
+        // Calculate the middle X position of the period for annotation display
+        const startX = scales.xScale(period.startDate)
+        const endX = period.endDate ? scales.xScale(period.endDate) : containerWidth - margin.right
+        const middleX = (startX + endX) / 2
+        
+        setHoverState({
+          xPosition: middleX,
+          tooltips: [],
+          customAnnotation: {
+            date: period.startDate,
+            content: period.annotation.content,
+            nextDate: period.endDate
+          },
+          clipEndPosition: endX
+        })
+        return
+      }
+      
+      // No period found - no hover state when additionalAnnotations is provided
+      setHoverState(null)
+      return
+    }
+
+    // Standard tooltip logic (only when no additionalAnnotations)
     const newTooltips: TooltipState[] = []
 
     series.forEach((line) => {
@@ -292,7 +376,7 @@ export function VisxLineChart({
       const xPos = scales.xScale(safeXAccessor(closestPoint))
       const yPos = scales.yScale(safeYAccessor(closestPoint))
       if (!Number.isFinite(xPos) || !Number.isFinite(yPos)) return
-
+      
       newTooltips.push({
         x: xPos,
         y: yPos,
@@ -329,7 +413,7 @@ export function VisxLineChart({
       xPosition: alignedXPosition,
       tooltips: filteredTooltips
     })
-  }, [series, safeXAccessor, safeYAccessor, scales, containerRef])
+  }, [series, safeXAccessor, safeYAccessor, scales, containerRef, additionalAnnotations, findAnnotationPeriod, containerWidth, margin])
 
   // Compute marker points: one circle per x-point, except the very first
   // point of each continuous segment. If clipTime is provided, only include
@@ -463,17 +547,60 @@ export function VisxLineChart({
           </clipPath>
 
           {/* Dynamic hover clip paths for colored lines (horizontal-only clipping) */}
-          {hoverState && series.map((_, index) => (
-            <clipPath key={index} id={`hover-clip-${index}`}>
-              <rect
-                x={margin.left}
-                y={0}
-                width={Math.max(0, hoverState.xPosition - margin.left)}
-                height={height}
-              />
-            </clipPath>
-          ))}
+          {hoverState && series.map((_, index) => {
+            // Use clipEndPosition if available (for annotation periods), otherwise use xPosition
+            const clipX = hoverState.clipEndPosition ?? hoverState.xPosition
+            return (
+              <clipPath key={index} id={`hover-clip-${index}`}>
+                <rect
+                  x={margin.left}
+                  y={0}
+                  width={Math.max(0, clipX - margin.left)}
+                  height={height}
+                />
+              </clipPath>
+            )
+          })}
+
+          {/* Hashed pattern for annotation period highlighting */}
+          <pattern
+            id="annotation-highlight"
+            patternUnits="userSpaceOnUse"
+            width="4"
+            height="4"
+            patternTransform="rotate(45)"
+          >
+            <rect
+              width="4"
+              height="4"
+              fill="transparent"
+            />
+            <rect
+              x="0"
+              y="0"
+              width="1"
+              height="4"
+              fill="hsl(var(--muted-foreground))"
+              opacity="0.3"
+            />
+          </pattern>
         </defs>
+
+        {/* Hashed area highlighting for annotation periods */}
+        {hoverState?.customAnnotation && (
+          <rect
+            x={scales.xScale(hoverState.customAnnotation.date)}
+            y={margin.top}
+            width={hoverState.customAnnotation.nextDate 
+              ? scales.xScale(hoverState.customAnnotation.nextDate) - scales.xScale(hoverState.customAnnotation.date)
+              : (containerWidth - margin.right) - scales.xScale(hoverState.customAnnotation.date)
+            }
+            height={height - margin.top - margin.bottom}
+            fill="url(#annotation-highlight)"
+            pointerEvents="none"
+          />
+        )}
+
         {/* Horizontal grid lines for each Y tick (locked to our computed ticks if available) */}
         {showGrid && (
           <g>
@@ -565,6 +692,16 @@ export function VisxLineChart({
             })()}
           </g>
         ))}
+        
+        {/* Decision point markers with hover annotations */}
+        {showDecisionMarkers && modelDecisions.length > 0 && (
+          <MarkerAnnotations
+            xScale={scales.xScale}
+            yScale={scales.yScale}
+            cumulativeData={series.length > 0 ? series[0].data.map(d => ({ x: d.x as string, y: d.y as number })) : []}
+            modelDecisions={modelDecisions}
+          />
+        )}
       </XYChart>
 
       {/* Hover state: single sliding container */}
@@ -585,23 +722,55 @@ export function VisxLineChart({
               transform: anchorRight ? 'translateX(-100%)' : 'translateX(0%)'
             }}
           >
-            {/* Vertical hover line */}
-            <div
-              style={{
-                position: 'absolute',
-                left: 0,
-                top: margin.top,
-                width: '1px',
-                backgroundColor: '#9ca3af',
-                height: height - margin.top - margin.bottom
-              }}
-            />
+            {/* Vertical hover lines - start and end of period */}
+            {hoverState.customAnnotation ? (
+              <>
+                {/* Start line */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: scales.xScale(hoverState.customAnnotation.date) - hoverState.xPosition,
+                    top: margin.top,
+                    width: '1px',
+                    backgroundColor: '#9ca3af',
+                    height: height - margin.top - margin.bottom
+                  }}
+                />
+                {/* End line */}
+                {hoverState.customAnnotation.nextDate && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: scales.xScale(hoverState.customAnnotation.nextDate) - hoverState.xPosition,
+                      top: margin.top,
+                      width: '1px',
+                      backgroundColor: '#9ca3af',
+                      height: height - margin.top - margin.bottom
+                    }}
+                  />
+                )}
+              </>
+            ) : (
+              /* Standard single vertical line */
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: margin.top,
+                  width: '1px',
+                  backgroundColor: '#9ca3af',
+                  height: height - margin.top - margin.bottom
+                }}
+              />
+            )}
 
             {/* Date label */}
             <div
               style={{
                 position: 'absolute',
-                left: 0,
+                left: hoverState.customAnnotation 
+                  ? scales.xScale(hoverState.customAnnotation.date) - hoverState.xPosition
+                  : 0,
                 top: margin.top - 20,
                 transform: anchorRight ? 'translateX(-100%)' : 'translateX(0%)',
                 color: '#9ca3af',
@@ -610,73 +779,102 @@ export function VisxLineChart({
                 whiteSpace: 'nowrap'
               }}
             >
-              {hoverState.tooltips.length > 0 && formatTooltipX(safeXAccessor(hoverState.tooltips[0].datum))}
+              {hoverState.customAnnotation 
+                ? formatTooltipX(hoverState.customAnnotation.date)
+                : hoverState.tooltips.length > 0 && formatTooltipX(safeXAccessor(hoverState.tooltips[0].datum))
+              }
             </div>
 
-            {/* Tooltips and hover points - positioned relative to container */}
-            {(() => {
-              // Sort from bottom to top (filtering is now done earlier)
-              const sortedTooltips = [...hoverState.tooltips].sort((a, b) => b.y - a.y)
+            {/* Custom annotation or standard tooltips */}
+            {hoverState.customAnnotation ? (
+              /* Custom annotation display - positioned in middle of hashed area */
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 0, // Already positioned at the middle X by processCalculationQueue
+                  top: margin.top + 40,
+                  transform: 'translateX(-50%)', // Center horizontally on the middle position
+                  zIndex: 1001,
+                  backgroundColor: 'hsl(var(--popover))',
+                  color: 'hsl(var(--foreground))',
+                  border: '1px solid hsl(var(--border))',
+                  padding: '16px 20px',
+                  borderRadius: '12px',
+                  fontSize: '13px',
+                  boxShadow: '0 8px 25px -3px rgba(0, 0, 0, 0.15)',
+                  minWidth: '420px',
+                  maxWidth: '500px',
+                  whiteSpace: 'normal'
+                }}
+              >
+                {hoverState.customAnnotation.content}
+              </div>
+            ) : (
+              /* Standard tooltips */
+              (() => {
+                // Sort from bottom to top (filtering is now done earlier)
+                const sortedTooltips = [...hoverState.tooltips].sort((a, b) => b.y - a.y)
 
-              // Position tooltips with overlap prevention
-              const tooltipHeight = 24
-              const gap = 2
-              let lastBottom = height
+                // Position tooltips with overlap prevention
+                const tooltipHeight = 24
+                const gap = 2
+                let lastBottom = height
 
-              const repositionedTooltips = sortedTooltips.map(tooltip => {
-                const originalTop = tooltip.y - tooltipHeight / 2
-                let newTop = Math.min(originalTop, lastBottom - tooltipHeight - gap)
-                newTop = Math.max(margin.top, newTop)
-                lastBottom = newTop
+                const repositionedTooltips = sortedTooltips.map(tooltip => {
+                  const originalTop = tooltip.y - tooltipHeight / 2
+                  let newTop = Math.min(originalTop, lastBottom - tooltipHeight - gap)
+                  newTop = Math.max(margin.top, newTop)
+                  lastBottom = newTop
 
-                return {
-                  ...tooltip,
-                  adjustedY: newTop + tooltipHeight / 2,
-                  // Convert absolute positions to relative positions within container
-                  relativeX: tooltip.x - hoverState.xPosition
-                }
-              })
+                  return {
+                    ...tooltip,
+                    adjustedY: newTop + tooltipHeight / 2,
+                    // Convert absolute positions to relative positions within container
+                    relativeX: tooltip.x - hoverState.xPosition
+                  }
+                })
 
-              return repositionedTooltips.map((tooltip, index) => (
-                <div key={`tooltip-${tooltip.lineConfig.dataKey}-${index}`}>
-                  {/* Hover point - positioned relative to container */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      left: tooltip.relativeX - 5,
-                      top: tooltip.y - 5,
-                      width: '10px',
-                      height: '10px',
-                      borderRadius: '50%',
-                      backgroundColor: tooltip.lineConfig.stroke,
-                      border: '2px solid white',
-                      zIndex: 1000
-                    }}
-                  />
+                return repositionedTooltips.map((tooltip, index) => (
+                  <div key={`tooltip-${tooltip.lineConfig.dataKey}-${index}`}>
+                    {/* Hover point - positioned relative to container */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: tooltip.relativeX - 5,
+                        top: tooltip.y - 5,
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '50%',
+                        backgroundColor: tooltip.lineConfig.stroke,
+                        border: '2px solid white',
+                        zIndex: 1000
+                      }}
+                    />
 
-                  {/* Tooltip - positioned relative to container */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      left: anchorRight ? tooltip.relativeX - 8 : tooltip.relativeX + 8,
-                      top: tooltip.adjustedY,
-                      transform: anchorRight ? 'translate(-100%, -50%)' : 'translateY(-50%)',
-                      zIndex: 1001,
-                      backgroundColor: tooltip.lineConfig.stroke,
-                      color: 'white',
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      fontSize: '11px',
-                      fontWeight: '500',
-                      whiteSpace: 'nowrap',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                    }}
-                  >
-                    <strong>{safeYAccessor(tooltip.datum).toFixed(2)}</strong> - {(tooltip.lineConfig.name || tooltip.lineConfig.dataKey).substring(0, 20)}
+                    {/* Standard tooltip */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: anchorRight ? tooltip.relativeX - 8 : tooltip.relativeX + 8,
+                        top: tooltip.adjustedY,
+                        transform: anchorRight ? 'translate(-100%, -50%)' : 'translateY(-50%)',
+                        zIndex: 1001,
+                        backgroundColor: tooltip.lineConfig.stroke,
+                        color: 'white',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: '500',
+                        whiteSpace: 'nowrap',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                      }}
+                    >
+                      <strong>{safeYAccessor(tooltip.datum).toFixed(2)}</strong> - {(tooltip.lineConfig.name || tooltip.lineConfig.dataKey).substring(0, 20)}
+                    </div>
                   </div>
-                </div>
-              ))
-            })()}
+                ))
+              })()
+            )}
           </div>
         )
       })()}

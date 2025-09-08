@@ -1,10 +1,11 @@
 import * as Select from '@radix-ui/react-select'
 import { ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { LeaderboardEntry, ModelInvestmentDecision, ModelPerformance } from '../api'
 import { apiService } from '../api'
 import { getChartColor } from './ui/chart-colors'
+import { DecisionAnnotation } from './ui/DecisionAnnotation'
 import { InfoTooltip } from './ui/info-tooltip'
 import { ProfitDisplay } from './ui/profit-display'
 import { VisxLineChart } from './ui/visx-line-chart'
@@ -25,6 +26,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
   const [selectedEvent, setSelectedEvent] = useState<{
     eventDecision: any;
     decisionDate: string;
+    decisionDatetime: string;
   } | null>(null)
   const [calendarDate, setCalendarDate] = useState(new Date())
   const [modelPerformance, setModelPerformance] = useState<ModelPerformance | null>(null)
@@ -110,8 +112,8 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     navigate(`/models?selected=${modelId}`, { replace: true })
   }
 
-  const handleEventClick = (eventDecision: any, decisionDate: string) => {
-    setSelectedEvent({ eventDecision, decisionDate })
+  const handleEventClick = (eventDecision: any, decisionDate: string, decisionDatetime: string) => {
+    setSelectedEvent({ eventDecision, decisionDate, decisionDatetime })
     setShowEventPopup(true)
   }
 
@@ -281,6 +283,36 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     ]
   }, [modelPerformance])
 
+  // Generate additional annotations for decision points
+  const additionalAnnotations = useMemo(() => {
+    if (!modelDecisions.length || !modelPerformance) return {}
+
+    const annotations: Record<string, { content: React.ReactNode }> = {}
+
+    // Sort decisions by date to calculate returns properly
+    const sortedDecisions = [...modelDecisions].sort((a, b) => a.target_date.localeCompare(b.target_date))
+
+    // Get cumulative data for period profit calculations
+    const cumulativeData = (modelPerformance.cummulative_pnl || []).map(pt => ({ x: pt.date, y: pt.value }))
+
+    sortedDecisions.forEach((decision, index) => {
+      const nextDecision = index < sortedDecisions.length - 1 ? sortedDecisions[index + 1] : undefined
+
+      annotations[decision.target_date] = {
+        content: (
+          <DecisionAnnotation
+            decision={decision}
+            nextDecision={nextDecision}
+            allDecisions={sortedDecisions}
+            cumulativeData={cumulativeData}
+          />
+        )
+      }
+    })
+
+    return annotations
+  }, [modelDecisions, modelPerformance])
+
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header with title and model selection */}
@@ -370,18 +402,19 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
             <div className="mb-8">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
                 Cumulative Profit
-                <InfoTooltip content="Cumulative profit for this model since the beginning." />
+                <InfoTooltip content="Cumulative profit for this model. Given that we invest 1$ on each event at each decision date, this is just the ratio of final value / initial value." />
               </h3>
               <div className="h-[500px]">
                 {cumulativeSeries.length === 0 ? (
                   <div className="h-full bg-muted/20 rounded-lg flex items-center justify-center">
-                    <div className="text-sm text-muted-foreground">No event PnL data available.</div>
+                    <div className="text-sm text-muted-foreground">No event profit data available.</div>
                   </div>
                 ) : (
                   <VisxLineChart
                     height={500}
                     margin={{ left: 60, top: 35, bottom: 38, right: 27 }}
                     series={cumulativeSeries}
+                    additionalAnnotations={additionalAnnotations}
                   />
                 )}
               </div>
@@ -471,7 +504,10 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                         ?.event_investment_decisions.map((eventDecision, index) => (
                           <button
                             key={index}
-                            onClick={() => handleEventClick(eventDecision, selectedDate)}
+                            onClick={() => {
+                              const decision = modelDecisions.find(d => d.target_date === selectedDate)
+                              handleEventClick(eventDecision, selectedDate, decision?.decision_datetime || '')
+                            }}
                             className="w-full p-3 bg-muted/20 rounded hover:bg-muted/30 transition-colors text-left h-full"
                           >
                             <div className="font-medium text-sm line-clamp-2">{eventDecision.event_title}</div>
@@ -515,7 +551,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
             <div className="p-6">
               <div className="mb-6">
                 <div className="text-sm text-muted-foreground mb-4">
-                  Position taken on {formatLongDate(selectedEvent.decisionDate)}{positionEndDate && `, ended on ${formatLongDate(positionEndDate)}`}
+                  Position taken on {formatLongDate(selectedEvent.decisionDate)} at {selectedEvent.decisionDatetime ? new Date(selectedEvent.decisionDatetime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'UTC', timeZoneName: 'short' }) : ''}{positionEndDate && `, ended on ${formatLongDate(positionEndDate)}`}
                 </div>
 
                 <div className="overflow-x-auto bg-muted/10 rounded-lg p-4">
