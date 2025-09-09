@@ -32,7 +32,7 @@ from tenacity import (
     retry_if_exception,
     retry_if_exception_type,
     stop_after_attempt,
-    wait_exponential,
+    wait_random,
     before_sleep_log,
     after_log,
 )
@@ -88,7 +88,7 @@ class GoogleSearchTool(Tool):
 
     @retry(
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=10, max=60),
+        wait=wait_random(min=10, max=120),
         retry=retry_if_exception_type((requests.exceptions.RequestException,)),
         reraise=True,
     )
@@ -273,7 +273,7 @@ class ScrapeDoVisitWebpageTool(Tool):
 
     @retry(
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=5, max=60),
+        wait=wait_random(min=10, max=120),
         retry=retry_if_exception_type((requests.exceptions.RequestException,)),
         reraise=True,
     )

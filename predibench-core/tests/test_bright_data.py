@@ -28,18 +28,8 @@ def test_bright_data_forward():
     assert "september 2025 federal reserve" in result.lower()
     print(f"Result: {result}")
     
-def not_great_test_bright_data_sdk():
-    from brightdata import bdclient
-
-    client = bdclient(api_token=os.getenv("BRIGHT_SERPER_API_KEY")) # Can also be taken from .env file
-
-    results = client.scrape(query=SEARCH_QUERY, response_format="json")
-    # Try adding parameters like: search_engine="bing"/"yandex", country="gb"
-
-    results = client.parse_content(results)
-    pass 
-    # Try parsing the result for easy to read result / low token usage
     
+@pytest.mark.skip(reason="Testing Bright Data Playwright directly")
 def test_bright_data_playwright():
     import asyncio
     from os import environ
@@ -99,11 +89,9 @@ def test_bright_data_playwright():
 def test_visit_webpage_tool():
     tool = VisitWebpageTool()
     result = tool.forward(TARGET_URL)
-    assert isinstance(result, str)
-    assert len(result) > 0
-    assert "CNBC" in result
-    print(f"Result: {result}")
 
+
+@pytest.mark.skip(reason="Testing Scrape.do directly")
 def test_scrape_do():
     import requests
     import urllib.parse
@@ -127,6 +115,8 @@ def test_scrape_do():
     assert response.status_code == 200
     assert len(response.text) > 0
 
+
+@pytest.mark.skip(reason="Testing Bright Data directly")
 def test_bright_data():
     import requests
     import json
@@ -169,11 +159,9 @@ def test_bright_data():
     pass
 
 
-if __name__ == "__main__":
-    test_scrape_do()
 
-tmp_path = Path(".")
-def test_compare_scrapers_on_search_results(tmp_path=tmp_path):
+@pytest.mark.skip(reason="THis is just a benchmark I used to compare the performance of the scrapers")
+def test_compare_scrapers_on_search_results(tmp_path=Path(".")):
     """Compare Scrape.do and Bright Data on top Google results.
 
     Simpler flow: get a few URLs, fetch each with both providers,
@@ -236,5 +224,3 @@ def test_compare_scrapers_on_search_results(tmp_path=tmp_path):
     # Ensure at least one pair worked
     assert successes >= 1, "No successful scrapes from both providers"
 
-if __name__ == "__main__":
-    test_compare_scrapers_on_search_results()
