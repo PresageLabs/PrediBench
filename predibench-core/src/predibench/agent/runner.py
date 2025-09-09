@@ -247,6 +247,8 @@ Example: If you bet 0.3 in market A, -0.2 in market B (meaning you buy 0.2 of th
         unallocated_capital=complete_market_investment_decisions.unallocated_capital,
         token_usage=complete_market_investment_decisions.token_usage,
         timing=timing,
+        sources_google=complete_market_investment_decisions.sources_google,
+        sources_visit_webpage=complete_market_investment_decisions.sources_visit_webpage,
     )
 
     return event_decisions
