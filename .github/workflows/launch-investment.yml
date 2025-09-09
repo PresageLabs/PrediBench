@@ -68,6 +68,7 @@ jobs:
           PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
           BRIGHT_SERPER_API_KEY: ${{ secrets.BRIGHT_SERPER_API_KEY }}
           SCRAPE_DO_API_KEY: ${{ secrets.SCRAPE_DO_API_KEY }}
+          SCRAPFLY_API_KEY: ${{ secrets.SCRAPFLY_API_KEY }}
         run: |
           cd predibench-core
           uv run python scripts/run_investments.py ${{ github.event.inputs.provider }}

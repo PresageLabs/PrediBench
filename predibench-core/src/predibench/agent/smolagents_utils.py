@@ -533,7 +533,7 @@ The final_answer tool must contain the arguments rationale and decision.
     google_search_tool = GoogleSearchTool(
         provider=search_provider, cutoff_date=cutoff_date
     )
-    visit_webpage_tool = ScrapeDoVisitWebpageTool()
+    visit_webpage_tool = ScrapflyVisitWebPageTool()
     tools = [
         google_search_tool,
         visit_webpage_tool,
