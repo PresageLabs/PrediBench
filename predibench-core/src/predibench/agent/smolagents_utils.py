@@ -3,7 +3,8 @@ import os
 import logging
 import textwrap
 from datetime import date
-from typing import Any
+from typing import Any, Literal
+import urllib.parse
 
 import numpy as np
 import requests
@@ -66,11 +67,21 @@ class GoogleSearchTool(Tool):
     output_type = "string"
     
 
-    def __init__(self, provider: str, cutoff_date: date | None, api_key: str):
+    def __init__(self, provider: Literal["serpapi", "bright_data", "serper"], cutoff_date: date | None):
         super().__init__()
         self.provider = provider
-        self.organic_key = "organic_results" if provider == "serpapi" else "organic"
-        self.api_key = api_key
+        if provider == "serpapi":
+            self.organic_key = "organic_results"
+            self.api_key = os.getenv("SERPAPI_API_KEY")
+        elif provider == "bright_data":
+            self.organic_key = "organic"
+            self.api_key = os.getenv("BRIGHT_SERPER_API_KEY")
+        elif provider == "serper":
+            self.organic_key = "organic"
+            self.api_key = os.getenv("SERPER_API_KEY")
+        else:
+            raise ValueError(f"Invalid provider: {provider}")
+        
         self.cutoff_date = cutoff_date
         self.sources: list[str] = []
 
@@ -92,7 +103,30 @@ class GoogleSearchTool(Tool):
                 params["tbs"] = f"cdr:1,cd_max:{self.cutoff_date.strftime('%m/%d/%Y')}"
 
             response = requests.get("https://serpapi.com/search.json", params=params)
-        else:
+
+        elif self.provider == "bright_data":
+            search_url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
+            if self.cutoff_date is not None:
+                tbs = f"cdr:1,cd_max:{self.cutoff_date.strftime('%m/%d/%Y')}"
+                search_url += f"&tbs={tbs}"
+            
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            data = {
+                "zone": "serp_api1",
+                "url": search_url,
+                "format": "json",
+                "data_format": "markdown"
+            }
+            
+            response = requests.post(
+                "https://api.brightdata.com/request",
+                json=data,
+                headers=headers
+            )
+        elif self.provider == "serper":
             payload = {
                 "q": query,
             }
@@ -295,8 +329,7 @@ def run_smolagents(
     model_info: ModelInfo,
     question: str,
     cutoff_date: date | None,
-    search_provider: str,
-    search_api_key: str,
+    search_provider: Literal["serpapi", "bright_data", "serper"],
     max_steps: int,
 ) -> CompleteMarketInvestmentDecisions:
     """Run smolagent for event-level analysis with structured output."""
@@ -312,7 +345,7 @@ The final_answer tool must contain the arguments rationale and decision.
         assert cutoff_date < date.today()
 
     google_search_tool = GoogleSearchTool(
-        provider=search_provider, cutoff_date=cutoff_date, api_key=search_api_key
+        provider=search_provider, cutoff_date=cutoff_date
     )
     visit_webpage_tool = VisitWebpageToolSaveSources()
     tools = [
@@ -360,7 +393,6 @@ def _get_cached_research_result(model_info: ModelInfo, target_date: date, event_
         return read_from_storage(cache_file_path)
         
     return None
-
 
 def _save_research_result_to_cache(
     research_output: str, model_info: ModelInfo, target_date: date, event_id: str

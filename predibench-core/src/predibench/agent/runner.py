@@ -211,7 +211,6 @@ Example: If you bet 0.3 in market A, -0.2 in market B (meaning you buy 0.2 of th
             question=full_question,
             cutoff_date=target_date if backward_mode else None,
             search_provider="serper",
-            search_api_key=os.getenv("SERPER_API_KEY"),
             max_steps=20,
         )
     for (
