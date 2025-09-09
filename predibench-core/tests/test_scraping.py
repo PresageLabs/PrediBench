@@ -8,6 +8,7 @@ from predibench.agent.smolagents_utils import (
     VisitWebpageTool,
     BrightDataVisitWebpageTool,
     ScrapeDoVisitWebpageTool,
+    ScrapflyVisitWebPageTool,
 )
 
 SEARCH_QUERY = "september 2025 federal reserve meeting expectations september 2025 rate cut probability"
@@ -224,3 +225,25 @@ def test_compare_scrapers_on_search_results(tmp_path=Path(".")):
     # Ensure at least one pair worked
     assert successes >= 1, "No successful scrapes from both providers"
 
+
+def test_scrapfly():
+    """Test ScrapflyVisitWebPageTool directly."""
+    if not os.getenv("SCRAPFLY_API_KEY"):
+        pytest.skip("SCRAPFLY_API_KEY not found in environment variables")
+    
+    tool = ScrapflyVisitWebPageTool(asp=True, render_js=True)
+    result = tool.forward(TARGET_URL)
+    
+    # Basic assertions
+    assert isinstance(result, str)
+    assert len(result) > 0
+    assert tool.sources == [TARGET_URL]
+    
+    # Save result to file for inspection
+    # with open('scraped_content_scrapfly.md', 'w', encoding='utf-8') as f:
+    #     f.write(result)
+    # print('Scrapfly content saved to scraped_content_scrapfly.md')
+    # print(f"Scraped {len(result)} characters from {TARGET_URL}")
+
+if __name__ == "__main__":
+    test_scrapfly()
