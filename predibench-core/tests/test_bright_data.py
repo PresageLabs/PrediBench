@@ -1,6 +1,9 @@
 import os
 import pytest
-from predibench.agent.smolagents_utils import GoogleSearchTool
+from predibench.agent.smolagents_utils import GoogleSearchTool, VisitWebpageTool
+
+SEARCH_QUERY = "september 2025 federal reserve meeting expectations september 2025 rate cut probability"
+TARGET_URL = "https://www.cnbc.com/2025/09/08/traders-see-a-chance-the-fed-cuts-by-a-half-point.html"
 
 
 def test_bright_data_forward():
@@ -8,7 +11,7 @@ def test_bright_data_forward():
     
     # Create tool and test
     tool = GoogleSearchTool(provider="bright_data", cutoff_date=None)
-    result = tool.forward("september 2025 federal reserve meeting expectations september 2025 rate cut probability")
+    result = tool.forward(SEARCH_QUERY)
     
     # Basic assertions
     assert isinstance(result, str)
@@ -22,7 +25,7 @@ def not_great_test_bright_data_sdk():
 
     client = bdclient(api_token=os.getenv("BRIGHT_SERPER_API_KEY")) # Can also be taken from .env file
 
-    results = client.scrape(query="september 2025 federal reserve meeting expectations september 2025 rate cut probability", response_format="json")
+    results = client.scrape(query=SEARCH_QUERY, response_format="json")
     # Try adding parameters like: search_engine="bing"/"yandex", country="gb"
 
     results = client.parse_content(results)
@@ -44,7 +47,7 @@ def test_bright_data_playwright():
             raise Exception('Provide Browser API credentials in AUTH '
                             'environment variable or update the script.')
         print('Connecting to Browser...')
-        endpoint_url = f'wss://{AUTH}@brd.superproxy.io:9222'
+        endpoint_url = f'wss://brd-customer-hl_db87adc5-zone-scraping_browser1:4ylnjp14fyzm@brd.superproxy.io:9222'
         browser = await playwright.chromium.connect_over_cdp(endpoint_url)
         try:
             print(f'Connected! Navigating to {url}...')
@@ -80,10 +83,41 @@ def test_bright_data_playwright():
     async def main():
         async with async_playwright() as playwright:
             return await scrape(playwright)
+        
+    # test TextAgent
 
     return asyncio.run(main())
 
+def test_visit_webpage_tool():
+    tool = VisitWebpageTool()
+    result = tool.forward(TARGET_URL)
+    assert isinstance(result, str)
+    assert len(result) > 0
+    assert "CNBC" in result
+    print(f"Result: {result}")
 
+def test_scrape_do():
+    import requests
+    import urllib.parse
+
+    # URL encode the target URL for proper API usage
+    encoded_target_url = urllib.parse.quote(TARGET_URL)
+    
+    # Build the scrape.do API URL with proper parameter substitution
+    scrape_api_url = f"http://api.scrape.do/?url={encoded_target_url}&token={os.getenv('SCRAPE_DO_API_KEY')}&output=markdown&render=true"
+    
+    # Make the API request
+    response = requests.get(scrape_api_url)
+    
+    # Print and validate response
+    print(response.text)
+    with open('scraped_content_scrape_do.md', 'w', encoding='utf-8') as f:
+        f.write(response.text)
+    print('Markdown content saved to scraped_content.md')
+    
+    # Basic assertions to ensure the request worked
+    assert response.status_code == 200
+    assert len(response.text) > 0
 
 def test_bright_data():
     import requests
@@ -93,7 +127,7 @@ def test_bright_data():
 
     # Define search parameters as dictionary
     search_params = {
-        "q": "september 2025 federal reserve meeting expectations september 2025 rate cut probability",  # Example with spaces
+        "q": SEARCH_QUERY,  # Example with spaces
         "gl": "US",
         "hl": "en",
         "brd_json": "1"
@@ -128,4 +162,4 @@ def test_bright_data():
 
 
 if __name__ == "__main__":
-    test_bright_data_playwright()
+    test_scrape_do()
