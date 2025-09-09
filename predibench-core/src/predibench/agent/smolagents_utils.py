@@ -57,6 +57,17 @@ class VisitWebpageToolSaveSources(VisitWebpageTool):
         self.sources.append(url)
         self.sources = list(dict.fromkeys(self.sources))
         return content
+
+
+class VisitWebpageToolWithSources(Tool):
+    def __init__(self):
+        super().__init__()
+        self.sources: list[str] = []
+    
+    def _add_source(self, url: str) -> None:
+        """Add a URL to the sources list, avoiding duplicates."""
+        self.sources.append(url)
+        self.sources = list(dict.fromkeys(self.sources))
     
 
 class GoogleSearchTool(Tool):
@@ -196,13 +207,16 @@ class GoogleSearchTool(Tool):
         return f"## Search Results for '{query}'\n" + "\n\n".join(web_snippets)
 
 
-class BrightDataVisitWebpageTool(Tool):
-    name = "visit_webpage_bright_data"
+class BrightDataVisitWebpageTool(VisitWebpageToolWithSources):
+    name = "visit_webpage"
     description = (
-        "Visits a webpage using Bright Data's Playwright browser and returns markdown content."
+        "Visits a webpage at the given url and reads its content as a markdown string. Use this to browse webpages."
     )
     inputs = {
-        "url": {"type": "string", "description": "The webpage URL to fetch."},
+        "url": {
+            "type": "string",
+            "description": "The url of the webpage to visit.",
+        }
     }
     output_type = "string"
 
@@ -249,16 +263,20 @@ class BrightDataVisitWebpageTool(Tool):
             raise ValueError("Failed to retrieve page content via Bright Data Playwright.")
 
         markdown_content = md(html, heading_style="ATX")
+        self._add_source(url)
         return markdown_content
 
 
-class ScrapeDoVisitWebpageTool(Tool):
-    name = "visit_webpage_scrape_do"
+class ScrapeDoVisitWebpageTool(VisitWebpageToolWithSources):
+    name = "visit_webpage"
     description = (
-        "Visits a webpage using Scrape.do and returns markdown content."
+        "Visits a webpage at the given url and reads its content as a markdown string. Use this to browse webpages."
     )
     inputs = {
-        "url": {"type": "string", "description": "The webpage URL to fetch."},
+        "url": {
+            "type": "string",
+            "description": "The url of the webpage to visit.",
+        }
     }
     output_type = "string"
 
@@ -293,6 +311,7 @@ class ScrapeDoVisitWebpageTool(Tool):
             raise ValueError(response.text)
 
         # Scrape.do already returns markdown when output=markdown
+        self._add_source(url)
         return response.text
 
 @tool
@@ -468,7 +487,7 @@ The final_answer tool must contain the arguments rationale and decision.
     google_search_tool = GoogleSearchTool(
         provider=search_provider, cutoff_date=cutoff_date
     )
-    visit_webpage_tool = VisitWebpageToolSaveSources()
+    visit_webpage_tool = ScrapeDoVisitWebpageTool()
     tools = [
         google_search_tool,
         visit_webpage_tool,

@@ -210,7 +210,7 @@ Example: If you bet 0.3 in market A, -0.2 in market B (meaning you buy 0.2 of th
             model_info=model_info,
             question=full_question,
             cutoff_date=target_date if backward_mode else None,
-            search_provider="serper",
+            search_provider="bright_data",
             max_steps=20,
         )
     for (

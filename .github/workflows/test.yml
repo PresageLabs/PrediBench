@@ -38,5 +38,7 @@ jobs:
       env:
         BUCKET_PREDIBENCH: "predibench"
         HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        BRIGHT_SERPER_API_KEY: ${{ secrets.BRIGHT_SERPER_API_KEY }}
+        SCRAPE_DO_API_KEY: ${{ secrets.SCRAPE_DO_API_KEY }}
       run: |
         cd predibench-core && uv run python -m pytest tests/
