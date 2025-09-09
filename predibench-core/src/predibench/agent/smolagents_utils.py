@@ -36,6 +36,7 @@ from tenacity import (
     before_sleep_log,
     after_log,
 )
+from markdownify import markdownify as md
 
 logger = get_logger(__name__)
 
@@ -193,6 +194,159 @@ class GoogleSearchTool(Tool):
                 self.sources.append(page["link"])
         self.sources = list(dict.fromkeys(self.sources))
         return f"## Search Results for '{query}'\n" + "\n\n".join(web_snippets)
+
+
+class BrightDataVisitWebpageTool(Tool):
+    name = "visit_webpage_bright_data"
+    description = (
+        "Visits a webpage using Bright Data's Playwright browser and returns markdown content."
+    )
+    inputs = {
+        "url": {"type": "string", "description": "The webpage URL to fetch."},
+    }
+    output_type = "string"
+
+    def __init__(self, zone: str | None = None):
+        super().__init__()
+        # Expect a full Bright Data browser CDP endpoint in env
+        self.endpoint = os.getenv("BRIGHT_DATA_BROWSER_ENDPOINT")
+        if not self.endpoint:
+            raise ValueError(
+                "Missing BRIGHT_DATA_BROWSER_ENDPOINT environment variable with the full wss CDP URL."
+            )
+        # Lazy-initialized Playwright and browser connection
+        self._p = None
+        self._browser = None
+
+
+    def _ensure_browser(self):
+        # Initialize Playwright and connect to Bright Data browser if needed
+        if self._browser is not None:
+            try:
+                if getattr(self._browser, "is_connected", lambda: False)():
+                    return
+            except Exception:
+                pass
+
+        if self._p is None:
+            from playwright.sync_api import sync_playwright
+            self._p = sync_playwright().start()
+
+        # Close previous browser if any
+        try:
+            if self._browser is not None:
+                self._browser.close()
+        except Exception:
+            pass
+        self._browser = self._p.chromium.connect_over_cdp(self.endpoint)
+
+    def close(self):
+        # Cleanly close browser and Playwright
+        try:
+            if self._browser is not None:
+                self._browser.close()
+        except Exception:
+            pass
+        finally:
+            self._browser = None
+        try:
+            if self._p is not None:
+                self._p.stop()
+        except Exception:
+            pass
+        finally:
+            self._p = None
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=5, max=60),
+        retry=retry_if_exception_type((requests.exceptions.RequestException,)),
+        reraise=True,
+    )
+    def forward(self, url: str) -> str:
+        # Ensure a connected browser, reuse across calls
+        self._ensure_browser()
+        browser = self._browser
+        page = None
+        html = ""
+        try:
+            page = browser.new_page()
+            page.goto(url, timeout=2 * 60_000, wait_until="load")
+            html = page.content()
+        except Exception:
+            # Attempt one reconnect in case the connection dropped
+            self._ensure_browser()
+            browser = self._browser
+            if page is not None:
+                try:
+                    page.close()
+                except Exception:
+                    pass
+            page = browser.new_page()
+            page.goto(url, timeout=2 * 60_000, wait_until="load")
+            html = page.content()
+        finally:
+            if page is not None:
+                try:
+                    page.close()
+                except Exception:
+                    pass
+
+        if not html:
+            raise ValueError("Failed to retrieve page content via Bright Data Playwright.")
+
+        markdown_content = md(html, heading_style="ATX")
+        return markdown_content
+
+
+class ScrapeDoVisitWebpageTool(Tool):
+    name = "visit_webpage_scrape_do"
+    description = (
+        "Visits a webpage using Scrape.do and returns markdown content."
+    )
+    inputs = {
+        "url": {"type": "string", "description": "The webpage URL to fetch."},
+    }
+    output_type = "string"
+
+    def __init__(self, render: bool = True):
+        super().__init__()
+        self.api_key = os.getenv("SCRAPE_DO_API_KEY")
+        if not self.api_key:
+            raise ValueError(
+                "Missing SCRAPE_DO_API_KEY environment variable for Scrape.do API."
+            )
+        self.render = render
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=5, max=60),
+        retry=retry_if_exception_type((requests.exceptions.RequestException,)),
+        reraise=True,
+    )
+    def forward(self, url: str) -> str:
+        encoded_target_url = urllib.parse.quote(url, safe="")
+        render_param = "true" if self.render else "false"
+        scrape_api_url = (
+            f"http://api.scrape.do/?url={encoded_target_url}&token={self.api_key}"
+            f"&output=markdown&render={render_param}"
+        )
+
+        response = requests.get(scrape_api_url)
+        if response.status_code != 200:
+            logger.error(
+                f"Scrape.do error {response.status_code}: {response.text}"
+            )
+            raise ValueError(response.text)
+
+        # Scrape.do already returns markdown when output=markdown
+        return response.text
 
 @tool
 def final_answer(
