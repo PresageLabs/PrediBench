@@ -105,25 +105,32 @@ class GoogleSearchTool(Tool):
             response = requests.get("https://serpapi.com/search.json", params=params)
 
         elif self.provider == "bright_data":
-            search_url = f"https://www.google.com/search?q={urllib.parse.quote(query)}"
-            if self.cutoff_date is not None:
-                tbs = f"cdr:1,cd_max:{self.cutoff_date.strftime('%m/%d/%Y')}"
-                search_url += f"&tbs={tbs}"
+            # Define search parameters as dictionary for proper URL encoding
+            search_params = {
+                "q": query,
+                "gl": "US",
+                "hl": "en",
+                "brd_json": "1"
+            }
+            
+            # Encode parameters properly
+            encoded_params = urllib.parse.urlencode(search_params)
+            search_url = f"https://google.com/search?{encoded_params}"
             
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json"
             }
-            data = {
+            payload = {
+                "method": "GET",
                 "zone": "serp_api1",
                 "url": search_url,
                 "format": "json",
-                "data_format": "markdown"
             }
             
             response = requests.post(
                 "https://api.brightdata.com/request",
-                json=data,
+                json=payload,
                 headers=headers
             )
         elif self.provider == "serper":
@@ -139,7 +146,11 @@ class GoogleSearchTool(Tool):
             )
 
         if response.status_code == 200:
-            results = response.json()
+            if self.provider == "bright_data":
+                raw_result = response.json()
+                results = json.loads(raw_result["body"])
+            else:
+                results = response.json()
         else:
             logger.error(f"Error response: {response.status_code}")
             logger.error(f"Response text: {response.text}")
@@ -156,7 +167,14 @@ class GoogleSearchTool(Tool):
         if self.organic_key in results:
             for idx, page in enumerate(results[self.organic_key]):
                 date_published = ""
-                if "date" in page:
+                # Handle different date formats for different providers
+                if self.provider == "bright_data" and "extensions" in page:
+                    # Take the first extension text as date
+                    if page["extensions"] and len(page["extensions"]) > 0:
+                        first_ext = page["extensions"][0]
+                        if isinstance(first_ext, dict) and "text" in first_ext:
+                            date_published = "\nDate published: " + first_ext["text"]
+                elif "date" in page:
                     date_published = "\nDate published: " + page["date"]
 
                 source = ""
@@ -164,7 +182,10 @@ class GoogleSearchTool(Tool):
                     source = "\nSource: " + page["source"]
 
                 snippet = ""
-                if "snippet" in page:
+                # Handle different field names for different providers
+                if self.provider == "bright_data" and "description" in page:
+                    snippet = "\n" + page["description"]
+                elif "snippet" in page:
                     snippet = "\n" + page["snippet"]
 
                 redacted_version = f"{idx}. [{page['title']}]({page['link']}){date_published}{source}\n{snippet}"
@@ -172,7 +193,6 @@ class GoogleSearchTool(Tool):
                 self.sources.append(page["link"])
         self.sources = list(dict.fromkeys(self.sources))
         return f"## Search Results for '{query}'\n" + "\n\n".join(web_snippets)
-
 
 @tool
 def final_answer(

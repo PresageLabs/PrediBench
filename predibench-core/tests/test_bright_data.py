@@ -8,22 +8,37 @@ def test_bright_data_forward():
     
     # Create tool and test
     tool = GoogleSearchTool(provider="bright_data", cutoff_date=None)
-    result = tool.forward("September 2025 Federal Reserve meeting expectations September 2025 rate cut probability")
+    result = tool.forward("september 2025 federal reserve meeting expectations september 2025 rate cut probability")
     
     # Basic assertions
     assert isinstance(result, str)
     assert len(result) > 0
+    assert "Search Results for" in result
+    assert "september 2025 federal reserve" in result.lower()
     print(f"Result: {result}")
     
-def test_bright_data_2():
+def test_bright_data():
     import requests
     import json
+    from urllib.parse import urlencode
     url = "https://api.brightdata.com/request"
+
+    # Define search parameters as dictionary
+    search_params = {
+        "q": "september 2025 federal reserve meeting expectations september 2025 rate cut probability",  # Example with spaces
+        "gl": "US",
+        "hl": "en",
+        "brd_json": "1"
+    }
+    
+    # Encode parameters properly
+    encoded_params = urlencode(search_params)
+    search_url = f"https://google.com/search?{encoded_params}"
 
     payload = {
         "method": "GET",
         "zone": "serp_api1",
-        "url": "https://google.com/search?q=pizza&gl=US&hl=en&brd_json=1",
+        "url": search_url,
         "format": "json",
     }
     headers = {
@@ -35,8 +50,13 @@ def test_bright_data_2():
 
     result = response.json()
     body = json.loads(result["body"])
+    assert body["organic"] is not None
+    assert len(body["organic"]) >= 9
+    assert body["organic"][0]["title"] is not None  
+    assert body["organic"][0]["link"] is not None
+    assert body["organic"][0]["description"] is not None
     pass
 
 
 if __name__ == "__main__":
-    test_bright_data_2()
+    test_bright_data_forward()
