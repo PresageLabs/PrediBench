@@ -3,7 +3,8 @@ import os
 import logging
 import textwrap
 from datetime import date
-from typing import Any
+from typing import Any, Literal
+import urllib.parse
 
 import numpy as np
 import requests
@@ -31,10 +32,11 @@ from tenacity import (
     retry_if_exception,
     retry_if_exception_type,
     stop_after_attempt,
-    wait_exponential,
+    wait_random,
     before_sleep_log,
     after_log,
 )
+from markdownify import markdownify as md
 
 logger = get_logger(__name__)
 
@@ -55,6 +57,17 @@ class VisitWebpageToolSaveSources(VisitWebpageTool):
         self.sources.append(url)
         self.sources = list(dict.fromkeys(self.sources))
         return content
+
+
+class VisitWebpageToolWithSources(Tool):
+    def __init__(self):
+        super().__init__()
+        self.sources: list[str] = []
+    
+    def _add_source(self, url: str) -> None:
+        """Add a URL to the sources list, avoiding duplicates."""
+        self.sources.append(url)
+        self.sources = list(dict.fromkeys(self.sources))
     
 
 class GoogleSearchTool(Tool):
@@ -66,17 +79,27 @@ class GoogleSearchTool(Tool):
     output_type = "string"
     
 
-    def __init__(self, provider: str, cutoff_date: date | None, api_key: str):
+    def __init__(self, provider: Literal["serpapi", "bright_data", "serper"], cutoff_date: date | None):
         super().__init__()
         self.provider = provider
-        self.organic_key = "organic_results" if provider == "serpapi" else "organic"
-        self.api_key = api_key
+        if provider == "serpapi":
+            self.organic_key = "organic_results"
+            self.api_key = os.getenv("SERPAPI_API_KEY")
+        elif provider == "bright_data":
+            self.organic_key = "organic"
+            self.api_key = os.getenv("BRIGHT_SERPER_API_KEY")
+        elif provider == "serper":
+            self.organic_key = "organic"
+            self.api_key = os.getenv("SERPER_API_KEY")
+        else:
+            raise ValueError(f"Invalid provider: {provider}")
+        
         self.cutoff_date = cutoff_date
         self.sources: list[str] = []
 
     @retry(
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=10, max=60),
+        wait=wait_random(min=10, max=120),
         retry=retry_if_exception_type((requests.exceptions.RequestException,)),
         reraise=True,
     )
@@ -92,7 +115,37 @@ class GoogleSearchTool(Tool):
                 params["tbs"] = f"cdr:1,cd_max:{self.cutoff_date.strftime('%m/%d/%Y')}"
 
             response = requests.get("https://serpapi.com/search.json", params=params)
-        else:
+
+        elif self.provider == "bright_data":
+            # Define search parameters as dictionary for proper URL encoding
+            search_params = {
+                "q": query,
+                "gl": "US",
+                "hl": "en",
+                "brd_json": "1"
+            }
+            
+            # Encode parameters properly
+            encoded_params = urllib.parse.urlencode(search_params)
+            search_url = f"https://google.com/search?{encoded_params}"
+            
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "method": "GET",
+                "zone": "serp_api1",
+                "url": search_url,
+                "format": "json",
+            }
+            
+            response = requests.post(
+                "https://api.brightdata.com/request",
+                json=payload,
+                headers=headers
+            )
+        elif self.provider == "serper":
             payload = {
                 "q": query,
             }
@@ -105,7 +158,11 @@ class GoogleSearchTool(Tool):
             )
 
         if response.status_code == 200:
-            results = response.json()
+            if self.provider == "bright_data":
+                raw_result = response.json()
+                results = json.loads(raw_result["body"])
+            else:
+                results = response.json()
         else:
             logger.error(f"Error response: {response.status_code}")
             logger.error(f"Response text: {response.text}")
@@ -122,7 +179,14 @@ class GoogleSearchTool(Tool):
         if self.organic_key in results:
             for idx, page in enumerate(results[self.organic_key]):
                 date_published = ""
-                if "date" in page:
+                # Handle different date formats for different providers
+                if self.provider == "bright_data" and "extensions" in page:
+                    # Take the first extension text as date
+                    if page["extensions"] and len(page["extensions"]) > 0:
+                        first_ext = page["extensions"][0]
+                        if isinstance(first_ext, dict) and "text" in first_ext:
+                            date_published = "\nDate published: " + first_ext["text"]
+                elif "date" in page:
                     date_published = "\nDate published: " + page["date"]
 
                 source = ""
@@ -130,7 +194,10 @@ class GoogleSearchTool(Tool):
                     source = "\nSource: " + page["source"]
 
                 snippet = ""
-                if "snippet" in page:
+                # Handle different field names for different providers
+                if self.provider == "bright_data" and "description" in page:
+                    snippet = "\n" + page["description"]
+                elif "snippet" in page:
                     snippet = "\n" + page["snippet"]
 
                 redacted_version = f"{idx}. [{page['title']}]({page['link']}){date_published}{source}\n{snippet}"
@@ -139,6 +206,113 @@ class GoogleSearchTool(Tool):
         self.sources = list(dict.fromkeys(self.sources))
         return f"## Search Results for '{query}'\n" + "\n\n".join(web_snippets)
 
+
+class BrightDataVisitWebpageTool(VisitWebpageToolWithSources):
+    name = "visit_webpage"
+    description = (
+        "Visits a webpage at the given url and reads its content as a markdown string. Use this to browse webpages."
+    )
+    inputs = {
+        "url": {
+            "type": "string",
+            "description": "The url of the webpage to visit.",
+        }
+    }
+    output_type = "string"
+
+    def __init__(self, zone: str | None = None):
+        super().__init__()
+        # Expect a full Bright Data browser CDP endpoint in env
+        self.endpoint = os.getenv("BRIGHT_DATA_BROWSER_ENDPOINT")
+        if not self.endpoint:
+            raise ValueError(
+                "Missing BRIGHT_DATA_BROWSER_ENDPOINT environment variable with the full wss CDP URL."
+            )
+
+    def forward(self, url: str) -> str:
+        # Create a fresh Playwright session and browser connection for each call
+        from playwright.sync_api import sync_playwright
+
+        p = sync_playwright().start()
+        browser = None
+        page = None
+        html = ""
+        try:
+            browser = p.chromium.connect_over_cdp(self.endpoint)
+            page = browser.new_page()
+            page.goto(url, timeout=2 * 60_000, wait_until="load")
+            html = page.content()
+        finally:
+            # Cleanup resources regardless of success/failure
+            try:
+                if page is not None:
+                    page.close()
+            except Exception:
+                pass
+            try:
+                if browser is not None:
+                    browser.close()
+            except Exception:
+                pass
+            try:
+                p.stop()
+            except Exception:
+                pass
+
+        if not html:
+            raise ValueError("Failed to retrieve page content via Bright Data Playwright.")
+
+        markdown_content = md(html, heading_style="ATX")
+        self._add_source(url)
+        return markdown_content
+
+
+class ScrapeDoVisitWebpageTool(VisitWebpageToolWithSources):
+    name = "visit_webpage"
+    description = (
+        "Visits a webpage at the given url and reads its content as a markdown string. Use this to browse webpages."
+    )
+    inputs = {
+        "url": {
+            "type": "string",
+            "description": "The url of the webpage to visit.",
+        }
+    }
+    output_type = "string"
+
+    def __init__(self, render: bool = True):
+        super().__init__()
+        self.api_key = os.getenv("SCRAPE_DO_API_KEY")
+        if not self.api_key:
+            raise ValueError(
+                "Missing SCRAPE_DO_API_KEY environment variable for Scrape.do API."
+            )
+        self.render = render
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_random(min=10, max=120),
+        retry=retry_if_exception_type((requests.exceptions.RequestException,)),
+        reraise=True,
+    )
+    def forward(self, url: str) -> str:
+        encoded_target_url = urllib.parse.quote(url, safe="")
+        render_param = "true" if self.render else "false"
+        scrape_api_url = (
+            f"http://api.scrape.do/?url={encoded_target_url}&token={self.api_key}"
+            f"&output=markdown&render={render_param}"
+        )
+
+        response = requests.get(scrape_api_url)
+        if response.status_code != 200:
+            logger.error(
+                f"Scrape.do error {response.status_code}: {response.text}"
+            )
+            raise ValueError(response.text)
+
+        # Scrape.do already returns markdown when output=markdown
+        self._add_source(url)
+        return response.text
 
 @tool
 def final_answer(
@@ -295,8 +469,7 @@ def run_smolagents(
     model_info: ModelInfo,
     question: str,
     cutoff_date: date | None,
-    search_provider: str,
-    search_api_key: str,
+    search_provider: Literal["serpapi", "bright_data", "serper"],
     max_steps: int,
 ) -> CompleteMarketInvestmentDecisions:
     """Run smolagent for event-level analysis with structured output."""
@@ -312,9 +485,9 @@ The final_answer tool must contain the arguments rationale and decision.
         assert cutoff_date < date.today()
 
     google_search_tool = GoogleSearchTool(
-        provider=search_provider, cutoff_date=cutoff_date, api_key=search_api_key
+        provider=search_provider, cutoff_date=cutoff_date
     )
-    visit_webpage_tool = VisitWebpageToolSaveSources()
+    visit_webpage_tool = ScrapeDoVisitWebpageTool()
     tools = [
         google_search_tool,
         visit_webpage_tool,
@@ -360,7 +533,6 @@ def _get_cached_research_result(model_info: ModelInfo, target_date: date, event_
         return read_from_storage(cache_file_path)
         
     return None
-
 
 def _save_research_result_to_cache(
     research_output: str, model_info: ModelInfo, target_date: date, event_id: str
