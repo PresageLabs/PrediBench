@@ -1,4 +1,4 @@
-import { BarChart3, HelpCircle, Menu, Newspaper, Trophy, X } from 'lucide-react'
+import { BarChart3, HelpCircle, Menu, Newspaper, TrendingUpDown, Trophy, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { Footer } from './Footer'
@@ -26,8 +26,9 @@ export function Layout({ children, currentPage }: LayoutProps) {
         <div className="container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
-              <a href="/" className="text-2xl font-bold tracking-tight hover:text-muted-foreground transition-colors">
-                🤞 PrediBench
+              <a href="/" className="text-2xl font-bold tracking-tight hover:text-muted-foreground transition-colors flex items-center gap-2">
+                PrediBench
+                <TrendingUpDown size={24} />
               </a>
               <p className="text-sm text-muted-foreground hidden md:block">
                 LLMs bet on the future
