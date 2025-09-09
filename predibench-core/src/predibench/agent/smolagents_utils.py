@@ -289,12 +289,6 @@ class ScrapeDoVisitWebpageTool(VisitWebpageToolWithSources):
             )
         self.render = render
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_random(min=10, max=120),
-        retry=retry_if_exception_type((requests.exceptions.RequestException,)),
-        reraise=True,
-    )
     def forward(self, url: str) -> str:
         encoded_target_url = urllib.parse.quote(url, safe="")
         render_param = "true" if self.render else "false"
@@ -313,6 +307,46 @@ class ScrapeDoVisitWebpageTool(VisitWebpageToolWithSources):
         # Scrape.do already returns markdown when output=markdown
         self._add_source(url)
         return response.text
+
+
+class ScrapflyVisitWebPageTool(VisitWebpageToolWithSources):
+    name = "visit_webpage"
+    description = (
+        "Visits a webpage at the given url and reads its content as a markdown string. Use this to browse webpages."
+    )
+    inputs = {
+        "url": {
+            "type": "string",
+            "description": "The url of the webpage to visit.",
+        }
+    }
+    output_type = "string"
+
+    def __init__(self, asp: bool = True, render_js: bool = True):
+        super().__init__()
+        self.api_key = os.getenv("SCRAPFLY_API_KEY")
+        if not self.api_key:
+            raise ValueError(
+                "Missing SCRAPFLY_API_KEY environment variable for Scrapfly API."
+            )
+        self.asp = asp
+        self.render_js = render_js
+
+    def forward(self, url: str) -> str:
+        from scrapfly import ScrapflyClient, ScrapeConfig, ScrapeApiResponse
+
+        scrapfly = ScrapflyClient(key=self.api_key)
+        result: ScrapeApiResponse = scrapfly.scrape(ScrapeConfig(
+            tags=["player", "project:default"],
+            asp=self.asp,
+            render_js=self.render_js,
+            url=url
+        ))
+        
+        html_content = result.content
+        markdown_content = md(html_content, heading_style="ATX")
+        self._add_source(url)
+        return markdown_content
 
 @tool
 def final_answer(
@@ -487,7 +521,7 @@ The final_answer tool must contain the arguments rationale and decision.
     google_search_tool = GoogleSearchTool(
         provider=search_provider, cutoff_date=cutoff_date
     )
-    visit_webpage_tool = ScrapeDoVisitWebpageTool()
+    visit_webpage_tool = ScrapflyVisitWebPageTool()
     tools = [
         google_search_tool,
         visit_webpage_tool,

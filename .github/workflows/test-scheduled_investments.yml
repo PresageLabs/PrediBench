@@ -42,6 +42,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           BRIGHT_SERPER_API_KEY: ${{ secrets.BRIGHT_SERPER_API_KEY }}
           SCRAPE_DO_API_KEY: ${{ secrets.SCRAPE_DO_API_KEY }}
+          SCRAPFLY_API_KEY: ${{ secrets.SCRAPFLY_API_KEY }}
         run: |
           cd predibench-core
           uv run python scripts/run_investments.py events
@@ -51,6 +52,7 @@ jobs:
     needs: run-events
     strategy:
       fail-fast: false
+      max-parallel: 4
       matrix:
         provider:
           - huggingface-openai
@@ -90,6 +92,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           BRIGHT_SERPER_API_KEY: ${{ secrets.BRIGHT_SERPER_API_KEY }}
           SCRAPE_DO_API_KEY: ${{ secrets.SCRAPE_DO_API_KEY }}
+          SCRAPFLY_API_KEY: ${{ secrets.SCRAPFLY_API_KEY }}
         run: |
           cd predibench-core
           uv run python scripts/run_investments.py ${{ matrix.provider }}
