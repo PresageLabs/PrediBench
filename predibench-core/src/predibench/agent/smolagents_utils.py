@@ -289,12 +289,6 @@ class ScrapeDoVisitWebpageTool(VisitWebpageToolWithSources):
             )
         self.render = render
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_random(min=10, max=120),
-        retry=retry_if_exception_type((requests.exceptions.RequestException,)),
-        reraise=True,
-    )
     def forward(self, url: str) -> str:
         encoded_target_url = urllib.parse.quote(url, safe="")
         render_param = "true" if self.render else "false"
@@ -338,12 +332,6 @@ class ScrapflyVisitWebPageTool(VisitWebpageToolWithSources):
         self.asp = asp
         self.render_js = render_js
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_random(min=10, max=120),
-        retry=retry_if_exception_type((requests.exceptions.RequestException,)),
-        reraise=True,
-    )
     def forward(self, url: str) -> str:
         from scrapfly import ScrapflyClient, ScrapeConfig, ScrapeApiResponse
 

@@ -101,19 +101,18 @@ if __name__ == "__main__":
     # Test with random model to verify new output format
     models = [
         ModelInfo(
-            model_id="openai/gpt-oss-120b",
-            model_pretty_name="GPT-OSS 120B",
+            model_id="Qwen/Qwen3-Coder-480B-A35B-Instruct",
+            model_pretty_name="Qwen3 Coder 480B",
             inference_provider="fireworks-ai",
-            company_pretty_name="OpenAI",
+            company_pretty_name="Qwen",
             open_weights=True,
-            agent_type="toolcalling",
         ),
     ]
 
     results = run_investments_for_specific_date(
         models=models,
         time_until_ending=timedelta(days=7 * 6),
-        target_date=date(2025, 9, 1),
+        target_date=date.today(),
         max_n_events=2,
         force_rewrite=True,
     )
