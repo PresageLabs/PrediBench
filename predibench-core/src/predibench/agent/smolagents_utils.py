@@ -214,89 +214,36 @@ class BrightDataVisitWebpageTool(Tool):
             raise ValueError(
                 "Missing BRIGHT_DATA_BROWSER_ENDPOINT environment variable with the full wss CDP URL."
             )
-        # Lazy-initialized Playwright and browser connection
-        self._p = None
-        self._browser = None
 
-
-    def _ensure_browser(self):
-        # Initialize Playwright and connect to Bright Data browser if needed
-        if self._browser is not None:
-            try:
-                if getattr(self._browser, "is_connected", lambda: False)():
-                    return
-            except Exception:
-                pass
-
-        if self._p is None:
-            from playwright.sync_api import sync_playwright
-            self._p = sync_playwright().start()
-
-        # Close previous browser if any
-        try:
-            if self._browser is not None:
-                self._browser.close()
-        except Exception:
-            pass
-        self._browser = self._p.chromium.connect_over_cdp(self.endpoint)
-
-    def close(self):
-        # Cleanly close browser and Playwright
-        try:
-            if self._browser is not None:
-                self._browser.close()
-        except Exception:
-            pass
-        finally:
-            self._browser = None
-        try:
-            if self._p is not None:
-                self._p.stop()
-        except Exception:
-            pass
-        finally:
-            self._p = None
-
-    def __del__(self):
-        try:
-            self.close()
-        except Exception:
-            pass
-
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=5, max=60),
-        retry=retry_if_exception_type((requests.exceptions.RequestException,)),
-        reraise=True,
-    )
     def forward(self, url: str) -> str:
-        # Ensure a connected browser, reuse across calls
-        self._ensure_browser()
-        browser = self._browser
+        # Create a fresh Playwright session and browser connection for each call
+        from playwright.sync_api import sync_playwright
+
+        p = sync_playwright().start()
+        browser = None
         page = None
         html = ""
         try:
-            page = browser.new_page()
-            page.goto(url, timeout=2 * 60_000, wait_until="load")
-            html = page.content()
-        except Exception:
-            # Attempt one reconnect in case the connection dropped
-            self._ensure_browser()
-            browser = self._browser
-            if page is not None:
-                try:
-                    page.close()
-                except Exception:
-                    pass
+            browser = p.chromium.connect_over_cdp(self.endpoint)
             page = browser.new_page()
             page.goto(url, timeout=2 * 60_000, wait_until="load")
             html = page.content()
         finally:
-            if page is not None:
-                try:
+            # Cleanup resources regardless of success/failure
+            try:
+                if page is not None:
                     page.close()
-                except Exception:
-                    pass
+            except Exception:
+                pass
+            try:
+                if browser is not None:
+                    browser.close()
+            except Exception:
+                pass
+            try:
+                p.stop()
+            except Exception:
+                pass
 
         if not html:
             raise ValueError("Failed to retrieve page content via Bright Data Playwright.")

@@ -1,6 +1,7 @@
 import os
 import time
 import urllib.parse
+from pathlib import Path
 import pytest
 from predibench.agent.smolagents_utils import (
     GoogleSearchTool,
@@ -171,92 +172,69 @@ def test_bright_data():
 if __name__ == "__main__":
     test_scrape_do()
 
+tmp_path = Path(".")
+def test_compare_scrapers_on_search_results(tmp_path=tmp_path):
+    """Compare Scrape.do and Bright Data on top Google results.
 
-def _bright_data_creds_present() -> bool:
-    return os.getenv("BRIGHT_DATA_BROWSER_ENDPOINT") is not None
-
-
-@pytest.mark.skipif(
-    not (_bright_data_creds_present() and os.getenv("SCRAPE_DO_API_KEY")),
-    reason="Requires Bright Data Playwright credentials and SCRAPE_DO_API_KEY",
-)
-def test_compare_scrapers_on_search_results(tmp_path):
-    """Use GoogleSearchTool to get URLs, then fetch each with Scrape.do and Bright Data.
-    Saves each markdown to disk and prints timing comparison.
+    Simpler flow: get a few URLs, fetch each with both providers,
+    save markdown files, and print basic durations using time.time().
     """
-    # Use Bright Data provider for Google search as in other tests
+    # Search via Bright Data-backed Google tool
     search_tool = GoogleSearchTool(provider="bright_data", cutoff_date=None)
-    search_md = search_tool.forward(SEARCH_QUERY)
+    _ = search_tool.forward(SEARCH_QUERY)
 
-    # Ensure we got some sources
-    urls = [u for u in search_tool.sources if u.startswith("http")]
+    # Collect a few valid URLs
+    urls = [u for u in search_tool.sources if isinstance(u, str) and u.startswith("http")]
     assert len(urls) > 0
-
-    # Limit to a reasonable number for test runtime
     urls = urls[:5]
 
-    # Initialize tools once (persistent browser for Bright Data)
+    # Initialize both scrapers
     scrape_do_tool = ScrapeDoVisitWebpageTool(render=True)
     bright_data_tool = BrightDataVisitWebpageTool()
 
-    timings = []
     successes = 0
 
     for idx, url in enumerate(urls, start=1):
         parsed = urllib.parse.urlparse(url)
         domain = parsed.netloc.replace(":", "_").replace("/", "_")
 
+        print(f"\n[{idx}] URL: {url}")
+
         # Scrape.do
-        t0 = time.perf_counter()
         try:
+            t0 = time.time()
             md_sd = scrape_do_tool.forward(url)
-            dt_sd = time.perf_counter() - t0
+            dt_sd = time.time() - t0
             assert isinstance(md_sd, str) and len(md_sd) > 0
-            out_sd = tmp_path / f"search_{idx:02d}_scrape_do_{domain}.md"
-            out_sd.write_text(md_sd, encoding="utf-8")
+            (tmp_path / f"search_{idx:02d}_scrape_do_{domain}.md").write_text(md_sd, encoding="utf-8")
+            print(f"Scrape.do: OK in ~{dt_sd:.2f}s")
         except Exception as e:
-            md_sd = f"ERROR: {e}"
-            dt_sd = None
+            md_sd = None
+            print(f"Scrape.do: ERROR {e}")
 
-        # Bright Data Playwright
-        t1 = time.perf_counter()
+        # Bright Data
         try:
+            t1 = time.time()
             md_bd = bright_data_tool.forward(url)
-            dt_bd = time.perf_counter() - t1
+            dt_bd = time.time() - t1
             assert isinstance(md_bd, str) and len(md_bd) > 0
-            out_bd = tmp_path / f"search_{idx:02d}_bright_data_{domain}.md"
-            out_bd.write_text(md_bd, encoding="utf-8")
+            (tmp_path / f"search_{idx:02d}_bright_data_{domain}.md").write_text(md_bd, encoding="utf-8")
+            print(f"Bright Data: OK in ~{dt_bd:.2f}s")
         except Exception as e:
-            md_bd = f"ERROR: {e}"
-            dt_bd = None
+            md_bd = None
+            print(f"Bright Data: ERROR {e}")
 
-        timings.append({
-            "url": url,
-            "scrape_do_seconds": dt_sd,
-            "bright_data_seconds": dt_bd,
-            "scrape_do_ok": isinstance(md_sd, str) and not md_sd.startswith("ERROR:"),
-            "bright_data_ok": isinstance(md_bd, str) and not md_bd.startswith("ERROR:"),
-        })
-
-        if isinstance(md_sd, str) and not md_sd.startswith("ERROR:") and isinstance(md_bd, str) and not md_bd.startswith("ERROR:"):
+        if md_sd and md_bd:
             successes += 1
 
-    # Close Bright Data browser after loop
+    # Try to close any persistent Bright Data browser
     try:
         bright_data_tool.close()
     except Exception:
         pass
 
-    # At least one URL should succeed on both providers
-    assert successes >= 1, f"No successful scrapes. Timings: {timings}"
+    # Ensure at least one pair worked
+    assert successes >= 1, "No successful scrapes from both providers"
 
-    # Write timing summary
-    summary_lines = [
-        "url\tscrape_do_seconds\tbright_data_seconds\tscrape_do_ok\tbright_data_ok"
-    ]
-    for row in timings:
-        summary_lines.append(
-            f"{row['url']}\t{row['scrape_do_seconds']}\t{row['bright_data_seconds']}\t{row['scrape_do_ok']}\t{row['bright_data_ok']}"
-        )
-    (tmp_path / "timing_summary.tsv").write_text("\n".join(summary_lines), encoding="utf-8")
-    print("\n".join(summary_lines))
+if __name__ == "__main__":
+    test_compare_scrapers_on_search_results()
