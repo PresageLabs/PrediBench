@@ -20,6 +20,10 @@ from predibench.common import DATA_PATH
 from predibench.storage_utils import read_from_storage, write_to_storage
 from pydantic import ValidationError
 from dataclasses import dataclass
+from contextlib import asynccontextmanager
+from apscheduler.schedulers.background import BackgroundScheduler  # runs tasks in the background
+from apscheduler.triggers.cron import CronTrigger  # allows us to specify a recurring time for execution
+
 print("Successfully imported predibench modules")
 
 @dataclass
@@ -87,7 +91,10 @@ print(
     f"✅ Loaded backend cache with {len(CACHED_DATA[0].data.leaderboard)} leaderboard entries (TTL={CACHE_TTL_SECONDS}s)"
 )
 
-
+scheduler = BackgroundScheduler()
+trigger = CronTrigger(minute=0)  # every hour
+scheduler.add_job(update_cache, trigger)
+scheduler.start()
 app = FastAPI(title="Polymarket LLM Benchmark API", version="1.0.0")
 
 # CORS for local development only
@@ -112,9 +119,8 @@ def root():
 
 
 @app.get("/api/leaderboard", response_model=list[LeaderboardEntryBackend])
-def get_leaderboard_endpoint(background_tasks: BackgroundTasks):
+def get_leaderboard_endpoint():
     """Get the current leaderboard with LLM performance data"""
-    background_tasks.add_task(update_cache)
     return load_backend_cache().leaderboard
 
 
