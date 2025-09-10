@@ -1,4 +1,5 @@
 from datetime import datetime
+from predibench.utils import date_to_string
 from predibench.backend.data_model import (
     LeaderboardEntryBackend,
     ModelPerformanceBackend,
@@ -28,7 +29,7 @@ def _create_leaderboard_entry(performance: ModelPerformanceBackend) -> Leaderboa
         model=performance.model_name,
         final_cumulative_pnl=performance.final_pnl,
         trades=getattr(performance, "trades", len(performance.trades_dates)),
-        lastUpdated=datetime.now().strftime("%Y-%m-%d"),
+        lastUpdated=date_to_string(datetime.now()),
         trend=trend,
         pnl_history=performance.cummulative_pnl,
         avg_brier_score=performance.final_brier_score,

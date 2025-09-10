@@ -6,6 +6,7 @@ This module pre-computes all data needed for all backend API endpoints.
 from datetime import date
 from datetime import datetime as dt
 from typing import List
+from predibench.utils import date_to_string, string_to_date
 
 import pandas as pd
 from predibench.agent.dataclasses import ModelInvestmentDecisions
@@ -21,6 +22,7 @@ from predibench.backend.data_model import (
     EventBackend,
     EventBrierScoreBackend,
     EventPnlBackend,
+    FullModelResult,
     MarketBrierScoreBackend,
     MarketPnlBackend,
     ModelPerformanceBackend,
@@ -29,6 +31,9 @@ from predibench.backend.data_model import (
 from predibench.backend.events import get_non_duplicated_events
 from predibench.backend.leaderboard import get_leaderboard
 from predibench.backend.pnl import compute_pnl_series_per_model, get_historical_returns
+from predibench.storage_utils import read_from_storage, file_exists_in_storage
+from predibench.common import get_date_output_path
+from predibench.agent.dataclasses import ModelInfo
 
 
 def _to_date_index(df: pd.DataFrame) -> pd.DataFrame:
@@ -53,6 +58,7 @@ def _to_date_index(df: pd.DataFrame) -> pd.DataFrame:
     # remove duplicates by keeping last
     df2 = df2[~df2.index.duplicated(keep="last")]
     return df2
+
 
 
 def get_data_for_backend() -> BackendData:
@@ -188,7 +194,7 @@ def _compute_model_performance_list(
         overall_cum_pnl_points = [
             TimeseriesPointBackend(
                 date=(
-                    idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)
+                    date_to_string(idx) if hasattr(idx, "strftime") else str(idx)
                 ),
                 value=float(val),
             )
@@ -201,7 +207,7 @@ def _compute_model_performance_list(
             market_points = [
                 TimeseriesPointBackend(
                     date=(
-                        idx.strftime("%Y-%m-%d")
+                        date_to_string(idx)
                         if hasattr(idx, "strftime")
                         else str(idx)
                     ),
@@ -231,7 +237,7 @@ def _compute_model_performance_list(
             event_points = [
                 TimeseriesPointBackend(
                     date=(
-                        idx.strftime("%Y-%m-%d")
+                        date_to_string(idx)
                         if hasattr(idx, "strftime")
                         else str(idx)
                     ),
@@ -267,7 +273,7 @@ def _compute_model_performance_list(
         overall_brier_points = [
             TimeseriesPointBackend(
                 date=(
-                    idx.strftime("%Y-%m-%d") if hasattr(idx, "strftime") else str(idx)
+                    date_to_string(idx) if hasattr(idx, "strftime") else str(idx)
                 ),
                 value=float(val),
             )
@@ -287,7 +293,7 @@ def _compute_model_performance_list(
             points = [
                 TimeseriesPointBackend(
                     date=(
-                        idx.strftime("%Y-%m-%d")
+                        date_to_string(idx)
                         if hasattr(idx, "strftime")
                         else str(idx)
                     ),
@@ -309,7 +315,7 @@ def _compute_model_performance_list(
             ev_points = [
                 TimeseriesPointBackend(
                     date=(
-                        idx.strftime("%Y-%m-%d")
+                        date_to_string(idx)
                         if hasattr(idx, "strftime")
                         else str(idx)
                     ),
@@ -342,6 +348,23 @@ def _compute_model_performance_list(
         )
 
     return performance_list
+
+
+
+def load_full_result_from_bucket(model_id: str, event_id: str, target_date: str) -> FullModelResult | None:
+    """Load a single full result from cache file."""
+    model_result_path = ModelInfo.static_get_model_result_path(model_id=model_id, target_date=string_to_date(target_date))
+    cache_file_path = model_result_path / f"{event_id}_full_response.json"
+    
+    if file_exists_in_storage(cache_file_path):
+        full_result_text = read_from_storage(cache_file_path)
+        return FullModelResult(
+            model_id=model_id,
+            event_id=event_id,
+            target_date=str(target_date),
+            full_result_text=full_result_text
+        )
+    return None
 
 
 if __name__ == "__main__":

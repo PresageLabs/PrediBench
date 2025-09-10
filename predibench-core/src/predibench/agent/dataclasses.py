@@ -76,15 +76,22 @@ class ModelInfo(BaseModel):
     open_weights: bool = False
     client: Any | None = None
     agent_type: Literal["code", "toolcalling"] = "code"
+    
+    @staticmethod
+    def static_get_model_result_path(model_id: str, target_date: date) -> Path:
+        """
+        Get the path to the model result for a given model and target date.
+        """
+        date_output_path = get_date_output_path(target_date)
+        model_result_path = date_output_path / model_id.replace("/", "--")
+        model_result_path.mkdir(parents=True, exist_ok=True)
+        return model_result_path
 
     def get_model_result_path(self, target_date: date) -> Path:
         """
         Get the path to the model result for a given model and target date.
         """
-        date_output_path = get_date_output_path(target_date)
-        model_result_path = date_output_path / self.model_id.replace("/", "--")
-        model_result_path.mkdir(parents=True, exist_ok=True)
-        return model_result_path
+        return ModelInfo.static_get_model_result_path(model_id=self.model_id, target_date=target_date)
 
 
 class ModelInvestmentDecisions(BaseModel):
@@ -97,7 +104,7 @@ class ModelInvestmentDecisions(BaseModel):
     def _save_model_result(self) -> None:
         """Save model result to file."""
 
-        model_result_path = self.model_info.get_model_result_path(self.target_date)
+        model_result_path = self.model_info.static_get_model_result_path(self.target_date)
 
         filename = "model_investment_decisions.json"
         filepath = model_result_path / filename
