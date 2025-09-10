@@ -104,7 +104,7 @@ class ModelInvestmentDecisions(BaseModel):
     def _save_model_result(self) -> None:
         """Save model result to file."""
 
-        model_result_path = self.model_info.static_get_model_result_path(self.target_date)
+        model_result_path = self.model_info.get_model_result_path(self.target_date)
 
         filename = "model_investment_decisions.json"
         filepath = model_result_path / filename
