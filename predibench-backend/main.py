@@ -8,10 +8,11 @@ from cachetools import TTLCache, cached
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from predibench.agent.dataclasses import ModelInvestmentDecisions
-from predibench.backend.comprehensive_data import get_data_for_backend
+from predibench.backend.comprehensive_data import get_data_for_backend, load_full_result_from_bucket
 from predibench.backend.data_model import (
     BackendData,
     EventBackend,
+    FullModelResult,
     LeaderboardEntryBackend,
     ModelPerformanceBackend,
 )
@@ -37,7 +38,7 @@ def load_backend_cache() -> BackendData:
         # Basic migration: ensure required fields exist
         required = {
             "leaderboard",
-            "events",
+            "events", 
             "model_results",
             "performance_per_day",
             "performance_per_bet",
@@ -54,6 +55,7 @@ def load_backend_cache() -> BackendData:
         except Exception as w:
             print(f"⚠️ Could not write backend cache: {w}")
         return data
+
 
 
 # Warm cache at startup (and print status)
@@ -212,6 +214,12 @@ def get_event_endpoint(event_id: str):
     if event is None:
         raise HTTPException(status_code=404, detail="event_id not found")
     return event
+
+
+@app.get("/api/full_results/by_model_and_event", response_model=FullModelResult | None)
+def get_full_result_by_model_and_event_endpoint(model_id: str, event_id: str, target_date: str):
+    """Get full result for a specific model and event"""
+    return load_full_result_from_bucket(model_id, event_id, target_date)
 
 
 if __name__ == "__main__":

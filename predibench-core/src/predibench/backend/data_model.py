@@ -104,6 +104,14 @@ class ModelPerformanceBackend(BaseModel):
     market_pnls: list[MarketPnlBackend]
 
 
+class FullModelResult(BaseModel):
+    """Full result data for a model on a specific event"""
+    model_id: str
+    event_id: str
+    target_date: str
+    full_result_text: str
+    
+
 class BackendData(BaseModel):
     """Comprehensive pre-computed data for all backend routes"""
 
