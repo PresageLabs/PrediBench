@@ -21,7 +21,7 @@ from pydantic import ValidationError
 
 print("Successfully imported predibench modules")
 
-CACHE_TTL_SECONDS = 3600
+CACHE_TTL_SECONDS = 43200  # 12 hours
 _backend_cache = TTLCache(maxsize=1, ttl=CACHE_TTL_SECONDS)
 _cache_lock = threading.RLock()
 
