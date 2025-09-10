@@ -78,7 +78,7 @@ class ModelInfo(BaseModel):
     agent_type: Literal["code", "toolcalling"] = "code"
     
     @staticmethod
-    def get_model_result_path(model_id: str, target_date: date) -> Path:
+    def static_get_model_result_path(model_id: str, target_date: date) -> Path:
         """
         Get the path to the model result for a given model and target date.
         """
@@ -91,7 +91,7 @@ class ModelInfo(BaseModel):
         """
         Get the path to the model result for a given model and target date.
         """
-        ModelInfo.get_model_result_path(model_id=self.model_id, target_date=target_date)
+        ModelInfo.static_get_model_result_path(model_id=self.model_id, target_date=target_date)
 
 
 class ModelInvestmentDecisions(BaseModel):
@@ -104,7 +104,7 @@ class ModelInvestmentDecisions(BaseModel):
     def _save_model_result(self) -> None:
         """Save model result to file."""
 
-        model_result_path = self.model_info.get_model_result_path(self.target_date)
+        model_result_path = self.model_info.static_get_model_result_path(self.target_date)
 
         filename = "model_investment_decisions.json"
         filepath = model_result_path / filename

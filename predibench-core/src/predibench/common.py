@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import date
+from predibench.utils import date_to_string
 
 
 PREDIBENCH_PATH = Path(__file__).parent
@@ -20,6 +21,6 @@ def get_date_output_path(target_date: date) -> Path:
     """
     Get the path to the date output for a given target date.
     """
-    date_output_path = DATA_PATH / PREFIX_MODEL_RESULTS / target_date.strftime("%Y-%m-%d")
+    date_output_path = DATA_PATH / PREFIX_MODEL_RESULTS / date_to_string(target_date)
     date_output_path.mkdir(parents=True, exist_ok=True)
     return date_output_path
