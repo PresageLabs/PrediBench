@@ -1,10 +1,8 @@
 import json
-import os
 import time
 from datetime import date, datetime
 
 import numpy as np
-import pandas as pd
 from dotenv import load_dotenv
 from predibench.agent.dataclasses import (
     EventInvestmentDecisions,
@@ -14,10 +12,10 @@ from predibench.agent.dataclasses import (
     SingleModelDecision,
 )
 from predibench.agent.smolagents_utils import (
+    BET_DESCRIPTION,
     run_openai_deep_research,
     run_perplexity_deep_research,
     run_smolagents,
-    BET_DESCRIPTION,
 )
 from predibench.date_utils import is_backward_mode
 from predibench.logger_config import get_logger
@@ -133,6 +131,7 @@ You are an expert prediction-market analyst and portfolio allocator on the predi
 1. Use web search to gather current information about this event, be highly skeptical of sensationalized headlines or partisan sources
 2. Apply your internal knowledge critically
 3. Consider Polymarket-specific factors (user base, crypto market correlation, etc.)
+4. If you see web search results seeming to indicate that the event is alread passed, make sure to double check that these results do not refer to something else.
 
 
 **CAPITAL ALLOCATION RULES:**
@@ -237,7 +236,7 @@ Example: If you bet 0.3 in market A, -0.2 in market B (meaning you buy 0.2 of th
     model_result_path = model_info.get_model_result_path(target_date)
     full_response_file = model_result_path / f"{event.id}_full_response.json"
     write_to_storage(full_response_file, json.dumps(full_response_json, indent=2))
-        
+
     timing.end_time = time.time()
     event_decisions = EventInvestmentDecisions(
         event_id=event.id,
