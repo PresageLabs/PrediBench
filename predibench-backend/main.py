@@ -168,6 +168,21 @@ def get_performance_by_model_endpoint(model_id: str, by: Literal["day", "bet"] =
     raise HTTPException(status_code=404, detail="model_id not found")
 
 
+@app.get("/api/models", response_model=list[str])
+def get_all_models_endpoint():
+    """Get a list of all model IDs"""
+    data = load_backend_cache()
+    model_ids = set()
+    model_ids.update(data.model_results_by_id.keys())
+    return sorted(list(model_ids))
+
+
+@app.get("/api/events/all", response_model=list[EventBackend])
+def get_all_events_endpoint():
+    """Get all events without filtering"""
+    return load_backend_cache().events
+
+
 @app.get("/api/events", response_model=list[EventBackend])
 def get_events_endpoint(
     search: str = "",
