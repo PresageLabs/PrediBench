@@ -1,11 +1,11 @@
 import json
 import os
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal
 
 from cachetools import TTLCache, cached
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from predibench.agent.dataclasses import ModelInvestmentDecisions
 from predibench.backend.comprehensive_data import get_data_for_backend, load_full_result_from_bucket
@@ -19,19 +19,21 @@ from predibench.backend.data_model import (
 from predibench.common import DATA_PATH
 from predibench.storage_utils import read_from_storage, write_to_storage
 from pydantic import ValidationError
-
+from dataclasses import dataclass
 print("Successfully imported predibench modules")
 
-CACHE_TTL_SECONDS = 43200  # 12 hours
-_backend_cache = TTLCache(maxsize=1, ttl=CACHE_TTL_SECONDS)
-_cache_lock = threading.RLock()
+@dataclass
+class CachedData:
+    data: BackendData
+    last_updated: datetime
 
+CACHE_TTL_SECONDS = 3600
+CACHED_DATA: list[CachedData] = [] # A list is a common way to introduce a global variable
 
-# Load cached backend data with TTL invalidation
-@cached(cache=_backend_cache, lock=_cache_lock)
-def load_backend_cache() -> BackendData:
+def load_backend() -> BackendData:
     """Load pre-computed backend data from cache or recompute if missing/outdated."""
     cache_file_path = DATA_PATH / "backend_cache.json"
+    data = None
     try:
         json_content = read_from_storage(cache_file_path)
         cached_data = json.loads(json_content)
@@ -56,12 +58,33 @@ def load_backend_cache() -> BackendData:
             print(f"⚠️ Could not write backend cache: {w}")
         return data
 
+def update_cache() -> None:
+    print("Updating cache")
+    if len(CACHED_DATA) == 0:
+        print("Cache is empty, loading new data")
+        data = load_backend()
+        CACHED_DATA.append(CachedData(data=data, last_updated=datetime.now()))
+    else:
+        print("Cache is not empty, checking if it needs to be updated")
+        last_updated = CACHED_DATA[0].last_updated
+        if last_updated + timedelta(seconds=CACHE_TTL_SECONDS) < datetime.now():
+            print("Cache is outdated, loading new data")
+            data = load_backend()
+            CACHED_DATA[0] = CachedData(data=data, last_updated=datetime.now())
+        else:
+            print("Cache is up to date, using cached data")
+
+def load_backend_cache() -> BackendData:
+    print("Loading backend cache")
+    if len(CACHED_DATA) == 0:
+        update_cache()
+    return CACHED_DATA[0].data
 
 
 # Warm cache at startup (and print status)
-_initial_data = load_backend_cache()
+update_cache()
 print(
-    f"✅ Loaded backend cache with {len(_initial_data.leaderboard)} leaderboard entries (TTL={CACHE_TTL_SECONDS}s)"
+    f"✅ Loaded backend cache with {len(CACHED_DATA[0].data.leaderboard)} leaderboard entries (TTL={CACHE_TTL_SECONDS}s)"
 )
 
 
@@ -89,8 +112,9 @@ def root():
 
 
 @app.get("/api/leaderboard", response_model=list[LeaderboardEntryBackend])
-def get_leaderboard_endpoint():
+def get_leaderboard_endpoint(background_tasks: BackgroundTasks):
     """Get the current leaderboard with LLM performance data"""
+    background_tasks.add_task(update_cache)
     return load_backend_cache().leaderboard
 
 
