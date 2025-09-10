@@ -1,10 +1,10 @@
 import json
 import os
-import threading
+import asyncio
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Literal
 
-from cachetools import TTLCache, cached
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from predibench.agent.dataclasses import ModelInvestmentDecisions
@@ -22,14 +22,7 @@ from pydantic import ValidationError
 
 print("Successfully imported predibench modules")
 
-CACHE_TTL_SECONDS = 43200  # 12 hours
-_backend_cache = TTLCache(maxsize=1, ttl=CACHE_TTL_SECONDS)
-_cache_lock = threading.RLock()
-
-
-# Load cached backend data with TTL invalidation
-@cached(cache=_backend_cache, lock=_cache_lock)
-def load_backend_cache() -> BackendData:
+def load_backend() -> BackendData:
     """Load pre-computed backend data from cache or recompute if missing/outdated."""
     cache_file_path = DATA_PATH / "backend_cache.json"
     try:
@@ -56,16 +49,72 @@ def load_backend_cache() -> BackendData:
             print(f"⚠️ Could not write backend cache: {w}")
         return data
 
+CACHED_DATA: list[BackendData] = [load_backend()]
 
-
-# Warm cache at startup (and print status)
-_initial_data = load_backend_cache()
 print(
-    f"✅ Loaded backend cache with {len(_initial_data.leaderboard)} leaderboard entries (TTL={CACHE_TTL_SECONDS}s)"
+    f"✅ Loaded backend cache"
 )
 
 
-app = FastAPI(title="Polymarket LLM Benchmark API", version="1.0.0")
+def load_backend_cache() -> BackendData:
+    return CACHED_DATA[0]
+
+# --- Periodic background refresh of in-memory cache ---
+REFRESH_INTERVAL_SECONDS = 3600
+
+async def refresh_backend_once() -> None:
+    """Recompute backend data, persist it, and atomically swap in-memory cache."""
+    cache_file_path = DATA_PATH / "backend_cache.json"
+    print("🔄 Refreshing backend cache (background)...")
+    # Compute in a worker thread so we don't block the event loop
+    data = await asyncio.to_thread(get_data_for_backend)
+    try:
+        # Persist in a worker thread as well
+        await asyncio.to_thread(
+            write_to_storage, cache_file_path, data.model_dump_json(indent=2)
+        )
+        print("✅ Wrote refreshed backend cache to storage")
+    except Exception as w:
+        # Non-fatal: keep serving from memory even if persistence fails
+        print(f"⚠️ Could not write backend cache: {w}")
+    # Atomic swap of the reference so requests never block on recompute
+    CACHED_DATA[0] = data
+    print("✅ Swapped refreshed backend cache in memory")
+
+
+async def _refresh_cache_loop():
+    try:
+        while True:
+            try:
+                await refresh_backend_once()
+            except Exception as e:
+                # Make sure the loop keeps running even if refresh fails
+                print(f"❌ Background cache refresh failed: {e}")
+            # Sleep until next refresh; respond to cancellation during sleep
+            await asyncio.sleep(REFRESH_INTERVAL_SECONDS)
+    except asyncio.CancelledError:
+        print("🛑 Cache refresh task cancelled")
+        raise
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Start background refresh task
+    app.state.cache_refresh_task = asyncio.create_task(_refresh_cache_loop())
+    try:
+        yield
+    finally:
+        # Cancel background task cleanly on shutdown
+        task = getattr(app.state, "cache_refresh_task", None)
+        if task:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+
+app = FastAPI(title="Polymarket LLM Benchmark API", version="1.0.0", lifespan=lifespan)
 
 # CORS for local development only
 app.add_middleware(
