@@ -91,7 +91,7 @@ class ModelInfo(BaseModel):
         """
         Get the path to the model result for a given model and target date.
         """
-        ModelInfo.static_get_model_result_path(model_id=self.model_id, target_date=target_date)
+        return ModelInfo.static_get_model_result_path(model_id=self.model_id, target_date=target_date)
 
 
 class ModelInvestmentDecisions(BaseModel):
