@@ -1,5 +1,6 @@
 import json
 import os
+import time
 import threading
 from datetime import datetime, timedelta
 from typing import Literal
@@ -20,15 +21,14 @@ from predibench.common import DATA_PATH
 from predibench.storage_utils import read_from_storage, write_to_storage
 from pydantic import ValidationError
 from dataclasses import dataclass
+from contextlib import asynccontextmanager
+from apscheduler.schedulers.background import BackgroundScheduler  # runs tasks in the background
+from apscheduler.triggers.cron import CronTrigger  # allows us to specify a recurring time for execution
+
 print("Successfully imported predibench modules")
 
-@dataclass
-class CachedData:
-    data: BackendData
-    last_updated: datetime
 
-CACHE_TTL_SECONDS = 3600
-CACHED_DATA: list[CachedData] = [] # A list is a common way to introduce a global variable
+CACHED_DATA: list[BackendData] = [] # A list is a common way to introduce a global variable
 
 def load_backend() -> BackendData:
     """Load pre-computed backend data from cache or recompute if missing/outdated."""
@@ -63,31 +63,30 @@ def update_cache() -> None:
     if len(CACHED_DATA) == 0:
         print("Cache is empty, loading new data")
         data = load_backend()
-        CACHED_DATA.append(CachedData(data=data, last_updated=datetime.now()))
+        CACHED_DATA.append(data)
     else:
-        print("Cache is not empty, checking if it needs to be updated")
-        last_updated = CACHED_DATA[0].last_updated
-        if last_updated + timedelta(seconds=CACHE_TTL_SECONDS) < datetime.now():
-            print("Cache is outdated, loading new data")
-            data = load_backend()
-            CACHED_DATA[0] = CachedData(data=data, last_updated=datetime.now())
-        else:
-            print("Cache is up to date, using cached data")
+        print("starting cache update")
+        data = load_backend()
+        CACHED_DATA[0] = data
+        print("Cache update complete")
 
 def load_backend_cache() -> BackendData:
     print("Loading backend cache")
     if len(CACHED_DATA) == 0:
         update_cache()
-    return CACHED_DATA[0].data
+    return CACHED_DATA[0]
 
 
 # Warm cache at startup (and print status)
 update_cache()
 print(
-    f"✅ Loaded backend cache with {len(CACHED_DATA[0].data.leaderboard)} leaderboard entries (TTL={CACHE_TTL_SECONDS}s)"
+    f"✅ Loaded backend cache with {len(CACHED_DATA[0].leaderboard)} leaderboard entries"
 )
 
-
+scheduler = BackgroundScheduler()
+trigger = CronTrigger(minute=0)  # every hour
+scheduler.add_job(update_cache, trigger)
+scheduler.start()
 app = FastAPI(title="Polymarket LLM Benchmark API", version="1.0.0")
 
 # CORS for local development only
@@ -112,9 +111,8 @@ def root():
 
 
 @app.get("/api/leaderboard", response_model=list[LeaderboardEntryBackend])
-def get_leaderboard_endpoint(background_tasks: BackgroundTasks):
+def get_leaderboard_endpoint():
     """Get the current leaderboard with LLM performance data"""
-    background_tasks.add_task(update_cache)
     return load_backend_cache().leaderboard
 
 
