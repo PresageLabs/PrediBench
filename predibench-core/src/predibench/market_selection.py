@@ -148,7 +148,7 @@ def choose_events(
         events=events, min_volume=min_volume, backward_mode=backward_mode
     )
     filtered_events = filtered_events[
-        : n_events + int(n_events * 0.2 + 3)
+        : n_events + int(n_events + 3)
     ]  # NOTE: a few events might be missing prices and will be removed later so we add a few more events to be sure to have enough
 
     for event in filtered_events:
@@ -167,4 +167,8 @@ def choose_events(
     if save_path is not None:
         save_events_to_file(events=events_with_selected_markets, file_path=save_path)
 
+    if len(events_with_selected_markets) < n_events:
+        raise ValueError(
+            f"Only {len(events_with_selected_markets)} events were selected, expected {n_events}"
+        )
     return events_with_selected_markets
