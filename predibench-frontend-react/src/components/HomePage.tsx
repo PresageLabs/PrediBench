@@ -1,6 +1,5 @@
 import { TrendingUpDown } from 'lucide-react'
-import type { Event, LeaderboardEntry } from '../api'
-import { FeaturedEvents } from './FeaturedEvents'
+import type { LeaderboardEntry } from '../api'
 import { LeaderboardTable } from './LeaderboardTable'
 import { RedirectButton } from './ui/redirect-button'
 import MarkdownRenderer from '../lib/MarkdownRenderer'
@@ -9,11 +8,10 @@ import aboutContent from '../content/about.md?raw'
 
 interface HomePageProps {
   leaderboard: LeaderboardEntry[]
-  events: Event[]
   loading?: boolean
 }
 
-export function HomePage({ leaderboard, events, loading = false }: HomePageProps) {
+export function HomePage({ leaderboard, loading = false }: HomePageProps) {
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Page Title and Subtitle */}
@@ -50,17 +48,7 @@ export function HomePage({ leaderboard, events, loading = false }: HomePageProps
         </div>
       </div>
 
-      {/* Featured Events */}
-      <div>
-        <div className="w-full h-px bg-border mb-8"></div>
-        <FeaturedEvents
-          events={events}
-          loading={loading}
-          showTitle={true}
-          maxEvents={6}
-          showFilters={false}
-        />
-      </div>
+      {/* Featured Events removed as requested */}
     </div>
   )
 }

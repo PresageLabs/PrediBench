@@ -103,7 +103,7 @@ function AppContent() {
   return (
     <Layout currentPage={getCurrentPage()}>
       <Routes>
-        <Route path="/" element={<HomePage leaderboard={leaderboard} events={events} loading={loading} />} />
+        <Route path="/" element={<HomePage leaderboard={leaderboard} loading={loading} />} />
         <Route path="/leaderboard" element={<LeaderboardPage leaderboard={leaderboard} loading={loading} />} />
         <Route path="/events" element={<EventsPage events={events} leaderboard={leaderboard} loading={loading} />} />
         <Route path="/models" element={<ModelsPage leaderboard={leaderboard} />} />
