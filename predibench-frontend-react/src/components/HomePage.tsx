@@ -3,6 +3,9 @@ import type { Event, LeaderboardEntry } from '../api'
 import { FeaturedEvents } from './FeaturedEvents'
 import { LeaderboardTable } from './LeaderboardTable'
 import { RedirectButton } from './ui/redirect-button'
+import MarkdownRenderer from '../lib/MarkdownRenderer'
+// eslint-disable-next-line import/no-relative-packages
+import aboutContent from '../content/about.md?raw'
 
 interface HomePageProps {
   leaderboard: LeaderboardEntry[]
@@ -36,24 +39,14 @@ export function HomePage({ leaderboard, events, loading = false }: HomePageProps
         </div>
       </div>
 
-      {/* About Section */}
-      <div className="mb-16">
+      {/* Intro Section (moved from About page) */}
+      <div className="mb-16" id="intro">
         <div className="text-center mb-8">
           <div className="w-full h-px bg-border mb-8"></div>
-          <h2 className="text-2xl font-bold">About</h2>
+          <h2 className="text-2xl font-bold">Intro</h2>
         </div>
-        <div className="max-w-3xl mx-auto text-center">
-          <p className="text-muted-foreground mb-6">
-            Welcome to PrediBench - the premier platform for evaluating AI model performance in prediction markets.
-            Our benchmark tests how well different language models can analyze market conditions, assess probabilities,
-            and make profitable trading decisions. Track real-time performance metrics and see which models excel
-            at understanding complex market dynamics.
-          </p>
-          <div className="text-center">
-            <RedirectButton href="/about">
-              More detail on the benchmark
-            </RedirectButton>
-          </div>
+        <div className="max-w-3xl mx-auto">
+          <MarkdownRenderer content={aboutContent} />
         </div>
       </div>
 

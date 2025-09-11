@@ -20,7 +20,7 @@ export function LeaderboardTable({
   initialVisibleModels = 10
 }: LeaderboardTableProps) {
   const [visibleModels, setVisibleModels] = useState(initialVisibleModels)
-  const [sortKey, setSortKey] = useState<SortKey>('cumulative_profit')
+  const [sortKey, setSortKey] = useState<SortKey>('brier_score')
 
   const sortedLeaderboard = useMemo(() => {
     return [...leaderboard].sort((a, b) => {
@@ -96,20 +96,8 @@ export function LeaderboardTable({
             <thead className="bg-muted/30">
               <tr>
                 <th className="text-center py-4 px-3 font-semibold w-12"></th>
-                <th className="text-left py-4 px-4 font-semibold w-20">Model Name</th>
-                <th className="text-center py-4 px-4 font-semibold w-24">
-                  <div className="flex items-center justify-center space-x-1 w-full">
-                    <button
-                      onClick={() => handleSort('cumulative_profit')}
-                      className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
-                    >
-                      <ArrowDown className={`h-4 w-4 ${sortKey === 'cumulative_profit' ? 'text-primary' : 'opacity-40'}`} />
-                      <span>Cumulative Profit</span>
-                    </button>
-                    <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
-                  </div>
-                </th>
-                <th className="text-center py-4 px-4 font-semibold w-24">
+                <th className="text-left py-4 px-4 font-semibold w-28">Model Name</th>
+                <th className="text-center py-3 px-4 font-semibold w-24">
                   <div className="flex items-center justify-center space-x-1 w-full">
                     <button
                       onClick={() => handleSort('brier_score')}
@@ -122,16 +110,28 @@ export function LeaderboardTable({
                     <InfoTooltip content="A measure of prediction accuracy. Lower values indicate better calibration - how well the model's confidence matches actual outcomes (0 = perfect, 1 = worst)" />
                   </div>
                 </th>
+                <th className="text-center py-3 px-4 font-semibold w-24">
+                  <div className="flex items-center justify-center space-x-1 w-full">
+                    <button
+                      onClick={() => handleSort('cumulative_profit')}
+                      className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
+                    >
+                      <ArrowDown className={`h-4 w-4 ${sortKey === 'cumulative_profit' ? 'text-primary' : 'opacity-40'}`} />
+                      <span>Cumulative Profit</span>
+                    </button>
+                    <InfoTooltip content="This number is calculated as a variation on top of the original amount of money invested (At every date where we run model decisions, 1$ is allocated to each event) : so +20% means the investment returned 120% of the amount invested." />
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody>
               {loading && leaderboard.length === 0 ? (
                 Array.from({ length: 5 }).map((_, index) => (
                   <tr key={index} className="border-t border-border/20">
-                    <td className="py-4 px-3 text-center">
+                    <td className="py-2 px-3 text-center">
                       <div className="h-4 bg-gray-200 rounded animate-pulse w-8 mx-auto"></div>
                     </td>
-                    <td className="py-4 px-4">
+                    <td className="py-2 px-4">
                       <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
                       <div className="h-3 bg-gray-200 rounded animate-pulse w-20 ml-2"></div>
                     </td>
@@ -146,7 +146,7 @@ export function LeaderboardTable({
               ) : (
                 sortedLeaderboard.slice(0, visibleModels).map((model, index) => (
                   <tr key={model.id} className="border-t border-border/20 hover:bg-muted/20 transition-colors">
-                    <td className="py-4 px-3 text-center">
+                    <td className="py-2 px-3 text-center">
                       <span className={index <= 2 ? "text-2xl" : "text-md font-medium text-muted-foreground"}>
                         {index === 0 ? '🥇' :
                           index === 1 ? '🥈' :
@@ -154,7 +154,7 @@ export function LeaderboardTable({
                               `#${index + 1}`}
                       </span>
                     </td>
-                    <td className="py-4 px-4">
+                    <td className="py-2 px-4">
                       <div>
                         <a
                           href={`/models?selected=${model.id}`}
@@ -169,17 +169,17 @@ export function LeaderboardTable({
                     </td>
                     <td className="py-4 px-4 text-center font-medium">
                       <a href={`/models?selected=${model.id}`} className="block">
-                        <ProfitDisplay
-                          value={model.final_cumulative_pnl}
-                          minValue={profitRange.min}
-                          maxValue={profitRange.max}
-                          formatValue={(v) => `${(v * 100).toFixed(1)}%`}
-                        />
+                        {model.avg_brier_score ? model.avg_brier_score.toFixed(3) : 'N/A'}
                       </a>
                     </td>
                     <td className="py-4 px-4 text-center font-medium">
                       <a href={`/models?selected=${model.id}`} className="block">
-                        {model.avg_brier_score ? model.avg_brier_score.toFixed(3) : 'N/A'}
+                        <ProfitDisplay
+                          value={model.final_cumulative_pnl}
+                          minValue={profitRange.min}
+                          maxValue={profitRange.max}
+                          formatValue={(v) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`}
+                        />
                       </a>
                     </td>
                   </tr>

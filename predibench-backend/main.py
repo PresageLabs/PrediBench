@@ -1,15 +1,21 @@
 import json
 import os
-import time
-import threading
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Literal
 
-from cachetools import TTLCache, cached
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from apscheduler.schedulers.background import (
+    BackgroundScheduler,  # runs tasks in the background
+)
+from apscheduler.triggers.cron import (
+    CronTrigger,  # allows us to specify a recurring time for execution
+)
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from predibench.agent.dataclasses import ModelInvestmentDecisions
-from predibench.backend.comprehensive_data import get_data_for_backend, load_full_result_from_bucket
+from predibench.backend.comprehensive_data import (
+    get_data_for_backend,
+    load_full_result_from_bucket,
+)
 from predibench.backend.data_model import (
     BackendData,
     EventBackend,
@@ -20,15 +26,14 @@ from predibench.backend.data_model import (
 from predibench.common import DATA_PATH
 from predibench.storage_utils import read_from_storage, write_to_storage
 from pydantic import ValidationError
-from dataclasses import dataclass
-from contextlib import asynccontextmanager
-from apscheduler.schedulers.background import BackgroundScheduler  # runs tasks in the background
-from apscheduler.triggers.cron import CronTrigger  # allows us to specify a recurring time for execution
 
 print("Successfully imported predibench modules")
 
 
-CACHED_DATA: list[BackendData] = [] # A list is a common way to introduce a global variable
+CACHED_DATA: list[
+    BackendData
+] = []  # A list is a common way to introduce a global variable
+
 
 def load_backend() -> BackendData:
     """Load pre-computed backend data from cache or recompute if missing/outdated."""
@@ -40,7 +45,7 @@ def load_backend() -> BackendData:
         # Basic migration: ensure required fields exist
         required = {
             "leaderboard",
-            "events", 
+            "events",
             "model_results",
             "performance_per_day",
             "performance_per_bet",
@@ -58,6 +63,7 @@ def load_backend() -> BackendData:
             print(f"⚠️ Could not write backend cache: {w}")
         return data
 
+
 def update_cache() -> None:
     print("Updating cache")
     if len(CACHED_DATA) == 0:
@@ -69,6 +75,7 @@ def update_cache() -> None:
         data = load_backend()
         CACHED_DATA[0] = data
         print("Cache update complete")
+
 
 def load_backend_cache() -> BackendData:
     print("Loading backend cache")
@@ -119,6 +126,7 @@ def get_leaderboard_endpoint():
 @app.get("/api/prediction_dates", response_model=list[str])
 def get_prediction_dates_endpoint():
     return load_backend_cache().prediction_dates
+
 
 @app.get("/api/models/ids", response_model=list[str])
 def get_all_models_endpoint():
@@ -198,7 +206,6 @@ def get_performance_by_model_endpoint(model_id: str, by: Literal["day", "bet"] =
     raise HTTPException(status_code=404, detail="model_id not found")
 
 
-
 @app.get("/api/events/by_id", response_model=EventBackend)
 def get_event_endpoint(event_id: str):
     """Get a specific event"""
@@ -246,15 +253,17 @@ def get_events_endpoint(
     # Apply limit
     return events[:limit]
 
+
 @app.get("/api/events/all", response_model=list[EventBackend])
 def get_all_events_endpoint():
     """Get all events without filtering"""
     return load_backend_cache().events
 
 
-
 @app.get("/api/full_results/by_model_and_event", response_model=FullModelResult | None)
-def get_full_result_by_model_and_event_endpoint(model_id: str, event_id: str, target_date: str):
+def get_full_result_by_model_and_event_endpoint(
+    model_id: str, event_id: str, target_date: str
+):
     """Get full result for a specific model and event"""
     return load_full_result_from_bucket(model_id, event_id, target_date)
 

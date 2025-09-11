@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Route, BrowserRouter as Router, Routes, useLocation } from 'react-router-dom'
 import type { Event, LeaderboardEntry } from './api'
 import { apiService } from './api'
-import { AboutPage } from './components/AboutPage'
 import { EventDetail } from './components/EventDetail'
 import { EventsPage } from './components/EventsPage'
 import { HomePage } from './components/HomePage'
@@ -48,12 +47,30 @@ function AppContent() {
     trackPageView(getCurrentPage())
   }, [location, trackPageView])
 
+  // Hash scroll support (e.g., /#intro)
+  useEffect(() => {
+    if (!location.hash) return
+    const id = location.hash.slice(1)
+    let attempts = 0
+    const maxAttempts = 20
+    const tryScroll = () => {
+      const el = document.getElementById(id)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        return
+      }
+      if (attempts++ < maxAttempts) {
+        window.requestAnimationFrame(tryScroll)
+      }
+    }
+    tryScroll()
+  }, [location, loading])
+
   const getCurrentPage = () => {
     if (location.pathname === '/') return 'home'
     if (location.pathname === '/leaderboard') return 'leaderboard'
     if (location.pathname === '/events') return 'events'
     if (location.pathname === '/models') return 'models'
-    if (location.pathname === '/about') return 'about'
     if (location.pathname.startsWith('/events/')) return 'events'
     return 'home'
   }
@@ -90,7 +107,6 @@ function AppContent() {
         <Route path="/leaderboard" element={<LeaderboardPage leaderboard={leaderboard} loading={loading} />} />
         <Route path="/events" element={<EventsPage events={events} leaderboard={leaderboard} loading={loading} />} />
         <Route path="/models" element={<ModelsPage leaderboard={leaderboard} />} />
-        <Route path="/about" element={<AboutPage />} />
         <Route
           path="/events/:eventId"
           element={
