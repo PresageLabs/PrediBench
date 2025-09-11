@@ -6,7 +6,7 @@ import type { LeaderboardEntry, ModelInvestmentDecision, ModelPerformance } from
 import { apiService } from '../api'
 import { getChartColor } from './ui/chart-colors'
 import { DecisionAnnotation } from './ui/DecisionAnnotation'
-import { InfoTooltip } from './ui/info-tooltip'
+import { BrierScoreInfoTooltip, CumulativeProfitInfoTooltip } from './ui/info-tooltip'
 import { ProfitDisplay } from './ui/profit-display'
 import { VisxLineChart } from './ui/visx-line-chart'
 
@@ -380,14 +380,14 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                 <div>
                   <div className="flex items-center text-muted-foreground">
                     Final Profit:
-                    <InfoTooltip content="This number is calculated as a variation on top of the original amount of money invested (At every date where we run model decisions, 1$ is allocated to each event) : so +20% means the investment returned 120% of the amount invested." />
+                    <CumulativeProfitInfoTooltip />
                   </div>
                   <div className="font-medium">{selectedModelData.final_cumulative_pnl.toFixed(1)}</div>
                 </div>
                 <div>
                   <div className="flex items-center text-muted-foreground">
                     Brier score:
-                    <InfoTooltip content="A measure of prediction accuracy. Lower values indicate better calibration - how well the model's confidence matches actual outcomes (0 = perfect, 1 = worst)" />
+                    <BrierScoreInfoTooltip />
                   </div>
                   <div className="font-medium">{selectedModelData.avg_brier_score.toFixed(3)}</div>
                 </div >
@@ -402,7 +402,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
             <div className="mb-8">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
                 Cumulative Profit
-                <InfoTooltip content="This number is calculated as a variation on top of the original amount of money invested (At every date where we run model decisions, 1$ is allocated to each event) : so +20% means the investment returned 120% of the amount invested." />
+                <CumulativeProfitInfoTooltip />
               </h3>
               <div className="h-[500px]">
                 {cumulativeSeries.length === 0 ? (

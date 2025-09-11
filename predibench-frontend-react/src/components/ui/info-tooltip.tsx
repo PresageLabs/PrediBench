@@ -33,3 +33,15 @@ export function InfoTooltip({ content }: InfoTooltipProps) {
     </Tooltip.Provider>
   )
 }
+
+export function BrierScoreInfoTooltip() {
+  return (
+    <InfoTooltip content="A measure of prediction accuracy. Lower values indicate better calibration - how well the model's confidence matches actual outcomes (0 = perfect, 1 = worst)" />
+  )
+}
+
+export function CumulativeProfitInfoTooltip() {
+  return (
+    <InfoTooltip content="This number is calculated as a variation on top of the original amount of money invested (At every date where we run model decisions, 1$ is allocated to each event) : so +20% means the investment returned 120% of the amount invested." />
+  )
+}
