@@ -233,11 +233,19 @@ Example: If you bet 0.3 in market A, -0.2 in market B (meaning you buy 0.2 of th
 
     full_response_json = complete_market_investment_decisions.full_response
 
+    # Determine agent type - use deepresearch for deep research models, otherwise use model_info.agent_type
+    if (model_info.inference_provider == "openai" and "deep-research" in model_info.model_id) or \
+       (model_info.inference_provider == "perplexity" and "deep-research" in model_info.model_id):
+        agent_type = "deepresearch"
+    else:
+        agent_type = model_info.agent_type
+
     # Create and write FullModelResult to file
     full_model_result = FullModelResult(
         model_id=model_info.model_id,
         event_id=event.id,
         target_date=date_to_string(target_date),
+        agent_type=agent_type,
         full_result_listdict=full_response_json
     )
     model_result_path = model_info.get_model_result_path(target_date)

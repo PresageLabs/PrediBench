@@ -366,6 +366,9 @@ def load_full_result_from_bucket(model_id: str, event_id: str, target_date: str)
             # Check if it's already a FullModelResult structure
             if isinstance(result_data, dict) and all(key in result_data for key in ["model_id", "event_id", "target_date", "full_result_listdict"]):
                 # New format: directly parse as FullModelResult
+                # Handle backward compatibility for files without agent_type field
+                if "agent_type" not in result_data:
+                    result_data["agent_type"] = "toolcalling"  # Default for old files
                 return FullModelResult.model_validate(result_data)
             else:
                 # Old format: result_data is the raw full_result_listdict
@@ -384,7 +387,9 @@ def load_full_result_from_bucket(model_id: str, event_id: str, target_date: str)
                     model_id=model_id,
                     event_id=event_id,
                     target_date=str(target_date),
-                    full_result_listdict=result_data
+                    agent_type="toolcalling",  # Default for old files
+                    full_result_listdict=result_data,
+                    deepresearch_result=None
                 )
         except (json.JSONDecodeError, KeyError, TypeError):
             # If parsing fails, return None

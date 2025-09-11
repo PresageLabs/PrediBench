@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
 from typing import Literal, Optional
 
 import pandas as pd
@@ -109,6 +108,7 @@ class FullModelResult(BaseModel):
     model_id: str
     event_id: str
     target_date: str
+    agent_type: Literal["toolcalling", "code", "deepresearch"]
     full_result_listdict: list[dict] | dict
     
 

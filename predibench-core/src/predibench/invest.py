@@ -113,6 +113,6 @@ if __name__ == "__main__":
         models=models,
         time_until_ending=timedelta(days=7 * 6),
         target_date=date(2025, 9, 10),
-        max_n_events=10,
+        max_n_events=2,
         force_rewrite=True,
     )
