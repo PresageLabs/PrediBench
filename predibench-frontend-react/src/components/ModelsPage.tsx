@@ -380,7 +380,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                 <div>
                   <div className="flex items-center text-muted-foreground">
                     Final Profit:
-                    <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
+                    <InfoTooltip content="This number is calculated as a variation on top of the original amount of money invested (At every date where we run model decisions, 1$ is allocated to each event) : so +20% means the investment returned 120% of the amount invested." />
                   </div>
                   <div className="font-medium">{selectedModelData.final_cumulative_pnl.toFixed(1)}</div>
                 </div>
@@ -402,7 +402,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
             <div className="mb-8">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
                 Cumulative Profit
-                <InfoTooltip content="Cumulative profit for this model. Given that we invest 1$ on each event at each decision date, this is just the ratio of final value / initial value." />
+                <InfoTooltip content="This number is calculated as a variation on top of the original amount of money invested (At every date where we run model decisions, 1$ is allocated to each event) : so +20% means the investment returned 120% of the amount invested." />
               </h3>
               <div className="h-[500px]">
                 {cumulativeSeries.length === 0 ? (

@@ -33,7 +33,7 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
       <div className="mb-16">
         <h2 className="text-2xl font-bold text-center mb-8 flex items-center justify-center">
           Profit Evolution
-          <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
+          <InfoTooltip content="This number is calculated as a variation on top of the original amount of money invested (At every date where we run model decisions, 1$ is allocated to each event) : so +20% means the investment returned 120% of the amount invested." />
         </h2>
         <div className="bg-card rounded-xl border border-border/30 p-6">
           <div className="h-[800px]">
@@ -94,7 +94,7 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
                   <ul className="text-sm text-muted-foreground space-y-2">
                     <li className="flex items-center">
                       • <strong>Cumulative Profit</strong>: Cumulative profit/loss from all trades
-                      <InfoTooltip content="This is the PnL (Profit and Loss), or cumulative profit from all trades made by the model" />
+                      <InfoTooltip content="This number is calculated as a variation on top of the original amount of money invested (At every date where we run model decisions, 1$ is allocated to each event) : so +20% means the investment returned 120% of the amount invested." />
                     </li>
                     <li className="flex items-center">
                       • <strong>Brier Score</strong>: Measure of prediction accuracy
@@ -117,7 +117,7 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
               </div>
 
               <div className="text-center">
-                <RedirectButton href="/about">
+                <RedirectButton href="/#intro">
                   More detail on the benchmark
                 </RedirectButton>
               </div>

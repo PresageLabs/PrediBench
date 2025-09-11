@@ -1,6 +1,6 @@
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { HelpCircle } from 'lucide-react'
-import { Link } from 'react-router-dom'
+// Using a regular anchor for hash navigation to ensure scrolling to the section
 
 interface InfoTooltipProps {
   content: string
@@ -22,9 +22,9 @@ export function InfoTooltip({ content }: InfoTooltipProps) {
             sideOffset={4}
           >
             <span>
-              {content}	→ <Link to="/about" className="underline hover:no-underline">
+              {content}	→ <a href="/#intro" className="underline hover:no-underline">
                 Read more
-              </Link>
+              </a>
             </span>
             <Tooltip.Arrow className="fill-popover" />
           </Tooltip.Content>

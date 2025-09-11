@@ -14,11 +14,20 @@ Good prediction systems are not just about being right — they must be well-cal
 
 ### Edit This Page
 
-This page is powered by a Markdown file. Edit `src/content/about.md` to update this content.
 
 ```note
 You can use headings, lists, and code blocks.
 ```
 
-[Back to Home](/)
+### Cite this
 
+```bibtex
+@Misc{predibench,
+  title =        {PrediBench: a live benchmark to measure LLM's ability to predict the future},
+  author =       {Charles Azam and Aymeric Roucher},
+  howpublished = {\url{https://github.com/clairvoyance-tech/PrediBench}},
+  year =         {2025}
+}
+```
+
+[Back to Home](/)
