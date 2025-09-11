@@ -1,9 +1,5 @@
 import { scaleLinear, scaleTime } from '@visx/scale'
-import {
-  AnimatedLineSeries,
-  Axis,
-  XYChart
-} from '@visx/xychart'
+import { AnimatedLineSeries, Axis, XYChart } from '@visx/xychart'
 import { extent } from 'd3-array'
 import { format } from 'date-fns'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -561,7 +557,6 @@ export function VisxLineChart({
               </clipPath>
             )
           })}
-
           {/* Hashed pattern for annotation period highlighting */}
           <pattern
             id="annotation-highlight"
@@ -665,6 +660,30 @@ export function VisxLineChart({
                 clipPath: hoverState ? `url(#hover-clip-${index})` : undefined
               }}
             />
+
+            {/* Markers for gray background line: one per x-point except segment starts (clip to reveal) */}
+            {(() => {
+              const markerPoints = getMarkerPoints(line.data)
+              return (
+                <g clipPath={'url(#reveal-clip)'}>
+                  {markerPoints.map((pt, i) => {
+                    const cx = scales.xScale(safeXAccessor(pt))
+                    const cy = scales.yScale(safeYAccessor(pt))
+                    if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null
+                    return (
+                      <circle
+                        key={`${line.dataKey}-gray-marker-${i}`}
+                        cx={cx}
+                        cy={cy}
+                        r={3}
+                        fill={'hsl(var(--muted-foreground))'}
+                        pointerEvents="none"
+                      />
+                    )
+                  })}
+                </g>
+              )
+            })()}
 
             {/* Markers for colored series only: one per x-point except segment starts */}
             {(() => {
