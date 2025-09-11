@@ -35,6 +35,7 @@ MODELS_BY_PROVIDER = {
             model_pretty_name="O3 Deep Research",
             inference_provider="openai",
             company_pretty_name="OpenAI",
+            agent_type="deepresearch",
         ),
     ],
     "huggingface-openai": [
@@ -125,6 +126,7 @@ MODELS_BY_PROVIDER = {
             model_pretty_name="Sonar Deep Research",
             inference_provider="perplexity",
             company_pretty_name="Perplexity",
+            agent_type="deepresearch",
         ),
     ],
     "anthropic": [
