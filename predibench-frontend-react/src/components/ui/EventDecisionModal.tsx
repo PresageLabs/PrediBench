@@ -38,6 +38,7 @@ export function EventDecisionModal({
   const [realizedReturns, setRealizedReturns] = useState<Record<string, number>>({})
   const [totalEventPnL, setTotalEventPnL] = useState<number>(0)
   const [positionEndDate, setPositionEndDate] = useState<string | null>(null)
+  const [agentLogs, setAgentLogs] = useState<any[] | null>(null)
 
   const headerTitle = useMemo(() => {
     const evt = eventTitle || eventDecision.event_title
@@ -58,6 +59,39 @@ export function EventDecisionModal({
       setPositionEndDate(null)
     }
   }, [decisionDatesForEvent, decisionDate])
+
+  // Fetch full result data for agent logs
+  useEffect(() => {
+    let cancelled = false
+    const loadFullResult = async () => {
+      if (!modelId || !isOpen) return
+      
+      try {
+        const result = await apiService.getFullResultByModelAndEvent(modelId, eventDecision.event_id, decisionDate)
+        if (cancelled) return
+        
+        if (result?.full_result_text) {
+          try {
+            const parsed = JSON.parse(result.full_result_text)
+            setAgentLogs(Array.isArray(parsed) ? parsed : [parsed])
+          } catch (e) {
+            console.error('Failed to parse full_result_text as JSON:', e)
+            setAgentLogs(null)
+          }
+        } else {
+          setAgentLogs(null)
+        }
+      } catch (e) {
+        console.error('Failed to load full result:', e)
+        if (!cancelled) {
+          setAgentLogs(null)
+        }
+      }
+    }
+    
+    loadFullResult()
+    return () => { cancelled = true }
+  }, [modelId, eventDecision.event_id, decisionDate, isOpen])
 
   useEffect(() => {
     let cancelled = false
@@ -252,7 +286,7 @@ export function EventDecisionModal({
           </div>
 
           {/* Market price evolution since decision */}
-          <div>
+          <div className="mb-8">
             <h4 className="font-medium mb-4">Market Prices Since Decision</h4>
             <div className="h-80">
               {Object.keys(popupPrices).length === 0 ? (
@@ -274,6 +308,24 @@ export function EventDecisionModal({
               )}
             </div>
           </div>
+
+          {/* Agent full logs */}
+          {agentLogs && agentLogs.length > 0 && (
+            <div>
+              <h4 className="font-medium mb-4">Agent full logs</h4>
+              <div className="space-y-4">
+                {agentLogs.map((log, index) => (
+                  <div key={index} className="bg-muted/10 p-4 rounded-lg border">
+                    <div className="overflow-x-auto">
+                      <pre className="text-xs text-foreground whitespace-pre-wrap font-mono">
+                        {typeof log === 'string' ? log : JSON.stringify(log, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

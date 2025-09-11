@@ -131,6 +131,13 @@ export interface MarketPnl {
   pnl: TimeseriesPoint[]
 }
 
+export interface FullModelResult {
+  model_id: string
+  event_id: string
+  target_date: string
+  full_result_text: string
+}
+
 class ApiService {
   private async fetchWithTimeout(url: string, options: RequestInit = {}, timeout = 30000): Promise<Response> {
     const controller = new AbortController()
@@ -243,6 +250,17 @@ class ApiService {
 
   async getEventDetails(eventId: string): Promise<Event> {
     const response = await this.fetchWithTimeout(`${API_BASE_URL}/events/by_id?event_id=${encodeURIComponent(eventId)}`)
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    return await response.json()
+  }
+
+  async getFullResultByModelAndEvent(modelId: string, eventId: string, targetDate: string): Promise<FullModelResult | null> {
+    const response = await this.fetchWithTimeout(`${API_BASE_URL}/full_results/by_model_and_event?model_id=${encodeURIComponent(modelId)}&event_id=${encodeURIComponent(eventId)}&target_date=${encodeURIComponent(targetDate)}`)
+    if (response.status === 404) {
+      return null
+    }
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
