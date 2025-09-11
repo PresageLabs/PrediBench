@@ -29,5 +29,3 @@ You can use headings, lists, and code blocks.
   year =         {2025}
 }
 ```
-
-[Back to Home](/)

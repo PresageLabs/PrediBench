@@ -2,7 +2,7 @@ import { ArrowDown, ChevronDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { LeaderboardEntry } from '../api'
 import { CompanyDisplay } from './ui/company-display'
-import { InfoTooltip } from './ui/info-tooltip'
+import { BrierScoreInfoTooltip, CumulativeProfitInfoTooltip } from './ui/info-tooltip'
 import { ProfitDisplay } from './ui/profit-display'
 import { RedirectButton } from './ui/redirect-button'
 
@@ -107,7 +107,7 @@ export function LeaderboardTable({
                       <ArrowDown className={`h-4 w-4 ${sortKey === 'brier_score' ? 'text-primary' : 'opacity-40'}`} />
                       <span>Brier Score</span>
                     </button>
-                    <InfoTooltip content="A measure of prediction accuracy. Lower values indicate better calibration - how well the model's confidence matches actual outcomes (0 = perfect, 1 = worst)" />
+                    <BrierScoreInfoTooltip />
                   </div>
                 </th>
                 <th className="text-center py-3 px-4 font-semibold w-24">
@@ -119,7 +119,7 @@ export function LeaderboardTable({
                       <ArrowDown className={`h-4 w-4 ${sortKey === 'cumulative_profit' ? 'text-primary' : 'opacity-40'}`} />
                       <span>Cumulative Profit</span>
                     </button>
-                    <InfoTooltip content="This number is calculated as a variation on top of the original amount of money invested (At every date where we run model decisions, 1$ is allocated to each event) : so +20% means the investment returned 120% of the amount invested." />
+                    <CumulativeProfitInfoTooltip />
                   </div>
                 </th>
               </tr>
@@ -197,7 +197,7 @@ export function LeaderboardTable({
             onClick={showMore}
             icon={<ChevronDown className="h-4 w-4" />}
           >
-            Show more
+            Show all
           </RedirectButton>
         </div>
       )}
