@@ -234,7 +234,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
         <h1 className="text-2xl font-bold">Model performance</h1>
 
         <Select.Root value={selectedModel} onValueChange={handleModelSelect}>
-          <Select.Trigger className="inline-flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 min-w-[300px]">
+          <Select.Trigger className="inline-flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 min-w-[100px]">
             <Select.Value placeholder="Select a model">
               {selectedModelData?.model || 'Select a model'}
             </Select.Value>
@@ -318,7 +318,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                 Cumulative Profit
                 <CumulativeProfitInfoTooltip />
               </h3>
-              <div className="h-[500px]">
+              <div className="h-auto sm:h-[400px]">
                 {cumulativeSeries.length === 0 ? (
                   <div className="h-full bg-muted/20 rounded-lg flex items-center justify-center">
                     <div className="text-sm text-muted-foreground">No event profit data available.</div>
@@ -335,7 +335,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
             </div>
 
             {/* Decisions through time */}
-            <div>
+            <div className="pt-6 border-t border-border">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Decisions through time</h3>
               </div>
@@ -408,35 +408,33 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                 </div>
               )}
 
-              <div className="bg-muted/10 rounded-lg p-6">
-                {modelDecisions.length > 0 && selectedDate && (
-                  <div className="p-4 bg-card rounded-lg border max-w-2xl mx-auto">
-                    <h4 className="font-medium mb-3">Decisions for {selectedDate}:</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {modelDecisions
-                        .find(d => d.target_date === selectedDate)
-                        ?.event_investment_decisions.map((eventDecision, index) => {
-                          const top = [...eventDecision.market_investment_decisions].sort((a, b) => Math.abs(b.model_decision.bet) - Math.abs(a.model_decision.bet))[0]
-                          const topBet = top?.model_decision.bet ?? null
-                          const topQuestion = top?.market_question || 'Top market'
-                          return (
-                            <EventDecisionThumbnail
-                              key={index}
-                              title={eventDecision.event_title}
-                              topMarketName={topQuestion}
-                              topBet={topBet}
-                              decisionsCount={eventDecision.market_investment_decisions.length}
-                              onClick={() => {
-                                const decision = modelDecisions.find(d => d.target_date === selectedDate)
-                                handleEventClick(eventDecision, selectedDate, decision?.decision_datetime || '')
-                              }}
-                            />
-                          )
-                        })}
-                    </div>
+              {modelDecisions.length > 0 && selectedDate && (
+                <div className="md:p-4 md:bg-card md:rounded-lg md:border md:max-w-2xl md:mx-auto">
+                  <h4 className="font-medium mb-3">Decisions for {selectedDate}:</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {modelDecisions
+                      .find(d => d.target_date === selectedDate)
+                      ?.event_investment_decisions.map((eventDecision, index) => {
+                        const top = [...eventDecision.market_investment_decisions].sort((a, b) => Math.abs(b.model_decision.bet) - Math.abs(a.model_decision.bet))[0]
+                        const topBet = top?.model_decision.bet ?? null
+                        const topQuestion = top?.market_question || 'Top market'
+                        return (
+                          <EventDecisionThumbnail
+                            key={index}
+                            title={eventDecision.event_title}
+                            topMarketName={topQuestion}
+                            topBet={topBet}
+                            decisionsCount={eventDecision.market_investment_decisions.length}
+                            onClick={() => {
+                              const decision = modelDecisions.find(d => d.target_date === selectedDate)
+                              handleEventClick(eventDecision, selectedDate, decision?.decision_datetime || '')
+                            }}
+                          />
+                        )
+                      })}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div >
         </div >

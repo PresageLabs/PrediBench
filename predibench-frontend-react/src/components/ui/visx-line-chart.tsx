@@ -99,6 +99,9 @@ export function VisxLineChart({
   const isProcessingRef = useRef<boolean>(false)
 
   const [containerWidth, setContainerWidth] = useState(800)
+  const isAnnotated = Object.keys(additionalAnnotations).length > 0
+  const isMobile = containerWidth <= 768
+  const chartHeight = isMobile && isAnnotated ? Math.round(height * 0.67) : height
 
   // Safe wrappers to guard against bad data points provided by callers
   const safeXAccessor = useCallback(
@@ -297,11 +300,11 @@ export function VisxLineChart({
 
     const yScale = scaleLinear({
       domain: yExtent,
-      range: [height - margin.bottom, margin.top]
+      range: [chartHeight - margin.bottom, margin.top]
     })
 
     return { xScale, yScale, yDomain: yExtent, actualTickCount, yTicks, yStep }
-  }, [series, safeXAccessor, safeYAccessor, yDomain, margin, height, containerWidth, effectiveNumTicks])
+  }, [series, safeXAccessor, safeYAccessor, yDomain, margin, chartHeight, containerWidth, effectiveNumTicks])
 
   const processCalculationQueue = useCallback((targetX: number) => {
     if (!containerRef.current || !scales) return
@@ -523,7 +526,7 @@ export function VisxLineChart({
     >
       <XYChart
         width={containerWidth}
-        height={height}
+        height={chartHeight}
         margin={margin}
         xScale={{ type: 'time' }}
         yScale={{ type: 'linear', domain: scales?.yDomain }}
@@ -535,7 +538,7 @@ export function VisxLineChart({
               x={margin.left}
               y={0}
               width="0"
-              height={height}
+              height={chartHeight}
               style={{
                 animation: 'expandWidth 0.8s ease-out forwards'
               }}
@@ -552,7 +555,7 @@ export function VisxLineChart({
                   x={margin.left}
                   y={0}
                   width={Math.max(0, clipX - margin.left)}
-                  height={height}
+                  height={chartHeight}
                 />
               </clipPath>
             )
@@ -590,7 +593,7 @@ export function VisxLineChart({
               ? scales.xScale(hoverState.customAnnotation.nextDate) - scales.xScale(hoverState.customAnnotation.date)
               : (containerWidth - margin.right) - scales.xScale(hoverState.customAnnotation.date)
             }
-            height={height - margin.top - margin.bottom}
+            height={chartHeight - margin.top - margin.bottom}
             fill="url(#annotation-highlight)"
             pointerEvents="none"
           />
@@ -639,6 +642,11 @@ export function VisxLineChart({
           orientation="left"
           numTicks={scales.actualTickCount}
           tickValues={scales.yTicks}
+          tickFormat={(val: any) => {
+            const v = typeof val === 'number' ? val : Number(val)
+            if (!Number.isFinite(v)) return ''
+            return `${Math.round(v * 100)}%`
+          }}
           tickLabelProps={() => ({ dx: -10 })}
         />
 
@@ -668,8 +676,8 @@ export function VisxLineChart({
           const plotLeft = margin.left
           const plotRight = containerWidth - margin.right
           // Position month bar/label below day labels but within SVG bounds
-          const monthBarY = height - 17
-          const monthLabelY = height - 3
+          const monthBarY = chartHeight - 17
+          const monthLabelY = chartHeight - 3
 
           return (
             <g pointerEvents="none">
@@ -682,7 +690,7 @@ export function VisxLineChart({
                     x1={x}
                     x2={x}
                     y1={margin.top}
-                    y2={height - margin.bottom}
+                    y2={chartHeight - margin.bottom}
                     stroke="hsl(var(--border))"
                     strokeWidth={1}
                     opacity={0.5}
@@ -840,7 +848,7 @@ export function VisxLineChart({
                     top: margin.top,
                     width: '1px',
                     backgroundColor: '#9ca3af',
-                    height: height - margin.top - margin.bottom
+                    height: chartHeight - margin.top - margin.bottom
                   }}
                 />
                 {/* End line */}
@@ -852,7 +860,7 @@ export function VisxLineChart({
                       top: margin.top,
                       width: '1px',
                       backgroundColor: '#9ca3af',
-                      height: height - margin.top - margin.bottom
+                      height: chartHeight - margin.top - margin.bottom
                     }}
                   />
                 )}
@@ -866,7 +874,7 @@ export function VisxLineChart({
                   top: margin.top,
                   width: '1px',
                   backgroundColor: '#9ca3af',
-                  height: height - margin.top - margin.bottom
+                  height: chartHeight - margin.top - margin.bottom
                 }}
               />
             )}
@@ -898,19 +906,21 @@ export function VisxLineChart({
               <div
                 style={{
                   position: 'absolute',
-                  left: 0, // Already positioned at the middle X by processCalculationQueue
-                  top: margin.top + 40,
-                  transform: 'translateX(-50%)', // Center horizontally on the middle position
+                  left: isMobile
+                    ? (margin.left + ((containerWidth - margin.left - margin.right) / 2)) - hoverState.xPosition
+                    : 0, // Already positioned at the middle X by processCalculationQueue
+                  top: isMobile ? chartHeight + 8 : (margin.top + 40),
+                  transform: 'translateX(-50%)', // Center horizontally on the anchor position
                   zIndex: 1001,
                   backgroundColor: 'hsl(var(--popover))',
                   color: 'hsl(var(--foreground))',
                   border: '1px solid hsl(var(--border))',
-                  padding: '16px 20px',
+                  padding: isMobile ? '12px 14px' : '16px 20px',
                   borderRadius: '12px',
                   fontSize: '13px',
                   boxShadow: '0 8px 25px -3px rgba(0, 0, 0, 0.15)',
-                  minWidth: '420px',
-                  maxWidth: '500px',
+                  minWidth: isMobile ? `${Math.min(420, containerWidth - 24)}px` : '420px',
+                  maxWidth: isMobile ? `${Math.max(420, containerWidth - 24)}px` : '500px',
                   whiteSpace: 'normal'
                 }}
               >
@@ -976,7 +986,7 @@ export function VisxLineChart({
                         boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                       }}
                     >
-                      <strong>{safeYAccessor(tooltip.datum).toFixed(2)}</strong> - {(tooltip.lineConfig.name || tooltip.lineConfig.dataKey).substring(0, 20)}
+                      <strong>{(safeYAccessor(tooltip.datum) * 100).toFixed(1)}%</strong> - {(tooltip.lineConfig.name || tooltip.lineConfig.dataKey).substring(0, 20)}
                     </div>
                   </div>
                 ))
@@ -1020,5 +1030,7 @@ const ChartWrapper = styled.div`
   @media (max-width: 768px) {
     margin-left: -1rem;
     margin-right: -1rem;
+    /* Add space for annotation card below chart on mobile */
+    padding-bottom: 170px;
   }
 `
