@@ -734,14 +734,15 @@ export function VisxLineChart({
           <g key={line.dataKey}>
             {/* Gray background line - shows full line */}
             <AnimatedLineSeries
-              stroke="hsl(var(--muted-foreground))"
+              stroke="currentColor"
               dataKey={`${line.dataKey}-gray`}
               data={line.data}
               xAccessor={safeXAccessor}
               yAccessor={safeYAccessor}
               style={{
                 // Clip to chart plot area so nothing shows outside Y limits
-                clipPath: 'url(#reveal-clip)'
+                clipPath: 'url(#reveal-clip)',
+                color: 'hsl(var(--chart-dim-stroke))'
               }}
             />
 
@@ -761,7 +762,7 @@ export function VisxLineChart({
             {(() => {
               const markerPoints = getMarkerPoints(line.data)
               return (
-                <g clipPath={'url(#reveal-clip)'}>
+                <g clipPath={'url(#reveal-clip)'} style={{ color: 'hsl(var(--chart-dim-stroke))' }}>
                   {markerPoints.map((pt, i) => {
                     const cx = scales.xScale(safeXAccessor(pt))
                     const cy = scales.yScale(safeYAccessor(pt))
@@ -772,7 +773,7 @@ export function VisxLineChart({
                         cx={cx}
                         cy={cy}
                         r={3}
-                        fill={'hsl(var(--muted-foreground))'}
+                        fill={'currentColor'}
                         pointerEvents="none"
                       />
                     )
