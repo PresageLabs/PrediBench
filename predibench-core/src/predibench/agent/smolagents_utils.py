@@ -697,12 +697,20 @@ def run_perplexity_deep_research(
     model_info: ModelInfo | None = None,
     target_date: date | None = None,
     event_id: str | None = None,
+    dummy: bool = False, # SET AT FALSE
 ) -> CompleteMarketInvestmentDecisions:
     # Try to load cached result first
     cached_result = _get_cached_research_result(model_info, target_date, event_id)
     if cached_result is not None:
         research_output = cached_result
         full_response = None  # We don't have the full response when loading from cache
+    elif dummy:
+        # Return minimal dummy response for testing
+        research_output = "dummy"
+        full_response = {"dummy": True}
+        # Save dummy result to cache
+        if model_info is not None and target_date is not None and event_id is not None:
+            _save_research_result_to_cache(research_output, model_info, target_date, event_id)
     else:
         url = "https://api.perplexity.ai/chat/completions"
 
@@ -728,6 +736,15 @@ def run_perplexity_deep_research(
         # Save to cache before attempting structured output
         _save_research_result_to_cache(research_output, model_info, target_date, event_id)
 
+    # Handle dummy case with minimal data
+    if dummy and research_output == "dummy":
+        return CompleteMarketInvestmentDecisions(
+            market_investment_decisions=[],
+            unallocated_capital=1.0,
+            full_response=full_response,
+            token_usage=None,
+        )
+    
     structured_market_decisions, unallocated_capital = structure_final_answer(
         research_output, question
     )

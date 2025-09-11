@@ -75,7 +75,7 @@ class ModelInfo(BaseModel):
     company_pretty_name: str
     open_weights: bool = False
     client: Any | None = None
-    agent_type: Literal["code", "toolcalling"] = "code"
+    agent_type: Literal["code", "toolcalling", "deepresearch"] = "code"
     
     @staticmethod
     def static_get_model_result_path(model_id: str, target_date: date) -> Path:

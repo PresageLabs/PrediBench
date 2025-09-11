@@ -43,7 +43,7 @@ def run_investments_for_specific_date(
     cache_file_path = cache_file_path / "events.json"
 
     if file_exists_in_storage(
-        cache_file_path, force_rewrite=True
+        cache_file_path, force_rewrite=False
     ):  # IT is very unconvenient to override and lose the events
         logger.info(f"Loading events from cache: {cache_file_path}")
         selected_events = load_events_from_file(cache_file_path)
@@ -101,6 +101,12 @@ if __name__ == "__main__":
     # Test with random model to verify new output format
     models = [
         ModelInfo(
+            model_id="sonar-deep-research",
+            model_pretty_name="Sonar Deep Research",
+            inference_provider="perplexity",
+            company_pretty_name="Perplexity",
+        ),
+        ModelInfo(
             model_id="Qwen/Qwen3-Coder-480B-A35B-Instruct",
             model_pretty_name="Qwen3 Coder 480B",
             inference_provider="fireworks-ai",
@@ -113,6 +119,6 @@ if __name__ == "__main__":
         models=models,
         time_until_ending=timedelta(days=7 * 6),
         target_date=date(2025, 9, 10),
-        max_n_events=10,
+        max_n_events=2,
         force_rewrite=True,
     )

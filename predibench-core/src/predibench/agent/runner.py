@@ -1,4 +1,3 @@
-import json
 import time
 from datetime import date, datetime
 
@@ -11,6 +10,8 @@ from predibench.agent.dataclasses import (
     ModelInvestmentDecisions,
     SingleModelDecision,
 )
+from predibench.backend.data_model import FullModelResult
+from predibench.utils import date_to_string
 from predibench.agent.smolagents_utils import (
     BET_DESCRIPTION,
     run_openai_deep_research,
@@ -232,10 +233,24 @@ Example: If you bet 0.3 in market A, -0.2 in market B (meaning you buy 0.2 of th
 
     full_response_json = complete_market_investment_decisions.full_response
 
-    # Write full response to file
+    # Determine agent type - use deepresearch for deep research models, otherwise use model_info.agent_type
+    if (model_info.inference_provider == "openai" and "deep-research" in model_info.model_id) or \
+       (model_info.inference_provider == "perplexity" and "deep-research" in model_info.model_id):
+        agent_type = "deepresearch"
+    else:
+        agent_type = model_info.agent_type
+
+    # Create and write FullModelResult to file
+    full_model_result = FullModelResult(
+        model_id=model_info.model_id,
+        event_id=event.id,
+        target_date=date_to_string(target_date),
+        agent_type=agent_type,
+        full_result_listdict=full_response_json
+    )
     model_result_path = model_info.get_model_result_path(target_date)
     full_response_file = model_result_path / f"{event.id}_full_response.json"
-    write_to_storage(full_response_file, json.dumps(full_response_json, indent=2))
+    write_to_storage(full_response_file, full_model_result.model_dump_json(indent=2))
 
     timing.end_time = time.time()
     event_decisions = EventInvestmentDecisions(
