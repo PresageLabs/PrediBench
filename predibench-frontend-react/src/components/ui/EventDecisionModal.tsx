@@ -306,7 +306,7 @@ export function EventDecisionModal({
           </div>
 
           {/* Agent full logs */}
-          {agentLogs && (Array.isArray(agentLogs) ? agentLogs.length > 0 : true) && (
+          {((agentLogs !== null && agentLogs !== undefined) && (Array.isArray(agentLogs) ? agentLogs.length > 0 : true)) && (
             <div>
               <h4 className="font-medium mb-4">Agent full logs</h4>
               <AgentLogsDisplay logs={agentLogs} />
