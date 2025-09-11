@@ -15,18 +15,21 @@ MODELS_BY_PROVIDER = {
             model_pretty_name="GPT-5",
             inference_provider="openai",
             company_pretty_name="OpenAI",
+            agent_type="toolcalling",
         ),
         ModelInfo(
             model_id="gpt-5-mini",
             model_pretty_name="GPT-5 Mini",
             inference_provider="openai",
             company_pretty_name="OpenAI",
+            agent_type="toolcalling",
         ),
         ModelInfo(
             model_id="gpt-4.1",
             model_pretty_name="GPT-4.1",
             inference_provider="openai",
             company_pretty_name="OpenAI",
+            agent_type="toolcalling",
         ),
     ],
     "o3-deep-research": [
