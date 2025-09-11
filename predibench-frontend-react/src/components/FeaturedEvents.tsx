@@ -2,8 +2,8 @@ import { Search } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { Event } from '../api'
-import { Card, CardContent, CardHeader } from './ui/card'
 import { EventCard } from './EventCard'
+import { Card, CardContent, CardHeader } from './ui/card'
 
 interface FeaturedEventsProps {
   events: Event[]
@@ -13,10 +13,10 @@ interface FeaturedEventsProps {
   showFilters?: boolean
 }
 
-export function FeaturedEvents({ 
-  events, 
-  loading = false, 
-  showTitle = true, 
+export function FeaturedEvents({
+  events,
+  loading = false,
+  showTitle = true,
   maxEvents = 6,
   showFilters = true
 }: FeaturedEventsProps) {
@@ -40,11 +40,11 @@ export function FeaturedEvents({
         )
 
       const matchesStatus = isLive ? (event.end_datetime ? new Date(event.end_datetime) > new Date() : true) : true
-      
+
       const matchesTag = selectedTag === '' || (event.tags && event.tags.includes(selectedTag))
 
       // Only show events with markets that have multiple datapoints in their timeseries
-      const hasMultipleDatapoints = event.markets?.some(market => 
+      const hasMultipleDatapoints = event.markets?.some(market =>
         market.prices && market.prices.length > 1
       ) ?? false
 
@@ -75,8 +75,8 @@ export function FeaturedEvents({
         <div className="text-center mb-8">
           <div className="flex items-center justify-center space-x-4">
             <h2 className="text-2xl font-bold">Featured Events</h2>
-            <Link 
-              to="/events" 
+            <Link
+              to="/events"
               className="text-primary hover:text-primary/80 transition-colors font-medium"
             >
               View all →
@@ -84,7 +84,7 @@ export function FeaturedEvents({
           </div>
         </div>
       )}
-      
+
       {/* Search and Filters */}
       {showFilters && (
         <div className="mb-8 space-y-4">
@@ -121,7 +121,7 @@ export function FeaturedEvents({
                 )}
               </select>
             </div>
-            
+
             {/* Sort By */}
             <div className="flex items-center space-x-2">
               <span className="text-sm font-medium">Sort by:</span>
@@ -154,9 +154,8 @@ export function FeaturedEvents({
               <span className="text-sm font-medium">Status:</span>
               <button
                 onClick={() => setIsLive(!isLive)}
-                className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                  isLive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                }`}
+                className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${isLive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                  }`}
               >
                 {isLive ? 'Live' : 'All'}
               </button>

@@ -10,7 +10,7 @@ PrediBench is a benchmark focused on evaluating large language models' abilities
 
 ### Why It Matters
 
-Good prediction systems are not just about being right — they must be well-calibrated, transparent, and robust across changing conditions.
+Good prediction systems are not just about being right - they must be well-calibrated, transparent, and robust across changing conditions.
 
 ### Edit This Page
 

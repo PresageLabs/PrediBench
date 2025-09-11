@@ -14,6 +14,16 @@ interface DecisionAnnotationProps {
 export function DecisionAnnotation({ decision, nextDecision, cumulativeData }: DecisionAnnotationProps) {
   const [analysis, setAnalysis] = useState<DecisionAnalysis | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return window.innerWidth <= 768
+    return false
+  })
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 768)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -117,7 +127,7 @@ export function DecisionAnnotation({ decision, nextDecision, cumulativeData }: D
         </div>
       ) : analysis ? (
         <div style={{ fontSize: '12px' }}>
-          {analysis.topDrivers.map((driver, idx) => {
+          {(isMobile ? analysis.topDrivers.slice(0, 3) : analysis.topDrivers).map((driver, idx) => {
             const hasNoBets = driver.betAmount === 0
             return (
               <div key={idx} style={{
