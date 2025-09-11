@@ -4,10 +4,10 @@ import { extent } from 'd3-array'
 import { format } from 'date-fns'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { MarkerAnnotations } from './MarkerAnnotations'
 import type { ModelInvestmentDecision } from '../../api'
+import { MarkerAnnotations } from './MarkerAnnotations'
 
-const tickLabelOffset = 10
+const tickLabelOffset = 2
 
 interface DataPoint {
   x?: string | Date | null
@@ -134,19 +134,19 @@ export function VisxLineChart({
     annotation: typeof additionalAnnotations[string]
   } | null => {
     if (Object.keys(additionalAnnotations).length === 0) return null
-    
+
     const dateTime = date.getTime()
     const annotationDates = Object.keys(additionalAnnotations).sort()
-    
+
     // Find the annotation period this date falls into
     for (let i = 0; i < annotationDates.length; i++) {
       const startDate = new Date(annotationDates[i])
       const endDate = i < annotationDates.length - 1 ? new Date(annotationDates[i + 1]) : null
-      
+
       // Check if date falls within this period
       const afterStart = dateTime >= startDate.getTime()
       const beforeEnd = !endDate || dateTime < endDate.getTime()
-      
+
       if (afterStart && beforeEnd) {
         return {
           startDate,
@@ -155,7 +155,7 @@ export function VisxLineChart({
         }
       }
     }
-    
+
     return null
   }, [additionalAnnotations])
 
@@ -307,17 +307,17 @@ export function VisxLineChart({
     if (!containerRef.current || !scales) return
 
     const hoveredTime = scales.xScale.invert(targetX)
-    
+
     // If additionalAnnotations is provided, completely disable standard tooltips
     if (Object.keys(additionalAnnotations).length > 0) {
       const period = findAnnotationPeriod(hoveredTime)
-      
+
       if (period) {
         // Calculate the middle X position of the period for annotation display
         const startX = scales.xScale(period.startDate)
         const endX = period.endDate ? scales.xScale(period.endDate) : containerWidth - margin.right
         const middleX = (startX + endX) / 2
-        
+
         setHoverState({
           xPosition: middleX,
           tooltips: [],
@@ -330,7 +330,7 @@ export function VisxLineChart({
         })
         return
       }
-      
+
       // No period found - no hover state when additionalAnnotations is provided
       setHoverState(null)
       return
@@ -372,7 +372,7 @@ export function VisxLineChart({
       const xPos = scales.xScale(safeXAccessor(closestPoint))
       const yPos = scales.yScale(safeYAccessor(closestPoint))
       if (!Number.isFinite(xPos) || !Number.isFinite(yPos)) return
-      
+
       newTooltips.push({
         x: xPos,
         y: yPos,
@@ -586,7 +586,7 @@ export function VisxLineChart({
           <rect
             x={scales.xScale(hoverState.customAnnotation.date)}
             y={margin.top}
-            width={hoverState.customAnnotation.nextDate 
+            width={hoverState.customAnnotation.nextDate
               ? scales.xScale(hoverState.customAnnotation.nextDate) - scales.xScale(hoverState.customAnnotation.date)
               : (containerWidth - margin.right) - scales.xScale(hoverState.customAnnotation.date)
             }
@@ -622,6 +622,14 @@ export function VisxLineChart({
           hideAxisLine
           hideTicks
           orientation="bottom"
+          tickFormat={(d: any) => {
+            try {
+              const dt = d instanceof Date ? d : new Date(d)
+              return format(dt, 'EEE dd')
+            } catch {
+              return ''
+            }
+          }}
           tickLabelProps={() => ({ dy: tickLabelOffset })}
           numTicks={effectiveNumTicks}
         />
@@ -633,6 +641,86 @@ export function VisxLineChart({
           tickValues={scales.yTicks}
           tickLabelProps={() => ({ dx: -10 })}
         />
+
+        {/* Month separators and labels (below day ticks) */}
+        {(() => {
+          if (!scales) return null
+          const [d0, d1] = scales.xScale.domain() as [Date, Date]
+          const startDate = d0 instanceof Date ? d0 : new Date(d0)
+          const endDate = d1 instanceof Date ? d1 : new Date(d1)
+
+          // Compute month boundaries within domain (first day of each month)
+          const boundaries: Date[] = []
+          const firstBoundary = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 1)
+          for (let b = firstBoundary; b < endDate; b = new Date(b.getFullYear(), b.getMonth() + 1, 1)) {
+            boundaries.push(new Date(b))
+          }
+
+          // Compute month spans for labeling
+          const spans: { start: Date; end: Date; label: string }[] = []
+          let mStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
+          while (mStart < endDate) {
+            const mEnd = new Date(mStart.getFullYear(), mStart.getMonth() + 1, 1)
+            spans.push({ start: new Date(mStart), end: new Date(mEnd), label: format(mStart, 'MMM') })
+            mStart = mEnd
+          }
+
+          const plotLeft = margin.left
+          const plotRight = containerWidth - margin.right
+          // Position month bar/label below day labels but within SVG bounds
+          const monthBarY = height - 17
+          const monthLabelY = height - 3
+
+          return (
+            <g pointerEvents="none">
+              {boundaries.map((bd, i) => {
+                const x = scales.xScale(bd)
+                if (!Number.isFinite(x)) return null
+                return (
+                  <line
+                    key={`month-boundary-${i}`}
+                    x1={x}
+                    x2={x}
+                    y1={margin.top}
+                    y2={height - margin.bottom}
+                    stroke="hsl(var(--border))"
+                    strokeWidth={1}
+                    opacity={0.5}
+                  />
+                )
+              })}
+              {spans.map((s, i) => {
+                const sx = Math.max(plotLeft, scales.xScale(s.start))
+                const ex = Math.min(plotRight, scales.xScale(s.end))
+                if (!Number.isFinite(sx) || !Number.isFinite(ex)) return null
+                const cx = (sx + ex) / 2
+                return (
+                  <g key={`month-label-${i}`}>
+                    {/* Short bar above month label */}
+                    <line
+                      x1={cx - 10}
+                      x2={cx + 10}
+                      y1={monthBarY}
+                      y2={monthBarY}
+                      stroke="hsl(var(--muted-foreground))"
+                      strokeWidth={2}
+                      opacity={0.8}
+                    />
+                    <text
+                      x={cx}
+                      y={monthLabelY}
+                      textAnchor="middle"
+                      fontSize={12}
+                      fill="hsl(var(--muted-foreground))"
+                    >
+                      {s.label}
+                    </text>
+                  </g>
+                )
+              })}
+            </g>
+          )
+        })()}
 
         {series.map((line, index) => (
           <g key={line.dataKey}>
@@ -711,7 +799,7 @@ export function VisxLineChart({
             })()}
           </g>
         ))}
-        
+
         {/* Decision point markers with hover annotations */}
         {showDecisionMarkers && modelDecisions.length > 0 && (
           <MarkerAnnotations
@@ -787,7 +875,7 @@ export function VisxLineChart({
             <div
               style={{
                 position: 'absolute',
-                left: hoverState.customAnnotation 
+                left: hoverState.customAnnotation
                   ? scales.xScale(hoverState.customAnnotation.date) - hoverState.xPosition
                   : 0,
                 top: margin.top - 20,
@@ -798,7 +886,7 @@ export function VisxLineChart({
                 whiteSpace: 'nowrap'
               }}
             >
-              {hoverState.customAnnotation 
+              {hoverState.customAnnotation
                 ? formatTooltipX(hoverState.customAnnotation.date)
                 : hoverState.tooltips.length > 0 && formatTooltipX(safeXAccessor(hoverState.tooltips[0].datum))
               }

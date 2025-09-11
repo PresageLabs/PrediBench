@@ -1,11 +1,13 @@
 import { ExternalLink } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import type { Event, LeaderboardEntry } from '../api'
+import { useEffect, useMemo, useState } from 'react'
+import type { Event, LeaderboardEntry, ModelInvestmentDecision } from '../api'
 import { apiService } from '../api'
 import { useAnalytics } from '../hooks/useAnalytics'
 import { formatVolume } from '../lib/utils'
 import { getChartColor } from './ui/chart-colors'
 import { VisxLineChart } from './ui/visx-line-chart'
+import { EventDecisionModal } from './ui/EventDecisionModal'
+import { EventDecisionThumbnail } from './ui/EventDecisionThumbnail'
 
 interface EventDetailProps {
   event: Event
@@ -32,10 +34,17 @@ interface MarketInvestmentDecision {
 export function EventDetail({ event }: EventDetailProps) {
   const [marketPricesData, setMarketPricesData] = useState<{ [marketId: string]: PriceData[] }>({})
   const { trackEvent, trackUserAction } = useAnalytics()
-  const [investmentDecisions, setInvestmentDecisions] = useState<MarketInvestmentDecision[]>([])
   const [loading, setLoading] = useState(false)
   const [latestDecisionDate, setLatestDecisionDate] = useState<string | null>(null)
   const [modelIdToName, setModelIdToName] = useState<Record<string, string>>({})
+  const [eventModelDecisions, setEventModelDecisions] = useState<ModelInvestmentDecision[]>([])
+  const [showEventPopup, setShowEventPopup] = useState(false)
+  const [selectedEvent, setSelectedEvent] = useState<{
+    eventDecision: any;
+    decisionDate: string;
+    decisionDatetime: string;
+    modelId: string;
+  } | null>(null)
 
   // Function to convert URLs in text to clickable links
   const linkify = (text: string | null | undefined) => {
@@ -72,7 +81,7 @@ export function EventDetail({ event }: EventDetailProps) {
     setLoading(true)
     try {
       // Get market investment decisions by event
-      const investmentDecisions = await apiService.getModelResultsByEvent(eventId)
+      const modelResultsByEvent = await apiService.getModelResultsByEvent(eventId)
 
       // Extract market prices from event.markets
       // Filter to last 2 months only to reduce frontend load
@@ -101,10 +110,10 @@ export function EventDetail({ event }: EventDetailProps) {
         }
       })
 
-      // Transform investment decisions to match the component's expected format
+      // Transform investment decisions to match the component's expected format (for prior table; no longer displayed)
       const transformedDecisions: MarketInvestmentDecision[] = []
       let maxDate: string | null = null
-      investmentDecisions.forEach(modelResult => {
+      modelResultsByEvent.forEach(modelResult => {
         modelResult.event_investment_decisions.forEach(eventDecision => {
           if (eventDecision.event_id === eventId) {
             // use the top-level decision target_date as the model's decision date
@@ -125,7 +134,7 @@ export function EventDetail({ event }: EventDetailProps) {
       })
 
       setMarketPricesData(transformedPrices)
-      setInvestmentDecisions(transformedDecisions)
+      setEventModelDecisions(modelResultsByEvent)
       setLatestDecisionDate(maxDate)
     } catch (error) {
       console.error('Error loading event details:', error)
@@ -160,6 +169,22 @@ export function EventDetail({ event }: EventDetailProps) {
       .catch(console.error)
     return () => { cancelled = true }
   }, [])
+  
+  // Prepare latest decision per model for this event
+  const latestByModel = useMemo(() => {
+    const byModel: Record<string, ModelInvestmentDecision | undefined> = {}
+    eventModelDecisions.forEach(dec => {
+      const hasEvent = dec.event_investment_decisions.some(ed => ed.event_id === event.id)
+      if (!hasEvent) return
+      const current = byModel[dec.model_id]
+      if (!current || dec.target_date > current.target_date) {
+        byModel[dec.model_id] = dec
+      }
+    })
+    return byModel
+  }, [eventModelDecisions, event.id])
+
+  const uniqueModelIds = useMemo(() => Object.keys(latestByModel), [latestByModel])
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
@@ -262,7 +287,7 @@ export function EventDetail({ event }: EventDetailProps) {
 
         {/* Latest Model Predictions */}
         <div className="mt-8">
-          <h2 className="text-2xl font-bold mb-6">
+          <h2 className="text-2xl font-bold mb-4">
             Latest Predictions{latestDecisionDate ? ` (${new Date(latestDecisionDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })})` : ''}
           </h2>
 
@@ -273,60 +298,55 @@ export function EventDetail({ event }: EventDetailProps) {
                 <div className="text-sm text-muted-foreground">Loading predictions...</div>
               </div>
             </div>
+          ) : uniqueModelIds.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No predictions available.</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground"></th>
-                    {/* Create column headers for each unique model */}
-                    {[...new Set(investmentDecisions.map(decision => decision.model_name))].map(modelId => (
-                      <th key={modelId} className="text-center py-3 px-4 text-sm font-medium text-muted-foreground">
-                        <a href={`/models?selected=${encodeURIComponent(modelId)}`} className="text-foreground hover:underline">
-                          {modelIdToName[modelId] || modelId}
-                        </a>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* Bet row */}
-                  <tr className="border-b border-border bg-muted/50">
-                    <td className="py-3 px-4 font-medium text-sm">Bet</td>
-                    {[...new Set(investmentDecisions.map(decision => decision.model_name))].map(modelId => {
-                      const decision = investmentDecisions.find(d => d.model_name === modelId)
-                      return (
-                        <td key={modelId} className="py-3 px-4 text-center">
-                          {decision && (
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${decision.bet < 0
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
-                              }`}>
-                              {decision.bet.toFixed(2)}
-                            </span>
-                          )}
-                        </td>
-                      )
-                    })}
-                  </tr>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {uniqueModelIds.map(modelId => {
+                const md = latestByModel[modelId]!
+                const ed = md.event_investment_decisions.find(ed => ed.event_id === event.id)!
+                const top = [...ed.market_investment_decisions].sort((a, b) => Math.abs(b.model_decision.bet) - Math.abs(a.model_decision.bet))[0]
+                const topBet = top?.model_decision.bet ?? null
+                const topQuestion = top?.market_question || 'Top market'
 
-                  {/* Confidence row */}
-                  <tr>
-                    <td className="py-3 px-4 font-medium text-sm">Confidence</td>
-                    {[...new Set(investmentDecisions.map(decision => decision.model_name))].map(modelId => {
-                      const decision = investmentDecisions.find(d => d.model_name === modelId)
-                      return (
-                        <td key={modelId} className="py-3 px-4 text-center text-sm text-muted-foreground">
-                          {decision && `${(decision.odds * 100).toFixed(0)}%`}
-                        </td>
-                      )
-                    })}
-                  </tr>
-                </tbody>
-              </table>
+                return (
+                  <EventDecisionThumbnail
+                    key={modelId}
+                    title={modelIdToName[modelId] || modelId}
+                    topMarketName={topQuestion}
+                    topBet={topBet}
+                    decisionsCount={ed.market_investment_decisions.length}
+                    onClick={() => {
+                      setSelectedEvent({
+                        eventDecision: ed,
+                        decisionDate: md.target_date,
+                        decisionDatetime: md.decision_datetime,
+                        modelId
+                      })
+                      setShowEventPopup(true)
+                    }}
+                  />
+                )
+              })}
             </div>
           )}
         </div>
+        {showEventPopup && selectedEvent && (
+          <EventDecisionModal
+            isOpen={showEventPopup}
+            onClose={() => setShowEventPopup(false)}
+            eventDecision={selectedEvent.eventDecision}
+            decisionDate={selectedEvent.decisionDate}
+            decisionDatetime={selectedEvent.decisionDatetime}
+            modelName={modelIdToName[selectedEvent.modelId] || selectedEvent.modelId}
+            modelId={selectedEvent.modelId}
+            eventTitle={event.title}
+            decisionDatesForEvent={eventModelDecisions
+              .filter(d => d.model_id === selectedEvent.modelId && d.event_investment_decisions.some(ed => ed.event_id === event.id))
+              .map(d => d.target_date)
+              .sort((a, b) => a.localeCompare(b))}
+          />
+        )}
       </div>
     </div>
   )

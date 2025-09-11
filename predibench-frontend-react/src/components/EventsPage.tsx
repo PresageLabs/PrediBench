@@ -1,7 +1,9 @@
 import { Search } from 'lucide-react'
-import { useState } from 'react'
-import type { Event, LeaderboardEntry } from '../api'
+import { useEffect, useMemo, useState } from 'react'
+import type { Event, LeaderboardEntry, ModelInvestmentDecision } from '../api'
+import { apiService } from '../api'
 import { EventCard } from './EventCard'
+import { FeaturedEvents } from './FeaturedEvents'
 import { Card, CardContent, CardHeader } from './ui/card'
 
 interface EventsPageProps {
@@ -16,6 +18,42 @@ export function EventsPage({ events, loading: initialLoading = false }: EventsPa
   const [orderBy, setOrderBy] = useState<'asc' | 'desc'>('desc')
   const [isLive, setIsLive] = useState(false)
   const [selectedTag, setSelectedTag] = useState<string>('')
+
+  // Featured Events (latest ModelInvestmentDecisions batch)
+  const [featuredEventIds, setFeaturedEventIds] = useState<string[]>([])
+  const [featuredLoading, setFeaturedLoading] = useState<boolean>(false)
+
+  useEffect(() => {
+    let cancelled = false
+    const loadFeatured = async () => {
+      try {
+        setFeaturedLoading(true)
+        const dates = await apiService.getPredictionDates()
+        if (!dates || dates.length === 0) {
+          if (!cancelled) setFeaturedEventIds([])
+          return
+        }
+        const latest = dates.sort((a, b) => b.localeCompare(a))[0]
+        const results: ModelInvestmentDecision[] = await apiService.getModelResultsByDate(latest)
+        const ids = new Set<string>()
+        results.forEach(r => r.event_investment_decisions.forEach(ed => ids.add(ed.event_id)))
+        if (!cancelled) setFeaturedEventIds(Array.from(ids))
+      } catch (e) {
+        console.warn('Failed to load featured events', e)
+        if (!cancelled) setFeaturedEventIds([])
+      } finally {
+        if (!cancelled) setFeaturedLoading(false)
+      }
+    }
+    loadFeatured()
+    return () => { cancelled = true }
+  }, [])
+
+  const featuredEvents = useMemo(() => {
+    if (!featuredEventIds.length) return []
+    const idSet = new Set(featuredEventIds)
+    return events.filter(e => idSet.has(e.id))
+  }, [events, featuredEventIds])
 
 
   // Rank tags by frequency (after capitalization) and keep top 7
@@ -82,7 +120,27 @@ export function EventsPage({ events, loading: initialLoading = false }: EventsPa
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* Featured Events (latest decisions) */}
+      {(featuredLoading || featuredEvents.length > 0) && (
+        <div className="mb-10">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold">Featured Events</h2>
+          </div>
+          <FeaturedEvents
+            events={featuredEvents}
+            loading={featuredLoading}
+            showTitle={false}
+            showFilters={false}
+            maxEvents={featuredEvents.length || 6}
+          />
+          <div className="w-full h-px bg-border mt-10"></div>
+        </div>
+      )}
+
       {/* Search and Filters */}
+      <div className="text-center mb-4">
+        <h2 className="text-2xl font-bold">Search all events</h2>
+      </div>
       <div className="mb-8 space-y-4">
         {/* Search Bar */}
         <div className="relative">
