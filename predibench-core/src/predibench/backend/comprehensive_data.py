@@ -3,6 +3,7 @@ Comprehensive data computation for backend caching.
 This module pre-computes all data needed for all backend API endpoints.
 """
 
+import json
 from datetime import date
 from datetime import datetime as dt
 from typing import List
@@ -358,12 +359,30 @@ def load_full_result_from_bucket(model_id: str, event_id: str, target_date: str)
     
     if file_exists_in_storage(cache_file_path):
         full_result_text = read_from_storage(cache_file_path)
-        return FullModelResult(
-            model_id=model_id,
-            event_id=event_id,
-            target_date=str(target_date),
-            full_result_text=full_result_text
-        )
+        try:
+            # Parse JSON and remove model_input_messages
+            result_data = json.loads(full_result_text)
+            
+            # Handle both list and dict formats
+            if isinstance(result_data, list):
+                # List format: remove model_input_messages from each step
+                for step in result_data:
+                    if isinstance(step, dict) and "model_input_messages" in step:
+                        del step["model_input_messages"]
+            elif isinstance(result_data, dict):
+                # Dict format: remove model_input_messages if present
+                if "model_input_messages" in result_data:
+                    del result_data["model_input_messages"]
+            
+            return FullModelResult(
+                model_id=model_id,
+                event_id=event_id,
+                target_date=str(target_date),
+                full_result_listdict=result_data
+            )
+        except (json.JSONDecodeError, KeyError, TypeError):
+            # If parsing fails, return None
+            return None
     return None
 
 

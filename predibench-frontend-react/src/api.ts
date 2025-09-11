@@ -135,7 +135,7 @@ export interface FullModelResult {
   model_id: string
   event_id: string
   target_date: string
-  full_result_text: string
+  full_result_listdict: unknown[] | unknown
 }
 
 class ApiService {

@@ -5,6 +5,7 @@ import { apiService } from '../../api'
 import { getChartColor } from './chart-colors'
 import { ProfitDisplay } from './profit-display'
 import { VisxLineChart } from './visx-line-chart'
+import { AgentLogsDisplay } from './AgentLogsDisplay'
 
 interface EventDecisionModalProps {
   isOpen: boolean
@@ -38,7 +39,7 @@ export function EventDecisionModal({
   const [realizedReturns, setRealizedReturns] = useState<Record<string, number>>({})
   const [totalEventPnL, setTotalEventPnL] = useState<number>(0)
   const [positionEndDate, setPositionEndDate] = useState<string | null>(null)
-  const [agentLogs, setAgentLogs] = useState<any[] | null>(null)
+  const [agentLogs, setAgentLogs] = useState<unknown[] | unknown | null>(null)
 
   const headerTitle = useMemo(() => {
     const evt = eventTitle || eventDecision.event_title
@@ -70,14 +71,9 @@ export function EventDecisionModal({
         const result = await apiService.getFullResultByModelAndEvent(modelId, eventDecision.event_id, decisionDate)
         if (cancelled) return
         
-        if (result?.full_result_text) {
-          try {
-            const parsed = JSON.parse(result.full_result_text)
-            setAgentLogs(Array.isArray(parsed) ? parsed : [parsed])
-          } catch (e) {
-            console.error('Failed to parse full_result_text as JSON:', e)
-            setAgentLogs(null)
-          }
+        if (result?.full_result_listdict) {
+          // Use the pre-parsed data from the backend
+          setAgentLogs(result.full_result_listdict)
         } else {
           setAgentLogs(null)
         }
@@ -310,20 +306,10 @@ export function EventDecisionModal({
           </div>
 
           {/* Agent full logs */}
-          {agentLogs && agentLogs.length > 0 && (
+          {agentLogs && (Array.isArray(agentLogs) ? agentLogs.length > 0 : true) && (
             <div>
               <h4 className="font-medium mb-4">Agent full logs</h4>
-              <div className="space-y-4">
-                {agentLogs.map((log, index) => (
-                  <div key={index} className="bg-muted/10 p-4 rounded-lg border">
-                    <div className="overflow-x-auto">
-                      <pre className="text-xs text-foreground whitespace-pre-wrap font-mono">
-                        {typeof log === 'string' ? log : JSON.stringify(log, null, 2)}
-                      </pre>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <AgentLogsDisplay logs={agentLogs} />
             </div>
           )}
         </div>

@@ -21,6 +21,7 @@ export function EventDecisionThumbnail({
   const betLabel = isNumber
     ? `${isPositive ? '+' : isNegative ? '-' : ''}$${Math.abs(topBet as number).toFixed(2)}`
     : 'N/A'
+  const extraCount = Math.max(0, decisionsCount - 1)
 
   return (
     <button
@@ -37,7 +38,9 @@ export function EventDecisionThumbnail({
           </span>
         </div>
       </div>
-      <div className="text-xs text-muted-foreground mt-1 italic pl-4">+{decisionsCount} market decisions</div>
+      {extraCount > 0 && (
+        <div className="text-xs text-muted-foreground mt-1 italic pl-4">+{extraCount} market decision{extraCount === 1 ? '' : 's'}</div>
+      )}
     </button>
   )
 }

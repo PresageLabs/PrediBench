@@ -109,7 +109,7 @@ class FullModelResult(BaseModel):
     model_id: str
     event_id: str
     target_date: str
-    full_result_text: str
+    full_result_listdict: list[dict] | dict
     
 
 class BackendData(BaseModel):
