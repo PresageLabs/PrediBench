@@ -21,7 +21,7 @@ interface ModelsPageProps {
 export function ModelsPage({ leaderboard }: ModelsPageProps) {
   const location = useLocation()
   const navigate = useNavigate()
-  const [selectedModelId, setSelectedModelId] = useState<string>(leaderboard[0]?.id || '')
+  const [selectedModelId, setSelectedModelId] = useState<string>(leaderboard[0]?.model_id || '')
   const [modelDecisions, setModelDecisions] = useState<ModelInvestmentDecision[]>([])
   // const [loading, setLoading] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -431,8 +431,8 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
           eventDecision={selectedEvent.eventDecision}
           decisionDate={selectedEvent.decisionDate}
           decisionDatetime={selectedEvent.decisionDatetime}
-          modelName={selectedModelData.model_name}
-          modelId={selectedModelData.model_id}
+          modelName={selectedModelData?.model_name}
+          modelId={selectedModelData?.model_id}
           eventTitle={selectedEvent.eventDecision?.event_title}
           decisionDatesForEvent={modelDecisions
             .filter(d => d.event_investment_decisions.some(ed => ed.event_id === selectedEvent.eventDecision.event_id))
