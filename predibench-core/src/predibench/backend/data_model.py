@@ -24,7 +24,7 @@ class TimeseriesPointBackend(BaseModel):
 
 class LeaderboardEntryBackend(BaseModel):
     id: str
-    model: str
+    pretty_name: str
     final_cumulative_pnl: float
     trades: int
     lastUpdated: str
@@ -105,12 +105,15 @@ class ModelPerformanceBackend(BaseModel):
 
 class FullModelResult(BaseModel):
     """Full result data for a model on a specific event"""
+
     model_id: str
     event_id: str
     target_date: str
-    agent_type: Literal["toolcalling", "code", "deepresearch"]
+    agent_type: (
+        Literal["toolcalling", "code", "deepresearch"] | None
+    )  # None is for old files
     full_result_listdict: list[dict] | dict
-    
+
 
 class BackendData(BaseModel):
     """Comprehensive pre-computed data for all backend routes"""

@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import type { LeaderboardEntry } from '../api'
 import { CompanyDisplay } from './ui/company-display'
 import { BrierScoreInfoTooltip, CumulativeProfitInfoTooltip } from './ui/info-tooltip'
+import { encodeSlashes } from '../lib/utils'
 import { ProfitDisplay } from './ui/profit-display'
 import { RedirectButton } from './ui/redirect-button'
 
@@ -157,23 +158,23 @@ export function LeaderboardTable({
                     <td className="py-2 px-4">
                       <div>
                         <a
-                          href={`/models?selected=${model.id}`}
+                          href={`/models?selected=${encodeSlashes(model.id)}`}
                           className="font-medium hover:text-primary transition-colors block"
                         >
-                          {model.model}
+                          {model.pretty_name}
                         </a>
                         <div className="ml-2 mt-1">
-                          <CompanyDisplay modelName={model.model} />
+                          <CompanyDisplay modelName={model.pretty_name} />
                         </div>
                       </div>
                     </td>
                     <td className="py-4 px-4 text-center font-medium">
-                      <a href={`/models?selected=${model.id}`} className="block">
+                      <a href={`/models?selected=${encodeSlashes(model.id)}`} className="block">
                         {model.avg_brier_score ? model.avg_brier_score.toFixed(3) : 'N/A'}
                       </a>
                     </td>
                     <td className="py-4 px-4 text-center font-medium">
-                      <a href={`/models?selected=${model.id}`} className="block">
+                      <a href={`/models?selected=${encodeSlashes(model.id)}`} className="block">
                         <ProfitDisplay
                           value={model.final_cumulative_pnl}
                           minValue={profitRange.min}

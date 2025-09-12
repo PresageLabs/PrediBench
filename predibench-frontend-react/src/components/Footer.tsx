@@ -28,7 +28,7 @@ export function Footer() {
             <div className="flex items-center space-x-3">
               <a
                 aria-label="github link"
-                href="https://github.com/aymeric-roucher/PrediBench"
+                href="https://github.com/clairvoyance-tech/PrediBench"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-muted-foreground hover:text-foreground transition-colors"

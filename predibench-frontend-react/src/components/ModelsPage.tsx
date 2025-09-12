@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { LeaderboardEntry, ModelInvestmentDecision, ModelPerformance } from '../api'
 import { apiService } from '../api'
+import { decodeSlashes, encodeSlashes } from '../lib/utils'
 import { getChartColor } from './ui/chart-colors'
 import { DecisionAnnotation } from './ui/DecisionAnnotation'
 import { EventDecisionModal } from './ui/EventDecisionModal'
@@ -20,7 +21,7 @@ interface ModelsPageProps {
 export function ModelsPage({ leaderboard }: ModelsPageProps) {
   const location = useLocation()
   const navigate = useNavigate()
-  const [selectedModel, setSelectedModel] = useState<string>(leaderboard[0]?.id || '')
+  const [selectedModelId, setSelectedModelId] = useState<string>(leaderboard[0]?.id || '')
   const [modelDecisions, setModelDecisions] = useState<ModelInvestmentDecision[]>([])
   // const [loading, setLoading] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -37,48 +38,29 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
 
   // formatLongDate moved into EventDecisionModal
 
-  const selectedModelData = leaderboard.find(m => m.id === selectedModel)
+  const selectedModelData = leaderboard.find(m => m.id === selectedModelId)
 
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search)
     const selectedFromUrl = urlParams.get('selected')
+    const decodedSelectedFromUrl = selectedFromUrl ? decodeSlashes(selectedFromUrl) : null
 
-    if (selectedFromUrl && leaderboard.find(m => m.id === selectedFromUrl)) {
-      setSelectedModel(selectedFromUrl)
-    } else if (!selectedModel && leaderboard.length > 0) {
-      setSelectedModel(leaderboard[0].id)
+    if (decodedSelectedFromUrl && leaderboard.find(m => m.id === decodedSelectedFromUrl)) {
+      setSelectedModelId(decodedSelectedFromUrl)
+    } else if (!selectedModelId && leaderboard.length > 0) {
+      setSelectedModelId(leaderboard[0].id)
     }
-  }, [leaderboard, selectedModel, location.search])
+  }, [leaderboard, selectedModelId, location.search])
 
-  // Map model_name -> model_id using performance endpoint once
-  const [nameToIdMap, setNameToIdMap] = useState<Record<string, string>>({})
-  useEffect(() => {
-    let cancelled = false
-    apiService.getPerformance('day')
-      .then(perfs => {
-        if (cancelled) return
-        const map: Record<string, string> = {}
-        perfs.forEach(p => {
-          map[p.model_name] = p.model_id
-          map[p.model_id] = p.model_id // allow id passthrough
-        })
-        setNameToIdMap(map)
-      })
-      .catch(console.error)
-    return () => { cancelled = true }
-  }, [])
-
-  // Resolve the backend model_id to query
-  const resolvedModelId = useMemo(() => nameToIdMap[selectedModel] || selectedModel, [nameToIdMap, selectedModel])
-  const mapReady = useMemo(() => Object.keys(nameToIdMap).length > 0, [nameToIdMap])
+  // selectedModel is already the canonical model_id from the leaderboard
 
   useEffect(() => {
-    if (resolvedModelId && mapReady) {
-      apiService.getModelResultsById(resolvedModelId)
+    if (selectedModelId) {
+      apiService.getModelResultsById(selectedModelId)
         .then(setModelDecisions)
         .catch(console.error)
     }
-  }, [resolvedModelId, mapReady])
+  }, [selectedModelId])
 
   // Auto-select the latest decision date when modelDecisions are loaded
   useEffect(() => {
@@ -98,8 +80,8 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
 
 
   const handleModelSelect = (modelId: string) => {
-    setSelectedModel(modelId)
-    navigate(`/models?selected=${modelId}`, { replace: true })
+    setSelectedModelId(modelId)
+    navigate(`/models?selected=${encodeSlashes(modelId)}`, { replace: true })
   }
 
   const handleEventClick = (eventDecision: any, decisionDate: string, decisionDatetime: string) => {
@@ -173,13 +155,13 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
   // Fetch model performance for event-level PnL series
   useEffect(() => {
     let cancelled = false
-    if (resolvedModelId && mapReady) {
-      apiService.getPerformanceByModel(resolvedModelId, 'day')
+    if (selectedModelId) {
+      apiService.getPerformanceByModel(selectedModelId, 'day')
         .then(perf => { if (!cancelled) setModelPerformance(perf) })
         .catch(console.error)
     }
     return () => { cancelled = true }
-  }, [resolvedModelId, mapReady])
+  }, [selectedModelId])
 
   // Removed event-based series metadata; cumulative series is used instead
 
@@ -233,10 +215,10 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-bold">Model performance</h1>
 
-        <Select.Root value={selectedModel} onValueChange={handleModelSelect}>
+        <Select.Root value={selectedModelId} onValueChange={handleModelSelect}>
           <Select.Trigger className="inline-flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 min-w-[100px]">
             <Select.Value placeholder="Select a model">
-              {selectedModelData?.model || 'Select a model'}
+              {selectedModelData?.pretty_name || 'Select a model'}
             </Select.Value>
             <Select.Icon>
               <ChevronDown size={16} />
@@ -268,7 +250,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                           {index + 1}
                         </div>
                         <div>
-                          <div className="font-medium">{model.model}</div>
+                          <div className="font-medium">{model.pretty_name}</div>
                           <div className="text-xs text-muted-foreground mt-1">
                             Profit: {(model.final_cumulative_pnl * 100).toFixed(1)}% | Brier score: {model.avg_brier_score.toFixed(3)}
                           </div>
@@ -289,7 +271,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
           <div className="md:p-6 md:bg-card md:rounded-xl md:border md:border-border">
             {/* Model Info - Always visible */}
             <div className="mb-8 border-b border-border pb-6">
-              <h2 className="text-xl font-semibold mb-4">{selectedModelData.model}</h2>
+              <h2 className="text-xl font-semibold mb-4">{selectedModelData.pretty_name}</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                 <div>
                   <div className="flex items-center text-muted-foreground">
@@ -318,7 +300,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                 Cumulative Profit
                 <CumulativeProfitInfoTooltip />
               </h3>
-              <div className="h-auto sm:h-[400px]">
+              <div className="h-auto sm:h-[500px]">
                 {cumulativeSeries.length === 0 ? (
                   <div className="h-full bg-muted/20 rounded-lg flex items-center justify-center">
                     <div className="text-sm text-muted-foreground">No event profit data available.</div>
@@ -449,8 +431,8 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
           eventDecision={selectedEvent.eventDecision}
           decisionDate={selectedEvent.decisionDate}
           decisionDatetime={selectedEvent.decisionDatetime}
-          modelName={selectedModelData?.model}
-          modelId={selectedModelData?.id}
+          modelName={selectedModelData.pretty_name}
+          modelId={selectedModelData.id}
           eventTitle={selectedEvent.eventDecision?.event_title}
           decisionDatesForEvent={modelDecisions
             .filter(d => d.event_investment_decisions.some(ed => ed.event_id === selectedEvent.eventDecision.event_id))

@@ -2,10 +2,11 @@ import { X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { EventInvestmentDecision } from '../../api'
 import { apiService } from '../../api'
+import { AgentLogsDisplay } from './AgentLogsDisplay'
 import { getChartColor } from './chart-colors'
 import { ProfitDisplay } from './profit-display'
 import { VisxLineChart } from './visx-line-chart'
-import { AgentLogsDisplay } from './AgentLogsDisplay'
+import { encodeSlashes } from '../../lib/utils'
 
 interface EventDecisionModalProps {
   isOpen: boolean
@@ -39,12 +40,23 @@ export function EventDecisionModal({
   const [realizedReturns, setRealizedReturns] = useState<Record<string, number>>({})
   const [totalEventPnL, setTotalEventPnL] = useState<number>(0)
   const [positionEndDate, setPositionEndDate] = useState<string | null>(null)
+  const [pricesLoading, setPricesLoading] = useState<boolean>(false)
   const [agentLogs, setAgentLogs] = useState<unknown[] | unknown | null>(null)
+  const [agentLogsLoading, setAgentLogsLoading] = useState<boolean>(false)
+
+  // Only show agent logs for decisions strictly after this date (YYYY-MM-DD)
+  const AGENT_LOGS_CUTOFF_DATE = '2025-09-09'
+  const isDecisionAfterCutoff = useMemo(() => {
+    // decisionDate format is YYYY-MM-DD, string compare works lexicographically
+    return decisionDate > AGENT_LOGS_CUTOFF_DATE
+  }, [decisionDate])
 
   const headerTitle = useMemo(() => {
     const evt = eventTitle || eventDecision.event_title
     return { evt, modelName }
   }, [eventTitle, eventDecision.event_title, modelName])
+
+  // modelId prop must be the canonical model_id (caller ensures this)
 
   useEffect(() => {
     // Compute end date as the next date after decisionDate in the provided sequence
@@ -61,37 +73,53 @@ export function EventDecisionModal({
     }
   }, [decisionDatesForEvent, decisionDate])
 
-  // Fetch full result data for agent logs
+  // Fetch full result data for agent logs (only for decisions after cutoff)
   useEffect(() => {
     let cancelled = false
     const loadFullResult = async () => {
-      if (!modelId || !isOpen) return
-      
+      if (!isOpen || !isDecisionAfterCutoff) return
+
+      // Start loading and reset logs
+      setAgentLogs(null)
+      setAgentLogsLoading(true)
       try {
-        const result = await apiService.getFullResultByModelAndEvent(modelId, eventDecision.event_id, decisionDate)
+        const result = await apiService.getFullResultByModelAndEvent(modelId!, eventDecision.event_id, decisionDate);
+        console.log('Loaded agent logs', result);
         if (cancelled) return
-        
-        if (result?.full_result_listdict) {
-          // Use the pre-parsed data from the backend
-          setAgentLogs(result.full_result_listdict)
-        } else {
-          setAgentLogs(null)
+        if (!result) {
+          throw new Error(`Full result missing for model=${modelId} event=${eventDecision.event_id} date=${decisionDate}`)
         }
-      } catch (e) {
-        console.error('Failed to load full result:', e)
-        if (!cancelled) {
-          setAgentLogs(null)
-        }
+        // For post-cutoff dates, backend returns the proper format (array or object) in full_result_listdict
+        setAgentLogs(result.full_result_listdict)
+        // Optional debug for development
+        // console.debug('Loaded agent logs', { modelId, eventId: eventDecision.event_id, decisionDate, logsType: Array.isArray(result.full_result_listdict) ? 'array' : typeof result.full_result_listdict })
+      } finally {
+        if (!cancelled) setAgentLogsLoading(false)
       }
     }
-    
-    loadFullResult()
+
+    // Reset logs state when modal opens or dependencies change
+    if (isOpen) {
+      if (isDecisionAfterCutoff) {
+        loadFullResult()
+      } else {
+        // Ensure we don't display any loading or logs for older decisions
+        setAgentLogs(null)
+        setAgentLogsLoading(false)
+      }
+    } else {
+      // Modal closed: reset loading state
+      setAgentLogsLoading(false)
+    }
     return () => { cancelled = true }
-  }, [modelId, eventDecision.event_id, decisionDate, isOpen])
+  }, [modelId, eventDecision.event_id, decisionDate, isOpen, isDecisionAfterCutoff])
 
   useEffect(() => {
     let cancelled = false
     const loadPricesAndReturns = async () => {
+      if (!isOpen) return
+      
+      setPricesLoading(true)
       try {
         const event = await apiService.getEventDetails(eventDecision.event_id)
 
@@ -141,9 +169,21 @@ export function EventDecisionModal({
         }
       } catch (e) {
         console.error('Failed to load event prices and returns', e)
+        if (!cancelled) {
+          // Set empty states on error so we don't stay in loading forever
+          setPopupMarketNames({})
+          setPopupPrices({})
+          setRealizedReturns({})
+          setTotalEventPnL(0)
+        }
+      } finally {
+        if (!cancelled) {
+          setPricesLoading(false)
+        }
       }
     }
-    if (isOpen) loadPricesAndReturns()
+    
+    loadPricesAndReturns()
     return () => { cancelled = true }
   }, [isOpen, eventDecision, decisionDate, positionEndDate])
 
@@ -180,7 +220,7 @@ export function EventDecisionModal({
                 {' '}
                 — {' '}
                 {modelId ? (
-                  <a href={`/models?selected=${encodeURIComponent(modelId)}`} className="hover:underline">
+                  <a href={`/models?selected=${encodeSlashes(modelId)}`} className="hover:underline">
                     {headerTitle.modelName}
                   </a>
                 ) : (
@@ -285,9 +325,16 @@ export function EventDecisionModal({
           <div className="mb-8">
             <h4 className="font-medium mb-4">Market Prices Since Decision</h4>
             <div className="h-80">
-              {Object.keys(popupPrices).length === 0 ? (
+              {pricesLoading ? (
                 <div className="h-full bg-muted/10 rounded flex items-center justify-center text-sm text-muted-foreground">
-                  Loading prices or no price data.
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                    <span>Loading market prices...</span>
+                  </div>
+                </div>
+              ) : Object.keys(popupPrices).length === 0 ? (
+                <div className="h-full bg-muted/10 rounded flex items-center justify-center text-sm text-muted-foreground">
+                  No price data available for this event.
                 </div>
               ) : (
                 <VisxLineChart
@@ -305,11 +352,15 @@ export function EventDecisionModal({
             </div>
           </div>
 
-          {/* Agent full logs */}
-          {((agentLogs !== null && agentLogs !== undefined) && (Array.isArray(agentLogs) ? agentLogs.length > 0 : true)) && (
+          {/* Agent full logs (only for decisions after cutoff date) */}
+          {isDecisionAfterCutoff && (
             <div>
               <h4 className="font-medium mb-4">Agent full logs</h4>
-              <AgentLogsDisplay logs={agentLogs} />
+              {agentLogsLoading ? (
+                <div className="text-sm text-muted-foreground">Loading agent logs…</div>
+              ) : (
+                <AgentLogsDisplay logs={agentLogs} />
+              )}
             </div>
           )}
         </div>

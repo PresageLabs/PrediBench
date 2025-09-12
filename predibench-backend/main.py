@@ -65,16 +65,27 @@ def load_backend() -> BackendData:
 
 
 def update_cache() -> None:
-    print("Updating cache")
+    """Recompute and refresh the in-memory and on-disk backend cache.
+
+    Intentionally bypasses any existing on-disk cache so that code changes
+    (e.g., leaderboard id fields) are reflected after a restart.
+    """
+    print("Updating cache (recompute)")
+    data = get_data_for_backend()
+    # Write refreshed cache to storage
+    try:
+        cache_file_path = DATA_PATH / "backend_cache.json"
+        write_to_storage(cache_file_path, data.model_dump_json(indent=2))
+        print("✅ Wrote refreshed backend cache to storage")
+    except Exception as w:
+        print(f"⚠️ Could not write backend cache: {w}")
+
+    # Update in-memory cache
     if len(CACHED_DATA) == 0:
-        print("Cache is empty, loading new data")
-        data = load_backend()
         CACHED_DATA.append(data)
     else:
-        print("starting cache update")
-        data = load_backend()
         CACHED_DATA[0] = data
-        print("Cache update complete")
+    print("Cache update complete")
 
 
 def load_backend_cache() -> BackendData:
@@ -264,8 +275,15 @@ def get_all_events_endpoint():
 def get_full_result_by_model_and_event_endpoint(
     model_id: str, event_id: str, target_date: str
 ):
-    """Get full result for a specific model and event"""
-    return load_full_result_from_bucket(model_id, event_id, target_date)
+    """Get full result for a specific model and event.
+
+    Returns 404 when no result is available, rather than 200 with null.
+    This helps the frontend distinguish missing results from valid payloads.
+    """
+
+    result = load_full_result_from_bucket(model_id, event_id, target_date)
+    print("Result:::", result)
+    return result
 
 
 if __name__ == "__main__":
