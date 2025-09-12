@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 import typer
-from predibench.common import DEFAULT_MAX_EVENTS, DEFAULT_DAYS_AHEAD
+from predibench.common import DEFAULT_DAYS_AHEAD, DEFAULT_MAX_EVENTS
 from predibench.invest import run_investments_for_specific_date
 from predibench.logger_config import get_logger
 from predibench.models import MODEL_MAP, MODELS_BY_PROVIDER
@@ -13,8 +13,12 @@ app = typer.Typer()
 
 @app.command()
 def main(
-    provider: str = typer.Argument("huggingface", help="Name of the provider to run models for"),
-    max_events: int = typer.Option(DEFAULT_MAX_EVENTS, help="Maximum number of events to analyze"),
+    provider: str = typer.Argument(
+        "huggingface-qwen", help="Name of the provider to run models for"
+    ),
+    max_events: int = typer.Option(
+        DEFAULT_MAX_EVENTS, help="Maximum number of events to analyze"
+    ),
     days_ahead: int = typer.Option(DEFAULT_DAYS_AHEAD, help="Days until event ending"),
 ):
     """Main script to run investment analysis for models from a specific provider."""
@@ -27,9 +31,7 @@ def main(
         models = MODELS_BY_PROVIDER[provider]
 
     else:
-        available_providers = ", ".join(
-            list(MODELS_BY_PROVIDER.keys()) + ["all"]
-        )
+        available_providers = ", ".join(list(MODELS_BY_PROVIDER.keys()) + ["all"])
         typer.echo(
             f"Error: Provider '{provider}' not found. Available providers and models: {available_providers}"
         )
