@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pandas as pd
-from predibench.agent.dataclasses import ModelInvestmentDecisions
+from predibench.agent.models import ModelInvestmentDecisions
 from predibench.common import DATA_PATH, PREFIX_MODEL_RESULTS
 from predibench.polymarket_api import Event, Market, load_market_price
 from predibench.polymarket_data import load_events_from_file
