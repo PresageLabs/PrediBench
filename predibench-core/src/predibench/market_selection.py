@@ -136,7 +136,7 @@ def choose_events(
         limit=500,
         order="volume" if backward_mode else "volume1wk",
         ascending=False,
-        closed=False,
+        closed=None if backward_mode else False,
         end_date_min=start_datetime if backward_mode else None,
         end_date_max=end_datetime,
     )
