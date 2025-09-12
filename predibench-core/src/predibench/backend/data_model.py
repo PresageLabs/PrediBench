@@ -23,8 +23,8 @@ class TimeseriesPointBackend(BaseModel):
 
 
 class LeaderboardEntryBackend(BaseModel):
-    id: str
-    pretty_name: str
+    model_id: str
+    model_name: str
     final_cumulative_pnl: float
     trades: int
     lastUpdated: str

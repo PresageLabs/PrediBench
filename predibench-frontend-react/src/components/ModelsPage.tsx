@@ -38,17 +38,17 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
 
   // formatLongDate moved into EventDecisionModal
 
-  const selectedModelData = leaderboard.find(m => m.id === selectedModelId)
+  const selectedModelData = leaderboard.find(m => m.model_id === selectedModelId)
 
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search)
     const selectedFromUrl = urlParams.get('selected')
     const decodedSelectedFromUrl = selectedFromUrl ? decodeSlashes(selectedFromUrl) : null
 
-    if (decodedSelectedFromUrl && leaderboard.find(m => m.id === decodedSelectedFromUrl)) {
+    if (decodedSelectedFromUrl && leaderboard.find(m => m.model_id === decodedSelectedFromUrl)) {
       setSelectedModelId(decodedSelectedFromUrl)
     } else if (!selectedModelId && leaderboard.length > 0) {
-      setSelectedModelId(leaderboard[0].id)
+      setSelectedModelId(leaderboard[0].model_id)
     }
   }, [leaderboard, selectedModelId, location.search])
 
@@ -218,7 +218,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
         <Select.Root value={selectedModelId} onValueChange={handleModelSelect}>
           <Select.Trigger className="inline-flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 min-w-[100px]">
             <Select.Value placeholder="Select a model">
-              {selectedModelData?.pretty_name || 'Select a model'}
+              {selectedModelData?.model_name || 'Select a model'}
             </Select.Value>
             <Select.Icon>
               <ChevronDown size={16} />
@@ -236,8 +236,8 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
               <Select.Viewport className="p-1 max-h-[70vh] overflow-y-auto">
                 {leaderboard.map((model, index) => (
                   <Select.Item
-                    key={model.id}
-                    value={model.id}
+                    key={model.model_id}
+                    value={model.model_id}
                     className="relative flex cursor-pointer items-center rounded-md px-3 py-2 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none data-[state=checked]:bg-accent data-[state=checked]:text-accent-foreground"
                   >
                     <Select.ItemText>
@@ -250,7 +250,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                           {index + 1}
                         </div>
                         <div>
-                          <div className="font-medium">{model.pretty_name}</div>
+                          <div className="font-medium">{model.model_name}</div>
                           <div className="text-xs text-muted-foreground mt-1">
                             Profit: {(model.final_cumulative_pnl * 100).toFixed(1)}% | Brier score: {model.avg_brier_score.toFixed(3)}
                           </div>
@@ -271,7 +271,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
           <div className="md:p-6 md:bg-card md:rounded-xl md:border md:border-border">
             {/* Model Info - Always visible */}
             <div className="mb-8 border-b border-border pb-6">
-              <h2 className="text-xl font-semibold mb-4">{selectedModelData.pretty_name}</h2>
+              <h2 className="text-xl font-semibold mb-4">{selectedModelData.model_name}</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                 <div>
                   <div className="flex items-center text-muted-foreground">
@@ -431,8 +431,8 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
           eventDecision={selectedEvent.eventDecision}
           decisionDate={selectedEvent.decisionDate}
           decisionDatetime={selectedEvent.decisionDatetime}
-          modelName={selectedModelData.pretty_name}
-          modelId={selectedModelData.id}
+          modelName={selectedModelData.model_name}
+          modelId={selectedModelData.model_id}
           eventTitle={selectedEvent.eventDecision?.event_title}
           decisionDatesForEvent={modelDecisions
             .filter(d => d.event_investment_decisions.some(ed => ed.event_id === selectedEvent.eventDecision.event_id))

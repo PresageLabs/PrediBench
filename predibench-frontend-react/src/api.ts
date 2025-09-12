@@ -1,8 +1,8 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
 
 export interface LeaderboardEntry {
-  id: string
-  pretty_name: string
+  model_id: string
+  model_name: string
   final_cumulative_pnl: number
   trades: number
   lastUpdated: string

@@ -1,9 +1,9 @@
 import { ArrowDown, ChevronDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { LeaderboardEntry } from '../api'
+import { encodeSlashes } from '../lib/utils'
 import { CompanyDisplay } from './ui/company-display'
 import { BrierScoreInfoTooltip, CumulativeProfitInfoTooltip } from './ui/info-tooltip'
-import { encodeSlashes } from '../lib/utils'
 import { ProfitDisplay } from './ui/profit-display'
 import { RedirectButton } from './ui/redirect-button'
 
@@ -146,7 +146,7 @@ export function LeaderboardTable({
                 ))
               ) : (
                 sortedLeaderboard.slice(0, visibleModels).map((model, index) => (
-                  <tr key={model.id} className="border-t border-border/20 hover:bg-muted/20 transition-colors">
+                  <tr key={model.model_id} className="border-t border-border/20 hover:bg-muted/20 transition-colors">
                     <td className="py-2 px-3 text-center">
                       <span className={index <= 2 ? "text-2xl" : "text-md font-medium text-muted-foreground"}>
                         {index === 0 ? '🥇' :
@@ -158,23 +158,23 @@ export function LeaderboardTable({
                     <td className="py-2 px-4">
                       <div>
                         <a
-                          href={`/models?selected=${encodeSlashes(model.id)}`}
+                          href={`/models?selected=${encodeSlashes(model.model_id)}`}
                           className="font-medium hover:text-primary transition-colors block"
                         >
-                          {model.pretty_name}
+                          {model.model_name}
                         </a>
                         <div className="ml-2 mt-1">
-                          <CompanyDisplay modelName={model.pretty_name} />
+                          <CompanyDisplay modelName={model.model_name} />
                         </div>
                       </div>
                     </td>
                     <td className="py-4 px-4 text-center font-medium">
-                      <a href={`/models?selected=${encodeSlashes(model.id)}`} className="block">
+                      <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
                         {model.avg_brier_score ? model.avg_brier_score.toFixed(3) : 'N/A'}
                       </a>
                     </td>
                     <td className="py-4 px-4 text-center font-medium">
-                      <a href={`/models?selected=${encodeSlashes(model.id)}`} className="block">
+                      <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
                         <ProfitDisplay
                           value={model.final_cumulative_pnl}
                           minValue={profitRange.min}
