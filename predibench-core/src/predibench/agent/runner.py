@@ -117,7 +117,7 @@ Market ID: {market_info["id"]}
 Question: {market_info["question"]}
 {description}
 Possible outcomes: {", ".join(market_info["outcomes"])}
-Price history for the outcome "{price_outcome_name}":
+Price history for the outcome "{price_outcome_name}" (betting a positive amount means betting for this outcome, betting a negative amount means betting against this outcome):
 {market_info["recent_prices"]}
 Most recent price for "{price_outcome_name}": {market_info["current_price"]}
 </market_{market_info["id"]}>"""
@@ -208,6 +208,7 @@ You are an expert prediction-market analyst. You have been given an amount of US
             event_id=event.id,
         )
     else:
+        print("FULL QUESTION:\n", full_question)
         complete_market_investment_decisions = run_smolagents(
             model_info=model_info,
             question=full_question,
