@@ -208,7 +208,6 @@ You are an expert prediction-market analyst. You have been given an amount of US
             event_id=event.id,
         )
     else:
-        print("FULL QUESTION:\n", full_question)
         complete_market_investment_decisions = run_smolagents(
             model_info=model_info,
             question=full_question,
