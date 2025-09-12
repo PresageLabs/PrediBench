@@ -65,25 +65,14 @@ def load_backend() -> BackendData:
 
 
 def update_cache() -> None:
-    """Recompute and refresh the in-memory and on-disk backend cache.
-
-    Intentionally bypasses any existing on-disk cache so that code changes
-    (e.g., leaderboard id fields) are reflected after a restart.
-    """
-    print("Updating cache (recompute)")
-    data = get_data_for_backend()
-    # Write refreshed cache to storage
-    try:
-        cache_file_path = DATA_PATH / "backend_cache.json"
-        write_to_storage(cache_file_path, data.model_dump_json(indent=2))
-        print("✅ Wrote refreshed backend cache to storage")
-    except Exception as w:
-        print(f"⚠️ Could not write backend cache: {w}")
-
-    # Update in-memory cache
+    print("Updating cache")
     if len(CACHED_DATA) == 0:
+        print("Cache is empty, loading new data")
+        data = load_backend()
         CACHED_DATA.append(data)
     else:
+        print("starting cache update")
+        data = load_backend()
         CACHED_DATA[0] = data
     print("Cache update complete")
 
