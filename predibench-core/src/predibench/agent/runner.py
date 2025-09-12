@@ -83,7 +83,11 @@ def _process_event_investment(
                 current_price = None
             is_closed = True
 
-        market_info = {
+        assert len(market.outcomes) == 2, (
+            f"Needed 2 outcomes for market {market.id}, got {len(market.outcomes)} (we need one 'bet for' and one 'bet against')"
+        )
+
+        market_data[market.id] = {
             "id": market.id,
             "question": market.question,
             "description": market.description,
@@ -91,63 +95,62 @@ def _process_event_investment(
             "current_price": current_price,
             "is_closed": is_closed,
             "outcomes": [outcome.name for outcome in market.outcomes],
-            "price_outcome_name": market.price_outcome_name or "Unknown outcome",
+            "price_outcome_name": market.price_outcome_name,
         }
-        market_data[market.id] = market_info
 
     # Create summaries for all markets
     market_summaries = []
-    descriptions_already_used = set()  # to avoid repeating the same description
+    last_description_used = ""
     for market_info in market_data.values():
-        outcome_name = market_info["price_outcome_name"]
+        price_outcome_name = market_info["price_outcome_name"]
         description = market_info["description"]
-        if not description or description in descriptions_already_used:
-            description = ""
+        if not description or description == last_description_used:
+            description = "Description: Same as the previous market."
         else:
-            descriptions_already_used.add(description)
-            description = f"Description: {description}"
+            last_description_used = description
+            description = (
+                f"Description:</market_description>{description}</market_description>"
+            )
 
-        summary = f"""
+        summary = f"""<market_{market_info["id"]}>
 Market ID: {market_info["id"]}
 Question: {market_info["question"]}
 {description}
-Outcomes: {", ".join(market_info["outcomes"])}
-Historical prices for the outcome "{outcome_name}":
+Possible outcomes: {", ".join(market_info["outcomes"])}
+Price history for the outcome "{price_outcome_name}":
 {market_info["recent_prices"]}
-Last available price for "{outcome_name}": {market_info["current_price"]}
-        """
+Most recent price for "{price_outcome_name}": {market_info["current_price"]}
+</market_{market_info["id"]}>"""
         market_summaries.append(summary)
 
     full_question = f"""
-You are an expert prediction-market analyst and portfolio allocator on the prediction market platform Polymarket.
+You are an expert prediction-market analyst. You have been given an amount of USD $1.0 to allocate on the following event from the prediction market Polymarket.
 
-**EVENT DETAILS:**
+<event_details>
 - Date: {target_date.strftime("%B %d, %Y")}
-- Event: {event.title}
-- Platform: Polymarket
-- Available Markets: {len(market_data)} related markets
+- Title: {event.title}
+- Description: {event.description}
+- Available Markets: {len(market_data)} markets, see below.
+</event_details>
 
-**ANALYSIS REQUIREMENTS:**
-1. Use web search to gather current information about this event, be highly skeptical of sensationalized headlines or partisan sources
-2. Apply your internal knowledge critically
-3. Consider Polymarket-specific factors (user base, crypto market correlation, etc.)
-4. If you see web search results seeming to indicate that the event is alread passed, make sure to double check that these results do not refer to something else.
+<available_markets>
+{"\n\n".join(market_summaries)}
+</available_markets>
 
+<analysis_guidelines>
+- Use web search to gather up-to-date information about this event
+- Be critical of any sources, and be cautious of sensationalized headlines or partisan sources
+- If some web search results appear to indicate the event's outcome directly, that is weird because the event should still be unresolved : so double-check that they do not refer to another event, for instance unrelated or long past.
+- Only place a bet when you estimate that the market is mispriced.
+</analysis_guidelines>
 
-**CAPITAL ALLOCATION RULES:**
-- The markets are usually "Yes" or "No" markets, but sometimes the outcomes can be different (two sports teams for instance).
-- You have exactly 1.0 dollars to allocate. Use the "bet" field to allocate your capital. Negative means you buy the opposite of the market (usually the "No" outcome), but they still count in absolute value towards the 1.0 dollar allocation.
-- For EACH market, specify your bet. Provide:
+<capital_allocation_rules>
+- You have exactly 1.0 dollars to allocate. Use the "bet" field to allocate your capital. Negative means you buy the second outcome of the market (outcomes are listed in each market description), but they still count in absolute value towards the 1.0 dollar allocation.
+- For EACH market, specify your bet. Provide exactly:
 {BET_DESCRIPTION}
-
-- The sum of ALL (absolute value of bets) + unallocated_capital must equal 1.0
-- You can choose not to bet on markets with poor edges by setting bets summing to lower than 1 and a non-zero unallocated_capital
-
-**AVAILABLE MARKETS:**
-{"".join(market_summaries)}
-
-Example: If you bet 0.3 in market A, -0.2 in market B (meaning you buy 0.2 of the "No" outcome), and nothing on market C, your unallocated_capital should be 0.5.
-    """
+- You can of course choose not to bet on some markets.
+- The sum of all absolute values of bets + unallocated_capital must equal 1.0. Example: If you bet 0.3 in market A, -0.2 in market B, and nothing on market C, your unallocated_capital should be 0.5, such that the sum is 0.3 + 0.2 + 0.5 = 1.0.
+</capital_allocation_rules>"""
 
     # Save prompt to file if date_output_path is provided
     model_result_path = model_info.get_model_result_path(target_date)
