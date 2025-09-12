@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from huggingface_hub import login
 from smolagents.models import LiteLLMModel
 
-from predibench.agent.dataclasses import ModelInfo
+from predibench.agent.models import ModelInfo
 from predibench.agent.runner import ModelInvestmentDecisions, run_agent_investments
 from predibench.common import get_date_output_path
 from predibench.logger_config import get_logger

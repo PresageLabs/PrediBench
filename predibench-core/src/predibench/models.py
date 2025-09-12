@@ -1,4 +1,4 @@
-from predibench.agent.dataclasses import ModelInfo
+from predibench.agent.models import ModelInfo
 
 MODELS_BY_PROVIDER = {
     "xai": [

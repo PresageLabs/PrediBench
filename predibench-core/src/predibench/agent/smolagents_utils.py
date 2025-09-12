@@ -9,7 +9,7 @@ import urllib.parse
 import numpy as np
 import requests
 from openai import OpenAI
-from predibench.agent.dataclasses import (
+from predibench.agent.models import (
     MarketInvestmentDecision,
     ModelInfo,
     SingleModelDecision,

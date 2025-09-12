@@ -3,7 +3,7 @@ from datetime import date, datetime
 
 import numpy as np
 from dotenv import load_dotenv
-from predibench.agent.dataclasses import (
+from predibench.agent.models import (
     EventInvestmentDecisions,
     MarketInvestmentDecision,
     ModelInfo,
@@ -355,3 +355,4 @@ def run_agent_investments(
         results.append(model_result)
 
     return results
+

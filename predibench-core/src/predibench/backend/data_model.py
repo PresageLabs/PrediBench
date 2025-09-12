@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Literal, Optional
 
 import pandas as pd
-from predibench.agent.dataclasses import ModelInvestmentDecisions
+from predibench.agent.models import ModelInvestmentDecisions
 from predibench.polymarket_api import Event, Market
 from pydantic import BaseModel
 

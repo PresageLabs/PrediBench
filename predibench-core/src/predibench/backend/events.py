@@ -1,6 +1,6 @@
 from functools import lru_cache
 from predibench.polymarket_api import Event, EventsRequestParameters
-from predibench.agent.dataclasses import ModelInvestmentDecisions
+from predibench.agent.models import ModelInvestmentDecisions
 
 
 

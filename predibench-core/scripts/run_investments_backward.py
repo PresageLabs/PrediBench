@@ -4,7 +4,7 @@ from datetime import date, timedelta
 import typer
 from dotenv import load_dotenv
 from huggingface_hub import login
-from predibench.agent.dataclasses import ModelInfo
+from predibench.agent.models import ModelInfo
 from predibench.invest import run_investments_for_specific_date
 from predibench.logger_config import get_logger
 
