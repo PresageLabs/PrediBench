@@ -32,7 +32,7 @@ interface AgentStep {
 }
 
 interface AgentLogsDisplayProps {
-  logs: unknown[] | unknown | null
+  logs: unknown[] | unknown
 }
 
 // Helper functions
@@ -52,11 +52,11 @@ const formatTokens = (tokens: number) => {
 const isSmolagentFormat = (logs: unknown): logs is unknown[] => {
   if (!Array.isArray(logs)) return false
   if (logs.length === 0) return true
-  
+
   // Check if the first item looks like a smolagent step
   const firstItem = logs[0]
   if (typeof firstItem !== 'object' || firstItem === null) return false
-  
+
   const step = firstItem as Record<string, unknown>
   // Look for common smolagent step properties
   return 'step_number' in step || 'timing' in step || 'tool_calls' in step || 'task' in step || 'model_output' in step
@@ -132,12 +132,12 @@ const ToolCall = ({ toolCall }: { toolCall: NonNullable<AgentStep['tool_calls']>
   // Handle different tool call formats
   let toolName: string = 'unknown'
   let toolArgs: string = ''
-  
+
   if (toolCall.function) {
     // Standard format: { function: { name: "...", arguments: "..." or {...} } }
     const { function: func } = toolCall
     toolName = func.name || 'unknown'
-    
+
     // Handle both string and object arguments
     if (typeof func.arguments === 'string') {
       toolArgs = func.arguments
@@ -165,7 +165,7 @@ const ToolCall = ({ toolCall }: { toolCall: NonNullable<AgentStep['tool_calls']>
       </div>
     )
   }
-  
+
   return (
     <div className="my-2 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
       <div className="flex items-center gap-2 mb-2">
@@ -184,11 +184,10 @@ const ToolCall = ({ toolCall }: { toolCall: NonNullable<AgentStep['tool_calls']>
 }
 
 const OutputMessage = ({ content, isError = false }: { content: string, isError?: boolean }) => (
-  <div className={`my-2 p-3 rounded-lg border ${
-    isError 
-      ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' 
-      : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-  }`}>
+  <div className={`my-2 p-3 rounded-lg border ${isError
+    ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+    : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+    }`}>
     <div className="flex items-start gap-2">
       {isError ? (
         <XCircle size={16} className="text-red-500 mt-0.5 flex-shrink-0" />
@@ -215,11 +214,11 @@ const StepMessage = ({ step }: { step: AgentStep }) => (
           </div>
         </div>
       )}
-      
+
       {step.tool_calls?.map((toolCall, index) => (
         <ToolCall key={`${toolCall?.id || 'tool'}-${index}`} toolCall={toolCall} />
       ))}
-      
+
       {step.error && (
         <>
           {step.model_output && (
@@ -230,13 +229,13 @@ const StepMessage = ({ step }: { step: AgentStep }) => (
               </div>
             </div>
           )}
-          <OutputMessage 
-            content={`${step.error.type}: ${step.error.message}`} 
+          <OutputMessage
+            content={`${step.error.type}: ${step.error.message}`}
             isError={true}
           />
         </>
       )}
-      
+
       {step.observations && (
         <OutputMessage content={step.observations} />
       )}
@@ -248,7 +247,7 @@ const StepMessage = ({ step }: { step: AgentStep }) => (
 const SmolagentDisplay = ({ logs }: { logs: unknown[] }) => {
   // Cast logs to AgentStep[] for processing
   const agentSteps = logs as AgentStep[]
-  
+
   // Find the task from the first step
   const taskStep = agentSteps.find(step => step.task)
   const actionSteps = agentSteps.filter(step => step.step_number)
@@ -256,7 +255,7 @@ const SmolagentDisplay = ({ logs }: { logs: unknown[] }) => {
   return (
     <div className="space-y-4">
       {taskStep?.task && <TaskMessage task={taskStep.task} />}
-      
+
       {actionSteps.map((step, index) => (
         <div key={`step-${step.step_number || index}`} className="border-l-2 border-gray-200 dark:border-gray-700 pl-4 ml-2">
           <div className="flex items-center justify-between mb-3">
@@ -266,10 +265,10 @@ const SmolagentDisplay = ({ logs }: { logs: unknown[] }) => {
                 Step {step.step_number}
                 {step.timing && step.timing.start_time && (
                   <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                    | {new Date(step.timing.start_time * 1000).toLocaleTimeString('en-US', { 
-                      hour: '2-digit', 
-                      minute: '2-digit', 
-                      second: '2-digit', 
+                    | {new Date(step.timing.start_time * 1000).toLocaleTimeString('en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
                       hour12: false,
                       timeZoneName: 'short'
                     })}
@@ -309,15 +308,7 @@ const RawDisplay = ({ data }: { data: unknown }) => {
 
 // Main component
 export function AgentLogsDisplay({ logs }: AgentLogsDisplayProps): JSX.Element {
-  if (!logs) {
-    return (
-      <div className="text-center text-gray-500 dark:text-gray-400 py-8">
-        No agent logs available
-      </div>
-    )
-  }
-
-  // Detect format and use appropriate display
+  // Detect format and use appropriate display; parent effect surfaces errors for missing logs
   if (isSmolagentFormat(logs)) {
     return <SmolagentDisplay logs={logs} />
   } else {

@@ -74,7 +74,7 @@ def update_cache() -> None:
         print("starting cache update")
         data = load_backend()
         CACHED_DATA[0] = data
-        print("Cache update complete")
+    print("Cache update complete")
 
 
 def load_backend_cache() -> BackendData:

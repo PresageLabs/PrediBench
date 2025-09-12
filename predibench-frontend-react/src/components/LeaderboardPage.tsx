@@ -49,13 +49,13 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
                 height={800}
                 margin={{ left: 60, top: 35, bottom: 38, right: 27 }}
                 series={leaderboard.map((model, index) => ({
-                  dataKey: model.model,
+                  dataKey: model.model_name,
                   data: (model.pnl_history || []).map(point => ({
                     x: point.date,
                     y: point.value
                   })),
                   stroke: getChartColor(index),
-                  name: model.model
+                  name: model.model_name
                 }))}
                 yDomain={(() => {
                   const allValues = leaderboard.flatMap(model =>

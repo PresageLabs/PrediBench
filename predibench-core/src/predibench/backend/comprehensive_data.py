@@ -7,10 +7,9 @@ import json
 from datetime import date
 from datetime import datetime as dt
 from typing import List
-from predibench.utils import date_to_string, string_to_date
 
 import pandas as pd
-from predibench.agent.dataclasses import ModelInvestmentDecisions
+from predibench.agent.dataclasses import ModelInfo, ModelInvestmentDecisions
 from predibench.backend.brier import compute_brier_scores_df
 from predibench.backend.data_loader import (
     load_agent_position,
@@ -32,9 +31,8 @@ from predibench.backend.data_model import (
 from predibench.backend.events import get_non_duplicated_events
 from predibench.backend.leaderboard import get_leaderboard
 from predibench.backend.pnl import compute_pnl_series_per_model, get_historical_returns
-from predibench.storage_utils import read_from_storage, file_exists_in_storage
-from predibench.common import get_date_output_path
-from predibench.agent.dataclasses import ModelInfo
+from predibench.storage_utils import file_exists_in_storage, read_from_storage
+from predibench.utils import date_to_string, string_to_date
 
 
 def _to_date_index(df: pd.DataFrame) -> pd.DataFrame:
@@ -59,7 +57,6 @@ def _to_date_index(df: pd.DataFrame) -> pd.DataFrame:
     # remove duplicates by keeping last
     df2 = df2[~df2.index.duplicated(keep="last")]
     return df2
-
 
 
 def get_data_for_backend() -> BackendData:
@@ -194,9 +191,7 @@ def _compute_model_performance_list(
         # Convert overall cumulative pnl to backend points
         overall_cum_pnl_points = [
             TimeseriesPointBackend(
-                date=(
-                    date_to_string(idx) if hasattr(idx, "strftime") else str(idx)
-                ),
+                date=(date_to_string(idx) if hasattr(idx, "strftime") else str(idx)),
                 value=float(val),
             )
             for idx, val in portfolio_cum_pnl.items()
@@ -208,9 +203,7 @@ def _compute_model_performance_list(
             market_points = [
                 TimeseriesPointBackend(
                     date=(
-                        date_to_string(idx)
-                        if hasattr(idx, "strftime")
-                        else str(idx)
+                        date_to_string(idx) if hasattr(idx, "strftime") else str(idx)
                     ),
                     value=float(val),
                 )
@@ -238,9 +231,7 @@ def _compute_model_performance_list(
             event_points = [
                 TimeseriesPointBackend(
                     date=(
-                        date_to_string(idx)
-                        if hasattr(idx, "strftime")
-                        else str(idx)
+                        date_to_string(idx) if hasattr(idx, "strftime") else str(idx)
                     ),
                     value=float(val),
                 )
@@ -273,9 +264,7 @@ def _compute_model_performance_list(
         overall_brier_series = brier_df.mean(axis=1)
         overall_brier_points = [
             TimeseriesPointBackend(
-                date=(
-                    date_to_string(idx) if hasattr(idx, "strftime") else str(idx)
-                ),
+                date=(date_to_string(idx) if hasattr(idx, "strftime") else str(idx)),
                 value=float(val),
             )
             for idx, val in overall_brier_series.dropna().items()
@@ -294,9 +283,7 @@ def _compute_model_performance_list(
             points = [
                 TimeseriesPointBackend(
                     date=(
-                        date_to_string(idx)
-                        if hasattr(idx, "strftime")
-                        else str(idx)
+                        date_to_string(idx) if hasattr(idx, "strftime") else str(idx)
                     ),
                     value=float(val),
                 )
@@ -316,9 +303,7 @@ def _compute_model_performance_list(
             ev_points = [
                 TimeseriesPointBackend(
                     date=(
-                        date_to_string(idx)
-                        if hasattr(idx, "strftime")
-                        else str(idx)
+                        date_to_string(idx) if hasattr(idx, "strftime") else str(idx)
                     ),
                     value=float(val),
                 )
@@ -351,24 +336,35 @@ def _compute_model_performance_list(
     return performance_list
 
 
-
-def load_full_result_from_bucket(model_id: str, event_id: str, target_date: str) -> FullModelResult | None:
+def load_full_result_from_bucket(
+    model_id: str, event_id: str, target_date: str
+) -> FullModelResult | None:
     """Load a single full result from cache file."""
-    model_result_path = ModelInfo.static_get_model_result_path(model_id=model_id, target_date=string_to_date(target_date))
+    model_result_path = ModelInfo.static_get_model_result_path(
+        model_id=model_id, target_date=string_to_date(target_date)
+    )
     cache_file_path = model_result_path / f"{event_id}_full_response.json"
-    
+
     if file_exists_in_storage(cache_file_path):
         full_result_text = read_from_storage(cache_file_path)
         try:
             # First try to parse as FullModelResult (new format)
             result_data = json.loads(full_result_text)
-            
+
             # Check if it's already a FullModelResult structure
-            if isinstance(result_data, dict) and all(key in result_data for key in ["model_id", "event_id", "target_date", "full_result_listdict"]):
+            if isinstance(result_data, dict) and all(
+                key in result_data
+                for key in [
+                    "model_id",
+                    "event_id",
+                    "target_date",
+                    "full_result_listdict",
+                ]
+            ):
                 # New format: directly parse as FullModelResult
                 # Handle backward compatibility for files without agent_type field
                 if "agent_type" not in result_data:
-                    result_data["agent_type"] = "toolcalling"  # Default for old files
+                    result_data["agent_type"] = None
                 return FullModelResult.model_validate(result_data)
             else:
                 # Old format: result_data is the raw full_result_listdict
@@ -382,14 +378,13 @@ def load_full_result_from_bucket(model_id: str, event_id: str, target_date: str)
                     # Dict format: remove model_input_messages if present
                     if "model_input_messages" in result_data:
                         del result_data["model_input_messages"]
-                
+
                 return FullModelResult(
                     model_id=model_id,
                     event_id=event_id,
                     target_date=str(target_date),
-                    agent_type="toolcalling",  # Default for old files
+                    agent_type=None,  # Default for old files
                     full_result_listdict=result_data,
-                    deepresearch_result=None
                 )
         except (json.JSONDecodeError, KeyError, TypeError):
             # If parsing fails, return None

@@ -1,8 +1,8 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
 
 export interface LeaderboardEntry {
-  id: string
-  model: string
+  model_id: string
+  model_name: string
   final_cumulative_pnl: number
   trades: number
   lastUpdated: string
@@ -259,12 +259,15 @@ class ApiService {
   async getFullResultByModelAndEvent(modelId: string, eventId: string, targetDate: string): Promise<FullModelResult | null> {
     const response = await this.fetchWithTimeout(`${API_BASE_URL}/full_results/by_model_and_event?model_id=${encodeURIComponent(modelId)}&event_id=${encodeURIComponent(eventId)}&target_date=${encodeURIComponent(targetDate)}`)
     if (response.status === 404) {
+      console.log('Full result not found', { modelId, eventId, targetDate })
       return null
     }
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
-    return await response.json()
+    // Do not rely on response.text() logging here; read JSON body
+    const data = await response.json()
+    return data
   }
 
   // Legacy methods - keeping for backward compatibility but marking as deprecated

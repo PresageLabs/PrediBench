@@ -1,8 +1,8 @@
 import { TrendingUpDown } from 'lucide-react'
 import type { LeaderboardEntry } from '../api'
+import MarkdownRenderer from '../lib/MarkdownRenderer'
 import { LeaderboardTable } from './LeaderboardTable'
 import { RedirectButton } from './ui/redirect-button'
-import MarkdownRenderer from '../lib/MarkdownRenderer'
 // eslint-disable-next-line import/no-relative-packages
 import aboutContent from '../content/about.md?raw'
 
@@ -13,14 +13,14 @@ interface HomePageProps {
 
 export function HomePage({ leaderboard, loading = false }: HomePageProps) {
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-4">
       {/* Page Title and Subtitle */}
-      <div className="text-center mb-12">
+      <div className="text-center mb-8 mt-6">
         <h1 className="text-4xl font-bold mb-4 flex items-center justify-center gap-3">
           PrediBench
           <TrendingUpDown size={36} />
         </h1>
-        <p className="text-lg text-muted-foreground">LLMs bet money on the future!</p>
+        <p className="text-lg text-muted-foreground">We give LLMs money, and let them bet on the future.</p>
       </div>
 
       {/* Leaderboard Table */}

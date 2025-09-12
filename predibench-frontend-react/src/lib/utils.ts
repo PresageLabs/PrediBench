@@ -12,3 +12,19 @@ export function formatVolume(volume: number | null): string {
   }
   return `$${(volume / 1000).toFixed(0)}K`
 }
+
+/**
+ * Encode slashes in model IDs for safe use in URLs
+ * Replaces forward slashes (/) with double dashes (--)
+ */
+export function encodeSlashes(id: string): string {
+  return id.replace(/\//g, '--')
+}
+
+/**
+ * Decode slashes from URL-encoded model IDs
+ * Replaces double dashes (--) with forward slashes (/)
+ */
+export function decodeSlashes(encodedId: string): string {
+  return encodedId.replace(/--/g, '/')
+}

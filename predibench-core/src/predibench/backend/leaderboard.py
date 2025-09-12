@@ -1,10 +1,11 @@
 from datetime import datetime
-from predibench.utils import date_to_string
+
 from predibench.backend.data_model import (
     LeaderboardEntryBackend,
     ModelPerformanceBackend,
     TimeseriesPointBackend,
 )
+from predibench.utils import date_to_string
 
 
 def _determine_trend(pnl_history: list[TimeseriesPointBackend]) -> str:
@@ -20,13 +21,15 @@ def _determine_trend(pnl_history: list[TimeseriesPointBackend]) -> str:
     return "stable"
 
 
-def _create_leaderboard_entry(performance: ModelPerformanceBackend) -> LeaderboardEntryBackend:
+def _create_leaderboard_entry(
+    performance: ModelPerformanceBackend,
+) -> LeaderboardEntryBackend:
     """Create a LeaderboardEntry from aggregated performance metrics."""
     trend = _determine_trend(performance.cummulative_pnl)
-    
+
     return LeaderboardEntryBackend(
-        id=performance.model_name,
-        model=performance.model_name,
+        model_id=performance.model_id,  # use canonical model_id as identifier
+        model_name=performance.model_name,
         final_cumulative_pnl=performance.final_pnl,
         trades=getattr(performance, "trades", len(performance.trades_dates)),
         lastUpdated=date_to_string(datetime.now()),
@@ -35,7 +38,10 @@ def _create_leaderboard_entry(performance: ModelPerformanceBackend) -> Leaderboa
         avg_brier_score=performance.final_brier_score,
     )
 
-def get_leaderboard(performance: list[ModelPerformanceBackend]) -> list[LeaderboardEntryBackend]:
+
+def get_leaderboard(
+    performance: list[ModelPerformanceBackend],
+) -> list[LeaderboardEntryBackend]:
     """Generate leaderboard from precomputed performance data.
 
     Sorts by final cumulative PnL descending and builds UI-ready entries.
