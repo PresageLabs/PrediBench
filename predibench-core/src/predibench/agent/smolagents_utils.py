@@ -691,6 +691,7 @@ def run_openai_deep_research(
             input_tokens=full_response.get("usage", {}).get("input_tokens", 0) if isinstance(full_response, dict) else full_response.usage.input_tokens,
             output_tokens=(full_response.get("usage", {}).get("output_tokens", 0) + full_response.get("usage", {}).get("output_tokens_details", {}).get("reasoning_tokens", 0)) if isinstance(full_response, dict) else (full_response.usage.output_tokens + full_response.usage.output_tokens_details.reasoning_tokens),
         ) if full_response is not None else None,
+        sources_visit_webpage=full_response.get("citations", None) if isinstance(full_response, dict) else None,
     )
 
 
@@ -746,6 +747,7 @@ def run_perplexity_deep_research(
             unallocated_capital=1.0,
             full_response=full_response,
             token_usage=None,
+            sources_visit_webpage=full_response.get("citations", None),
         )
     
     structured_market_decisions, unallocated_capital = structure_final_answer(
@@ -759,4 +761,5 @@ def run_perplexity_deep_research(
             input_tokens=full_response["usage"]["prompt_tokens"],
             output_tokens=full_response["usage"]["completion_tokens"],
         ) if full_response is not None else None,
+        sources_visit_webpage=full_response.get("citations", None),
     )
