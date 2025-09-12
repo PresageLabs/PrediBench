@@ -264,15 +264,8 @@ def get_all_events_endpoint():
 def get_full_result_by_model_and_event_endpoint(
     model_id: str, event_id: str, target_date: str
 ):
-    """Get full result for a specific model and event.
-
-    Returns 404 when no result is available, rather than 200 with null.
-    This helps the frontend distinguish missing results from valid payloads.
-    """
-
-    result = load_full_result_from_bucket(model_id, event_id, target_date)
-    print("Result:::", result)
-    return result
+    """Get full result for a specific model and event"""
+    return load_full_result_from_bucket(model_id, event_id, target_date)
 
 
 if __name__ == "__main__":
