@@ -5,6 +5,7 @@ from predibench.common import DEFAULT_DAYS_AHEAD, DEFAULT_MAX_EVENTS
 from predibench.invest import run_investments_for_specific_date
 from predibench.logger_config import get_logger
 from predibench.models import MODEL_MAP, MODELS_BY_PROVIDER
+from predibench.retry_models import retry, stop_after_attempt
 
 logger = get_logger(__name__)
 
@@ -12,6 +13,10 @@ app = typer.Typer()
 
 
 @app.command()
+@retry(
+    stop=stop_after_attempt(2),
+    reraise=False,
+)
 def main(
     provider: str = typer.Argument(
         "huggingface-qwen", help="Name of the provider to run models for"
