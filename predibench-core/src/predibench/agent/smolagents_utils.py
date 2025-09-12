@@ -554,38 +554,42 @@ The final_answer tool must contain the arguments rationale and decision.
     )
 
 
-def _get_cached_research_result(model_info: ModelInfo, target_date: date, event_id: str) -> str | None:
-    """Try to load cached research result from storage."""
+def _get_cached_research_result(model_info: ModelInfo, target_date: date, event_id: str) -> dict | None:
+    """Try to load cached full_response from storage."""
     if model_info is None or target_date is None or event_id is None:
         return None
         
     model_result_path = model_info.get_model_result_path(target_date)
-    cache_file_path = model_result_path / f"{event_id}_full_result.txt"
+    cache_file_path = model_result_path / f"{event_id}_full_result_cache.json"
     
     if file_exists_in_storage(cache_file_path):
         logger.info(f"Loading cached research result from {cache_file_path}")
-        return read_from_storage(cache_file_path)
+        return json.loads(read_from_storage(cache_file_path))
         
     return None
 
 def _save_research_result_to_cache(
-    research_output: str, model_info: ModelInfo, target_date: date, event_id: str
+    full_response: dict, model_info: ModelInfo, target_date: date, event_id: str
 ) -> None:
-    """Save research result to cache storage."""
+    """Save full_response to cache storage as JSON."""
     if model_info is None or target_date is None or event_id is None:
         return
         
     model_result_path = model_info.get_model_result_path(target_date)
-    cache_file_path = model_result_path / f"{event_id}_full_result.txt"
+    cache_file_path = model_result_path / f"{event_id}_full_result_cache.json"
     
-    write_to_storage(cache_file_path, research_output)
+    write_to_storage(cache_file_path, json.dumps(full_response, indent=2))
     logger.info(f"Saved research result to cache: {cache_file_path}")
 
 
+@retry(
+    stop=stop_after_attempt(2),
+    reraise=False,
+)
 def structure_final_answer(
     research_output: str,
     original_question: str,
-    structured_output_model_id: str = "huggingface/fireworks-ai/Qwen/Qwen3-Coder-30B-A3B-Instruct",
+    structured_output_model_id: str = "huggingface/fireworks-ai/Qwen/Qwen3-Coder-480B-A35B-Instruct",
 ) -> tuple[list[MarketInvestmentDecision], float]:
     structured_model = LiteLLMModel(model_id=structured_output_model_id)
 
@@ -656,8 +660,8 @@ def run_openai_deep_research(
     # Try to load cached result first
     cached_result = _get_cached_research_result(model_info, target_date, event_id)
     if cached_result is not None:
-        research_output = cached_result
-        full_response = None  # We don't have the full response when loading from cache
+        full_response = cached_result
+        research_output = full_response.get("output_text", "")
     else:
         client = OpenAI(timeout=3600)
 
@@ -673,7 +677,7 @@ def run_openai_deep_research(
         research_output = full_response.output_text
         
         # Save to cache before attempting structured output
-        _save_research_result_to_cache(research_output, model_info, target_date, event_id)
+        _save_research_result_to_cache(full_response.model_dump(), model_info, target_date, event_id)
 
     # Use structured output to get EventDecisions
     structured_market_decisions, unallocated_capital = structure_final_answer(
@@ -682,11 +686,10 @@ def run_openai_deep_research(
     return CompleteMarketInvestmentDecisions(
         market_investment_decisions=structured_market_decisions,
         unallocated_capital=unallocated_capital,
-        full_response=full_response.model_dump() if full_response is not None else None,
+        full_response=full_response.model_dump() if hasattr(full_response, 'model_dump') else full_response,
         token_usage=TokenUsage(
-            input_tokens=full_response.usage.input_tokens,
-            output_tokens=full_response.usage.output_tokens
-            + full_response.usage.output_tokens_details.reasoning_tokens,
+            input_tokens=full_response.get("usage", {}).get("input_tokens", 0) if isinstance(full_response, dict) else full_response.usage.input_tokens,
+            output_tokens=(full_response.get("usage", {}).get("output_tokens", 0) + full_response.get("usage", {}).get("output_tokens_details", {}).get("reasoning_tokens", 0)) if isinstance(full_response, dict) else (full_response.usage.output_tokens + full_response.usage.output_tokens_details.reasoning_tokens),
         ) if full_response is not None else None,
     )
 
@@ -702,15 +705,15 @@ def run_perplexity_deep_research(
     # Try to load cached result first
     cached_result = _get_cached_research_result(model_info, target_date, event_id)
     if cached_result is not None:
-        research_output = cached_result
-        full_response = None  # We don't have the full response when loading from cache
+        full_response = cached_result
+        research_output = full_response["choices"][0]["message"]["content"]
     elif dummy:
         # Return minimal dummy response for testing
         research_output = "dummy"
         full_response = {"dummy": True}
         # Save dummy result to cache
         if model_info is not None and target_date is not None and event_id is not None:
-            _save_research_result_to_cache(research_output, model_info, target_date, event_id)
+            _save_research_result_to_cache(full_response, model_info, target_date, event_id)
     else:
         url = "https://api.perplexity.ai/chat/completions"
 
@@ -734,7 +737,7 @@ def run_perplexity_deep_research(
         research_output = full_response["choices"][0]["message"]["content"]
         
         # Save to cache before attempting structured output
-        _save_research_result_to_cache(research_output, model_info, target_date, event_id)
+        _save_research_result_to_cache(full_response, model_info=model_info, target_date=target_date, event_id=event_id)
 
     # Handle dummy case with minimal data
     if dummy and research_output == "dummy":
