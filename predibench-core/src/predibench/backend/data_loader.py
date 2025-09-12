@@ -1,11 +1,11 @@
-from functools import lru_cache
-from predibench.agent.dataclasses import ModelInvestmentDecisions
-from predibench.polymarket_api import load_market_price, Market, Event
-from predibench.polymarket_data import load_events_from_file
-from predibench.storage_utils import get_bucket, _storage_using_bucket
-from predibench.common import DATA_PATH, PREFIX_MODEL_RESULTS
 from pathlib import Path
+
 import pandas as pd
+from predibench.agent.dataclasses import ModelInvestmentDecisions
+from predibench.common import DATA_PATH, PREFIX_MODEL_RESULTS
+from predibench.polymarket_api import Event, Market, load_market_price
+from predibench.polymarket_data import load_events_from_file
+from predibench.storage_utils import _storage_using_bucket, get_bucket
 
 
 def load_investment_choices_from_google() -> list[ModelInvestmentDecisions]:
@@ -17,9 +17,7 @@ def load_investment_choices_from_google() -> list[ModelInvestmentDecisions]:
         blobs = bucket.list_blobs(prefix=PREFIX_MODEL_RESULTS)
 
         for blob in blobs:
-            if (
-                blob.name.endswith("model_investment_decisions.json")
-            ):
+            if blob.name.endswith("model_investment_decisions.json"):
                 try:
                     json_content = blob.download_as_text()
                     model_result = ModelInvestmentDecisions.model_validate_json(
@@ -34,7 +32,7 @@ def load_investment_choices_from_google() -> list[ModelInvestmentDecisions]:
         for file_path in DATA_PATH.rglob("*.json"):
             if file_path.name == "model_investment_decisions.json":
                 try:
-                    with open(file_path, 'r') as f:
+                    with open(file_path, "r") as f:
                         json_content = f.read()
                     model_result = ModelInvestmentDecisions.model_validate_json(
                         json_content
@@ -46,16 +44,17 @@ def load_investment_choices_from_google() -> list[ModelInvestmentDecisions]:
 
     # Sort by target_date
     model_results.sort(key=lambda x: x.target_date)
-    
+
     # Very important:Normalize gains for all event decisions
     for model_result in model_results:
         for event_decision in model_result.event_investment_decisions:
             event_decision.normalize_gains()
     return model_results
 
+
 def load_saved_events() -> list[Event]:
     all_events: list[Event] = []
-    
+
     if _storage_using_bucket():
         # Load from bucket
         bucket = get_bucket()
@@ -76,14 +75,15 @@ def load_saved_events() -> list[Event]:
                 except Exception as e:
                     print(f"Error reading {file_path}: {e}")
                     continue
-    
+
     return all_events
+
 
 def load_market_prices(events: list[Event]) -> dict[str, pd.Series | None]:
     """
     The cached data for the markets is saved by clob id. But the results are saved by market id.
     This function will return a dictionary that maps market id to clob id.
-    
+
     A better way to do this would be to save the clob id in the results.
     """
     market_to_prices = {}
@@ -96,14 +96,13 @@ def load_market_prices(events: list[Event]) -> dict[str, pd.Series | None]:
                 market_to_prices[market.id] = market_prices
             else:
                 market.prices = market_to_prices[market.id]
-            
+
     return market_to_prices
-    
 
 
 def load_agent_position(model_results: list[ModelInvestmentDecisions]) -> pd.DataFrame:
     """Load agent choices from GCP instead of HuggingFace dataset"""
-    
+
     print(f"Loaded {len(model_results)} model results from GCP")
 
     positions = []

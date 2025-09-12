@@ -28,8 +28,8 @@ def _create_leaderboard_entry(
     trend = _determine_trend(performance.cummulative_pnl)
 
     return LeaderboardEntryBackend(
-        id=performance.model_id,  # use canonical model_id as identifier
-        pretty_name=performance.model_name,
+        model_id=performance.model_id,  # use canonical model_id as identifier
+        model_name=performance.model_name,
         final_cumulative_pnl=performance.final_pnl,
         trades=getattr(performance, "trades", len(performance.trades_dates)),
         lastUpdated=date_to_string(datetime.now()),
