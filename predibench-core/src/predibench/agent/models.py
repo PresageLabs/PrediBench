@@ -77,6 +77,7 @@ class ModelInfo(BaseModel):
     open_weights: bool = False
     client: Any | None = None
     agent_type: Literal["code", "toolcalling", "deepresearch"] = "code"
+    sdk: Literal["smolagents", "openai"] = "smolagents"
     
     @staticmethod
     def static_get_model_result_path(model_id: str, target_date: date) -> Path:
