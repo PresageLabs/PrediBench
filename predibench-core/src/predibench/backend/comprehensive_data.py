@@ -141,7 +141,7 @@ def _compute_model_performance_list(
         model_name = model_positions["model_name"].iloc[0]
 
         # Trades metadata
-        trade_rows = model_positions[model_positions["choice"] != 0]
+        trade_rows = model_positions[model_positions["bet"] != 0]
         trade_dates = sorted({str(d) for d in trade_rows["date"].unique()})
         trades_count = int(len(trade_rows))
 
@@ -153,7 +153,7 @@ def _compute_model_performance_list(
 
         # Pivot to date x market for positions and predictions
         positions_pivot = model_positions_deduped.pivot(
-            index="date", columns="market_id", values="choice"
+            index="date", columns="market_id", values="bet"
         )
         decisions_pivot = model_positions_deduped.pivot(
             index="date", columns="market_id", values="odds"

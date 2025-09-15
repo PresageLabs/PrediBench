@@ -1,7 +1,7 @@
 from datetime import date
+
 import numpy as np
 import pandas as pd
-
 from predibench.backend.data_loader import load_agent_position
 from predibench.logger_config import get_logger
 
@@ -12,7 +12,6 @@ def _assert_index_is_date(df: pd.DataFrame):
     assert all(isinstance(idx, date) for idx in df.index), (
         "All index values must be date objects or timestamps without time component"
     )
-
 
 
 def compute_pnl_series_per_model(
@@ -52,13 +51,17 @@ def compute_pnl_series_per_model(
             )
             continue
 
-        market_date_range = pd.date_range(start=first_bet_date, end=last_market_date, freq="D")
+        market_date_range = pd.date_range(
+            start=first_bet_date, end=last_market_date, freq="D"
+        )
         market_date_range = pd.Index([d.date() for d in market_date_range])
         market_date_range = market_date_range.intersection(market_prices.index)
         if len(market_date_range) == 0:
             continue
 
-        extended_positions = agent_positions_series.reindex(market_date_range).ffill().fillna(0)
+        extended_positions = (
+            agent_positions_series.reindex(market_date_range).ffill().fillna(0)
+        )
         aligned_prices = market_prices.reindex(market_date_range, method="ffill")
         price_changes = aligned_prices.diff().fillna(0)
         daily_pnl = extended_positions.shift(1, fill_value=0) * price_changes
@@ -87,50 +90,47 @@ def compute_pnl_series_per_model(
     return portfolio_cumulative_pnl, market_cumulative_pnls
 
 
-
-
-
-
-
-
-
 def get_historical_returns(
     market_prices: dict[str, pd.Series],
 ) -> pd.DataFrame:
     """Get historical prices directly from timeseries data. Columns are market ids
-    
+
     Creates a unified DataFrame with all markets, handling cases where markets
     have different start/end dates by using a unified date index.
-    
+
     Args:
         market_prices: Dictionary mapping market_id to price Series
-        
+
     Returns:
         DataFrame with unified date index and market_ids as columns
     """
     # Collect all unique dates from all markets to create unified index
     all_dates = set()
     valid_market_prices = {}
-    
+
     for market_id, prices in market_prices.items():
         if prices is not None and len(prices) > 0:
             all_dates.update(prices.index)
             valid_market_prices[market_id] = prices
-    
+
     if not all_dates:
         # Return empty DataFrame if no valid price data
         return pd.DataFrame(columns=list(market_prices.keys()))
-    
+
     # Create unified date index, convert to timezone-naive dates to match positions data
     unified_index = pd.Index(sorted(all_dates))
-    
+
     # Convert timezone-aware datetimes to timezone-naive dates for consistency with positions
-    if len(unified_index) > 0 and hasattr(unified_index[0], 'tz') and unified_index[0].tz is not None:
-        unified_index = unified_index.tz_convert('UTC').date
+    if (
+        len(unified_index) > 0
+        and hasattr(unified_index[0], "tz")
+        and unified_index[0].tz is not None
+    ):
+        unified_index = unified_index.tz_convert("UTC").date
         unified_index = pd.DatetimeIndex([pd.Timestamp(d) for d in unified_index])
         # Remove duplicate dates
         unified_index = unified_index[~unified_index.duplicated()]
-    
+
     # Initialize DataFrame with NaN values
     prices_df = pd.DataFrame(
         np.nan,
@@ -140,17 +140,25 @@ def get_historical_returns(
 
     # Fill in price data for each market
     for market_id, prices in valid_market_prices.items():
-        if len(prices) > 0 and hasattr(prices.index[0], 'tz') and prices.index[0].tz is not None:
+        if (
+            len(prices) > 0
+            and hasattr(prices.index[0], "tz")
+            and prices.index[0].tz is not None
+        ):
             # Convert timezone-aware prices index to timezone-naive dates
-            prices_dates = prices.index.tz_convert('UTC').date
-            prices_date_index = pd.DatetimeIndex([pd.Timestamp(d) for d in prices_dates])
+            prices_dates = prices.index.tz_convert("UTC").date
+            prices_date_index = pd.DatetimeIndex(
+                [pd.Timestamp(d) for d in prices_dates]
+            )
             prices_aligned = pd.Series(prices.values, index=prices_date_index)
             # Remove duplicates by keeping the last value for each date
-            prices_aligned = prices_aligned[~prices_aligned.index.duplicated(keep='last')]
+            prices_aligned = prices_aligned[
+                ~prices_aligned.index.duplicated(keep="last")
+            ]
             prices_df[market_id] = prices_aligned
         else:
             prices_df[market_id] = prices
-    
+
     return prices_df
 
 
@@ -170,7 +178,7 @@ def get_positions_df():
                     {
                         "date": date,
                         "market_id": market_decision.market_id,
-                        "choice": market_decision.model_decision.bet,
+                        "bet": market_decision.model_decision.bet,
                         "model_name": model_name,
                     }
                 )

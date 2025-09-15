@@ -116,7 +116,7 @@ def load_agent_position(model_results: list[ModelInvestmentDecisions]) -> pd.Dat
                     {
                         "date": date,
                         "market_id": market_decision.market_id,
-                        "choice": market_decision.model_decision.bet,
+                        "bet": market_decision.model_decision.bet,
                         "model_name": model_name,
                         "model_id": model_result.model_id,
                         "odds": market_decision.model_decision.odds,
