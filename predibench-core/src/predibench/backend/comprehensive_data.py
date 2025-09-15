@@ -5,7 +5,6 @@ This module pre-computes all data needed for all backend API endpoints.
 
 import json
 from datetime import date, datetime
-from typing import List
 
 import pandas as pd
 from predibench.agent.models import (
@@ -115,9 +114,9 @@ class ModelSummaryInfo:
 
 def _compute_model_performance(
     prices_df: pd.DataFrame,
-    backend_events: List[EventBackend],
-    model_decisions: List[ModelInvestmentDecisions],
-) -> tuple[List[ModelInvestmentDecisions], dict[str, ModelPerformanceBackend]]:
+    backend_events: list[EventBackend],
+    model_decisions: list[ModelInvestmentDecisions],
+) -> tuple[list[ModelInvestmentDecisions], dict[str, ModelPerformanceBackend]]:
     """Compute performance data (cumulative profit and brier score) for each model.
 
     Produces per-model cumulative PnL (overall/event/market) and Brier scores
@@ -296,7 +295,7 @@ def load_full_result_from_bucket(
                 # Old format: result_data is the raw full_result_listdict
                 # Handle both list and dict formats and remove model_input_messages
                 if isinstance(result_data, list):
-                    # List format: remove model_input_messages from each step
+                    # list format: remove model_input_messages from each step
                     for step in result_data:
                         if isinstance(step, dict) and "model_input_messages" in step:
                             del step["model_input_messages"]

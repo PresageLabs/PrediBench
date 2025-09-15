@@ -1,6 +1,5 @@
 import time
 from datetime import date, datetime
-from typing import Dict
 
 import numpy as np
 from dotenv import load_dotenv
@@ -45,9 +44,6 @@ class MarketInfo(BaseModel):
     is_closed: bool
     outcomes: list[str]
     price_outcome_name: str
-
-
-MarketData = Dict[str, MarketInfo]
 
 
 def _create_random_betting_decisions(
