@@ -94,10 +94,6 @@ class ModelPerformanceBackend(BaseModel):
 
     trades_dates: list[str]
 
-    bried_scores: list[TimeseriesPointBackend]
-    event_bried_scores: list[EventBrierScoreBackend]
-    market_bried_scores: list[MarketBrierScoreBackend]
-
     cummulative_pnl: list[TimeseriesPointBackend]
     event_pnls: list[EventPnlBackend]
     market_pnls: list[MarketPnlBackend]

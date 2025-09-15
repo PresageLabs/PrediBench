@@ -20,10 +20,8 @@ from predibench.backend.data_loader import (
 from predibench.backend.data_model import (
     BackendData,
     EventBackend,
-    EventBrierScoreBackend,
     EventPnlBackend,
     FullModelResult,
-    MarketBrierScoreBackend,
     MarketPnlBackend,
     ModelPerformanceBackend,
     TimeseriesPointBackend,
@@ -260,58 +258,10 @@ def _compute_model_performance_list(
                 decisions_df=decisions_pivot, prices_df=prices_for_calc
             )
 
-        # Overall per-date brier (mean across markets)
-        overall_brier_series = brier_df.mean(axis=1)
-        overall_brier_points = [
-            TimeseriesPointBackend(
-                date=(date_to_string(idx) if hasattr(idx, "strftime") else str(idx)),
-                value=float(val),
-            )
-            for idx, val in overall_brier_series.dropna().items()
-        ]
         # Final brier = mean across all available predictions
         final_brier_score = (
             float(brier_df.stack().mean()) if not brier_df.empty else 0.0
         )
-
-        # Market-level brier
-        market_brier_backend: list[MarketBrierScoreBackend] = []
-        for market_id in brier_df.columns:
-            market_series = brier_df[market_id].dropna()
-            if market_series.empty:
-                continue
-            points = [
-                TimeseriesPointBackend(
-                    date=(
-                        date_to_string(idx) if hasattr(idx, "strftime") else str(idx)
-                    ),
-                    value=float(val),
-                )
-                for idx, val in market_series.items()
-            ]
-            market_brier_backend.append(
-                MarketBrierScoreBackend(market_id=market_id, brier_score=points)
-            )
-
-        # Event-level brier = mean across event's markets per date
-        event_brier_backend: list[EventBrierScoreBackend] = []
-        for event_id, event in events_by_id.items():
-            cols = [m.id for m in event.markets if m.id in brier_df.columns]
-            if not cols:
-                continue
-            ev_series = brier_df[cols].mean(axis=1).dropna()
-            ev_points = [
-                TimeseriesPointBackend(
-                    date=(
-                        date_to_string(idx) if hasattr(idx, "strftime") else str(idx)
-                    ),
-                    value=float(val),
-                )
-                for idx, val in ev_series.items()
-            ]
-            event_brier_backend.append(
-                EventBrierScoreBackend(event_id=event_id, brier_score=ev_points)
-            )
 
         # Build performance object
         performance_list.append(
@@ -324,9 +274,6 @@ def _compute_model_performance_list(
                 final_brier_score=final_brier_score,
                 trades=trades_count,
                 trades_dates=trade_dates,
-                bried_scores=overall_brier_points,
-                event_bried_scores=event_brier_backend,
-                market_bried_scores=market_brier_backend,
                 cummulative_pnl=overall_cum_pnl_points,
                 event_pnls=event_pnls_backend,
                 market_pnls=market_pnls_backend,
