@@ -1,6 +1,6 @@
 import time
 from datetime import date, datetime
-from typing import Dict, TypedDict
+from typing import Dict
 
 import numpy as np
 from dotenv import load_dotenv
@@ -28,7 +28,7 @@ from predibench.storage_utils import (
     write_to_storage,
 )
 from predibench.utils import date_to_string
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from smolagents import Timing
 
 load_dotenv()
@@ -36,7 +36,7 @@ load_dotenv()
 logger = get_logger(__name__)
 
 
-class MarketInfo(TypedDict):
+class MarketInfo(BaseModel):
     id: str
     question: str
     description: str
@@ -74,7 +74,7 @@ def _create_random_betting_decisions(
         )
         market_decision = MarketInvestmentDecision(
             market_id=market_info.id,
-            model_decision=model_decision,
+            decision=model_decision,
         )
         market_investments.append(market_decision)
 
@@ -127,7 +127,7 @@ def _create_most_likely_outcome_decisions(
 
         market_decision = MarketInvestmentDecision(
             market_id=market_info.id,
-            model_decision=model_decision,
+            decision=model_decision,
         )
         market_investments.append(market_decision)
 
@@ -189,7 +189,7 @@ def _create_volume_proportional_decisions(
         )
         market_decision = MarketInvestmentDecision(
             market_id=market_info.id,
-            model_decision=model_decision,
+            decision=model_decision,
         )
         market_investments.append(market_decision)
 

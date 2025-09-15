@@ -25,12 +25,12 @@ def test_get_leaderboard():
     # Build backend events and compute performance first, then leaderboard
     backend_events = [EventBackend.from_event(e) for e in saved_events]
     prices_df = _to_date_index(prices_df)
-    performance = _compute_model_performance(
+    model_decisions, performance_per_model = _compute_model_performance(
         prices_df=prices_df,
         backend_events=backend_events,
         model_decisions=model_decisions,
     )
-    result = get_leaderboard(performance)
+    result = get_leaderboard(list(performance_per_model.values()))
     assert isinstance(result, list)
     if result:
         assert hasattr(result[0], "final_profit")
