@@ -152,26 +152,28 @@ def _compute_model_performance(
             positions_increases_for_event = []
 
             for market_decision in event_decision.market_investment_decisions:
-                market_prices = prices_df[market_decision.market_id].dropna()
+                if (
+                    model_decision.target_date
+                    not in prices_df[market_decision.market_id].dropna().index
+                ):
+                    # NOTE: market decision should not be done after when the market is not open yet/closed
+                    continue
+
+                market_prices = prices_df[market_decision.market_id].ffill().copy()
                 latest_price = float(market_prices.ffill().iloc[-1])
                 market_decision.brier_score_pair_current = (
                     latest_price,
                     market_decision.decision.odds,
                 )
-                if model_decision.target_date not in market_prices.index:
-                    continue
                 if market_decision.decision.bet == 0:
                     continue
-                # NOTE: market decision should not be done after the market is closed.
 
-                prices_column = prices_df[market_decision.market_id].copy()
-
-                prices_column.loc[: model_decision.target_date] = prices_column.loc[
-                    model_decision.target_date
-                ]  # Set prices stable before change date, so that pct change is 0
+                market_prices = (
+                    market_prices.bfill()
+                )  # Set prices stable before change date, so that pct change is 0
 
                 returns_since_decision = (
-                    prices_column.pct_change().fillna(0) * market_decision.decision.bet
+                    market_prices.pct_change().fillna(0) * market_decision.decision.bet
                 )
 
                 # Preserve market_id as column name, make name unique by adding the target date
