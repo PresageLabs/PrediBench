@@ -1,5 +1,6 @@
 import time
 from datetime import date, datetime
+from typing import Dict, TypedDict
 
 import numpy as np
 from dotenv import load_dotenv
@@ -12,6 +13,7 @@ from predibench.agent.models import (
 )
 from predibench.agent.smolagents_utils import (
     BET_DESCRIPTION,
+    CompleteMarketInvestmentDecisions,
     run_openai_deep_research,
     run_perplexity_deep_research,
     run_smolagents,
@@ -32,6 +34,173 @@ from smolagents import Timing
 load_dotenv()
 
 logger = get_logger(__name__)
+
+
+class MarketInfo(TypedDict):
+    id: str
+    question: str
+    description: str
+    recent_prices: str
+    current_price: float | None
+    is_closed: bool
+    outcomes: list[str]
+    price_outcome_name: str
+
+
+MarketData = Dict[str, MarketInfo]
+
+
+def _create_random_betting_decisions(
+    market_data: MarketData, model_info: ModelInfo
+) -> CompleteMarketInvestmentDecisions:
+    """Create random decisions for all markets with capital allocation constraint."""
+    market_investments = []
+    per_event_allocation = 1.0
+
+    number_markets = len(market_data)
+    invested_values = np.random.random(number_markets)
+    invested_values = (
+        per_event_allocation * invested_values / np.sum(invested_values)
+    )  # Random numbers that sum to per_event_allocation
+
+    for market_info, invested_value in zip(market_data.values(), invested_values):
+        amount = invested_value
+
+        model_decision = SingleModelDecision(
+            rationale=f"Random decision for testing market {market_info['id']}",
+            odds=np.random.uniform(0.1, 0.9),
+            bet=amount,
+            confidence=np.random.choice(list(range(1, 10))),
+        )
+        market_decision = MarketInvestmentDecision(
+            market_id=market_info["id"],
+            model_decision=model_decision,
+        )
+        market_investments.append(market_decision)
+
+    return CompleteMarketInvestmentDecisions(
+        market_investment_decisions=market_investments,
+        unallocated_capital=0.0,
+        token_usage=None,
+        full_response={"model_type": "test_random"},
+        sources_google=None,
+        sources_visit_webpage=None,
+    )
+
+
+def _create_most_likely_outcome_decisions(
+    market_data: MarketData, model_info: ModelInfo
+) -> CompleteMarketInvestmentDecisions:
+    """Split amount equally between markets and invest based on price thresholds."""
+    market_investments = []
+    per_event_allocation = 1.0
+
+    # Calculate amount per market
+    nb_markets = len(market_data)
+    amount_per_market = per_event_allocation / nb_markets
+
+    # For each market, invest +amount if price > 50%, -amount if price < 50%
+    for market_info in market_data.values():
+        current_price = market_info["current_price"]
+
+        if current_price is not None:
+            if current_price > 0.5:
+                amount = amount_per_market
+                rationale = (
+                    f"Price {current_price:.2f} > 50%, betting positive {amount:.3f}"
+                )
+            else:
+                amount = -amount_per_market
+                rationale = (
+                    f"Price {current_price:.2f} < 50%, betting negative {amount:.3f}"
+                )
+        else:
+            amount = 0.0
+            rationale = "No price data available, no bet"
+
+        model_decision = SingleModelDecision(
+            rationale=rationale,
+            odds=current_price or 0.5,
+            bet=amount,
+            confidence=6,
+        )
+
+        market_decision = MarketInvestmentDecision(
+            market_id=market_info["id"],
+            model_decision=model_decision,
+        )
+        market_investments.append(market_decision)
+
+    return CompleteMarketInvestmentDecisions(
+        market_investment_decisions=market_investments,
+        unallocated_capital=0.0,
+        token_usage=None,
+        full_response={"model_type": model_info.model_id},
+        sources_google=None,
+        sources_visit_webpage=None,
+    )
+
+
+def _create_volume_proportional_decisions(
+    market_data: MarketData, event: Event, model_info: ModelInfo
+) -> CompleteMarketInvestmentDecisions:
+    """Bet on the most likely outcome but split across markets proportionally by volume."""
+    market_investments = []
+    per_event_allocation = 1.0
+
+    # Get market volumes and find total volume
+    market_volumes = {}
+    total_volume = 0.0
+
+    for market in event.markets:
+        volume = market.volumeNum or 0.0
+        market_volumes[market.id] = volume
+        total_volume += volume
+
+    # If no volume data, use equal weights
+    if total_volume == 0.0:
+        return _create_most_likely_outcome_decisions(
+            market_data=market_data, model_info=model_info
+        )
+
+    # Allocate proportionally by volume with directional betting based on price
+    for market_info in market_data.values():
+        market_id = market_info["id"]
+        volume_proportion = market_volumes[market_id] / total_volume
+        base_amount = per_event_allocation * volume_proportion
+        current_price = market_info["current_price"]
+
+        if current_price is not None:
+            if current_price < 0.5:
+                amount = base_amount  # Positive bet when price < 50%
+                rationale = f"Volume-proportional allocation: {volume_proportion:.2%} of capital based on volume {market_volumes[market_id]:.0f}, price {current_price:.2f} < 50% (positive bet)"
+            else:
+                amount = -base_amount  # Negative bet when price >= 50%
+                rationale = f"Volume-proportional allocation: {volume_proportion:.2%} of capital based on volume {market_volumes[market_id]:.0f}, price {current_price:.2f} >= 50% (negative bet)"
+        else:
+            amount = 0.0
+            rationale = f"Volume-proportional allocation: {volume_proportion:.2%} of capital based on volume {market_volumes[market_id]:.0f}, no price data available"
+
+        model_decision = SingleModelDecision(
+            rationale=rationale,
+            odds=current_price or 0.5,
+            bet=amount,
+            confidence=6,
+        )
+        market_decision = MarketInvestmentDecision(
+            market_id=market_info["id"],
+            model_decision=model_decision,
+        )
+        market_investments.append(market_decision)
+
+    return CompleteMarketInvestmentDecisions(
+        market_investment_decisions=market_investments,
+        unallocated_capital=0.0,
+        token_usage=None,
+        full_response={"model_type": model_info.model_id},
+        sources_google=None,
+        sources_visit_webpage=None,
+    )
 
 
 def _process_event_investment(
@@ -160,32 +329,17 @@ You are an expert prediction-market analyst. You have been given an amount of US
     logger.info(f"Saved prompt to {prompt_file}")
 
     if model_info.model_id == "test_random":
-        # Create random decisions for all markets with capital allocation constraint
-
-        market_investments = []
-        per_event_allocation = 1.0
-
-        number_markets = len(market_data)
-        invested_values = np.random.random(number_markets)
-        invested_values = (
-            per_event_allocation * invested_values / np.sum(invested_values)
-        )  # Random numbers that sum to per_event_allocation
-
-        for market_info, invested_value in zip(market_data.values(), invested_values):
-            amount = invested_value
-
-            decision = SingleModelDecision(
-                rationale=f"Random decision for testing market {market_info['id']}",
-                odds=np.random.uniform(0.1, 0.9),
-                bet=amount,
-                confidence=np.random.choice(list(range(1, 10))),
-            )
-            market_decision = MarketInvestmentDecision(
-                market_id=market_info["id"],
-                decision=decision,
-            )
-            market_investments.append(market_decision)
-
+        complete_market_investment_decisions = _create_random_betting_decisions(
+            market_data, model_info
+        )
+    elif model_info.model_id == "most_likely_outcome":
+        complete_market_investment_decisions = _create_most_likely_outcome_decisions(
+            market_data, model_info
+        )
+    elif model_info.model_id == "most_likely_volume_proportional":
+        complete_market_investment_decisions = _create_volume_proportional_decisions(
+            market_data, event, model_info
+        )
     elif (
         model_info.inference_provider == "openai"
         and "deep-research" in model_info.model_id

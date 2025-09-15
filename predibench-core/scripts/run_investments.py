@@ -15,7 +15,7 @@ app = typer.Typer()
 @app.command()
 @retry(
     stop=stop_after_attempt(2),
-    reraise=False,
+    reraise=True,
 )
 def main(
     provider: str = typer.Argument(
