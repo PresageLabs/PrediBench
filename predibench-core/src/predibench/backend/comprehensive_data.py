@@ -145,9 +145,6 @@ def _compute_model_performance(
 
     for model_decision in model_decisions:
         # NOTE: is it really necessary to deduplicate "multiple decisions for the same market on the same date" : does it really happen?
-        if model_decision.target_date == date(2025, 9, 3):
-            print("FLAGGG")
-
         for event_decision in model_decision.event_investment_decisions:
             positions_increases_for_event = []
 
