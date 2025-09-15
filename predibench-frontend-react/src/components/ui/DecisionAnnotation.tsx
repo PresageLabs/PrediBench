@@ -54,7 +54,7 @@ export function DecisionAnnotation({ decision, nextDecision, cumulativeData, mod
   }, [decision, nextDecision])
 
   const totalBets = decision.event_investment_decisions.reduce((total, eventDecision) => {
-    return total + eventDecision.market_investment_decisions.filter(md => md.decision.bet !== 0).length
+    return total + eventDecision.market_investment_decisions.length
   }, 0)
 
   const formattedStartDate = new Date(decision.target_date).toLocaleDateString('en-US', {
@@ -133,51 +133,48 @@ export function DecisionAnnotation({ decision, nextDecision, cumulativeData, mod
         </div>
       </div>
 
-      {/* Simplified event list */}
+      {/* Per-market returns list (in dollars) */}
       {isLoading ? (
         <div style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))', fontStyle: 'italic' }}>
           Calculating returns...
         </div>
       ) : analysis ? (
         <div style={{ fontSize: '12px' }}>
-          {(isMobile ? analysis.topDrivers.slice(0, 3) : analysis.topDrivers).map((driver, idx) => {
-            const hasNoBets = driver.betAmount === 0
-            return (
-              <div key={idx} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '6px',
-                padding: '4px 0',
-                opacity: hasNoBets ? 0.5 : 1
-              }}>
-                <div
-                  style={{
-                    fontWeight: '500',
-                    flex: 1,
-                    color: hasNoBets ? 'hsl(var(--muted-foreground))' : 'inherit',
-                    cursor: 'pointer',
-                    textDecoration: 'underline'
-                  }}
-                  onClick={() => handleEventClick(driver.eventId)}
-                >
-                  {driver.eventTitle}
+          {(() => {
+            const limit = isMobile ? 3 : 5
+            const items = analysis.topDrivers.slice(0, limit)
+            return items.map((driver, idx) => {
+              return (
+                <div key={idx} style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '6px',
+                  padding: '4px 0',
+                  opacity: 1
+                }}>
+                  <div
+                    style={{
+                      fontWeight: '500',
+                      flex: 1,
+                      color: 'inherit',
+                      cursor: 'pointer',
+                      textDecoration: 'underline',
+                      transition: 'color 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = 'hsl(var(--primary))' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = 'inherit' }}
+                    onClick={() => handleEventClick(driver.eventId)}
+                  >
+                    {driver.marketQuestion}
+                  </div>
+                  <div style={{ textAlign: 'right', fontWeight: '600', fontSize: '12px' }}>
+                    <ProfitDisplay value={driver.returnAmount} />
+                  </div>
                 </div>
-                <div style={{ textAlign: 'right', fontWeight: '600', fontSize: '12px' }}>
-                  {hasNoBets ? (
-                    <span style={{ color: 'hsl(var(--muted-foreground))', fontStyle: 'italic' }}>
-                      No bets
-                    </span>
-                  ) : (
-                    <ProfitDisplay
-                      value={driver.returnAmount}
-                      formatValue={(v) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`}
-                    />
-                  )}
-                </div>
-              </div>
-            )
-          })}
+              )
+            })
+          })()}
         </div>
       ) : (
         <div style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))' }}>

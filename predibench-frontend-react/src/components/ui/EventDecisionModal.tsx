@@ -37,7 +37,9 @@ export function EventDecisionModal({
 }: EventDecisionModalProps) {
   const [popupPrices, setPopupPrices] = useState<Record<string, { date: string; price: number }[]>>({})
   const [popupMarketNames, setPopupMarketNames] = useState<Record<string, string>>({})
+  // Per-market realized returns (only when positionEndDate exists)
   const [realizedReturns, setRealizedReturns] = useState<Record<string, number>>({})
+  // Event-level realized PnL (sum of per-market realized returns)
   const [totalEventPnL, setTotalEventPnL] = useState<number>(0)
   const [positionEndDate, setPositionEndDate] = useState<string | null>(null)
   const [pricesLoading, setPricesLoading] = useState<boolean>(false)
@@ -114,78 +116,59 @@ export function EventDecisionModal({
     return () => { cancelled = true }
   }, [modelId, eventDecision.event_id, decisionDate, isOpen, isDecisionAfterCutoff])
 
+  // Load market prices and names for the chart (returns now come from backend field)
   useEffect(() => {
     let cancelled = false
-    const loadPricesAndReturns = async () => {
+    const loadPrices = async () => {
       if (!isOpen) return
-
       setPricesLoading(true)
       try {
         const event = await apiService.getEventDetails(eventDecision.event_id)
-
         const prices: Record<string, { date: string; price: number }[]> = {}
         const names: Record<string, string> = {}
-        const returns: Record<string, number> = {}
-        let totalPnL = 0
-
         const marketIds = new Set(eventDecision.market_investment_decisions.map(md => md.market_id))
-
         event.markets.forEach(m => {
           if (marketIds.has(m.id)) {
             names[m.id] = m.question
             if (m.prices) {
-              // All prices from decision date onwards
               prices[m.id] = m.prices
                 .filter(p => p.date >= decisionDate)
                 .map(p => ({ date: p.date, price: p.value }))
-
-              // Calculate realized returns if we have an end date
-              if (positionEndDate && m.prices.length > 0) {
-                const startPrice = m.prices.find(p => p.date >= decisionDate)?.value || 0
-                const endPrice = m.prices
-                  .filter(p => p.date <= positionEndDate)
-                  .sort((a, b) => b.date.localeCompare(a.date))[0]?.value || startPrice
-
-                const marketDecision = eventDecision.market_investment_decisions
-                  .find(md => md.market_id === m.id)
-
-                if (marketDecision) {
-                  const betAmount = marketDecision.decision.bet
-                  const priceChange = endPrice - startPrice
-                  const realizedReturn = betAmount * priceChange
-                  returns[m.id] = realizedReturn
-                  totalPnL += realizedReturn
-                }
-              }
             }
           }
         })
-
         if (!cancelled) {
           setPopupMarketNames(names)
           setPopupPrices(prices)
-          setRealizedReturns(returns)
-          setTotalEventPnL(totalPnL)
         }
       } catch (e) {
         console.error('Failed to load event prices and returns', e)
         if (!cancelled) {
-          // Set empty states on error so we don't stay in loading forever
           setPopupMarketNames({})
           setPopupPrices({})
-          setRealizedReturns({})
-          setTotalEventPnL(0)
         }
       } finally {
-        if (!cancelled) {
-          setPricesLoading(false)
-        }
+        if (!cancelled) setPricesLoading(false)
       }
     }
-
-    loadPricesAndReturns()
+    loadPrices()
     return () => { cancelled = true }
   }, [isOpen, eventDecision, decisionDate, positionEndDate])
+
+  // Compute per-market returns from backend-provided gains_since_decision, and sum for overall
+  useEffect(() => {
+    const per: Record<string, number> = {}
+    let total = 0
+    eventDecision.market_investment_decisions.forEach(md => {
+      const g = md.gains_since_decision
+      if (g !== null && g !== undefined) {
+        per[md.market_id] = g
+        total += g
+      }
+    })
+    setRealizedReturns(per)
+    setTotalEventPnL(total)
+  }, [eventDecision])
 
   const formatLongDate = (dateStr: string) => {
     if (!dateStr) return ''
@@ -252,7 +235,7 @@ export function EventDecisionModal({
                     <th className="text-center py-2 px-3">Bet ($)</th>
                     <th className="text-right py-2 px-3">Estimated odds</th>
                     <th className="text-right py-2 px-3">Confidence</th>
-                    {positionEndDate && <th className="text-right py-2 px-3">Realized Returns</th>}
+                    <th className="text-right py-2 px-3">Returns</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -273,15 +256,13 @@ export function EventDecisionModal({
                       </td>
                       <td className="py-2 px-3 text-right">{(md.decision.odds * 100).toFixed(1)}%</td>
                       <td className="py-2 px-3 text-right">{md.decision.confidence}/10</td>
-                      {positionEndDate && (
-                        <td className="py-2 px-3 text-right">
-                          {realizedReturns[md.market_id] !== undefined ? (
-                            <ProfitDisplay value={realizedReturns[md.market_id]} />
-                          ) : (
-                            <span className="text-muted-foreground">N/A</span>
-                          )}
-                        </td>
-                      )}
+                      <td className="py-2 px-3 text-right">
+                        {realizedReturns[md.market_id] !== undefined ? (
+                          <ProfitDisplay value={realizedReturns[md.market_id]} />
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
 
@@ -291,25 +272,23 @@ export function EventDecisionModal({
                     <td className="py-2 px-3 text-center">{eventDecision.unallocated_capital.toFixed(2)}</td>
                     <td className="py-2 px-3"></td>
                     <td className="py-2 px-3"></td>
-                    {positionEndDate && <td className="py-2 px-3"></td>}
+                    <td className="py-2 px-3"></td>
                   </tr>
 
                   {/* Overall returns row */}
-                  {positionEndDate && (
-                    <tr className="border-t-2 border-border bg-muted/20 font-medium">
-                      <td className="py-3 px-3" colSpan={4}>Overall returns</td>
-                      <td className="py-3 px-3 text-right">
-                        <ProfitDisplay
-                          value={totalEventPnL}
-                          formatValue={(v) => {
-                            if (Math.abs(v) < 0.005) return '$0.00'
-                            return `${v > 0 ? '+' : ''}$${v.toFixed(2)}`
-                          }}
-                          className="font-bold"
-                        />
-                      </td>
-                    </tr>
-                  )}
+                  <tr className="border-t-2 border-border bg-muted/20 font-medium">
+                    <td className="py-3 px-3" colSpan={4}>Overall returns</td>
+                    <td className="py-3 px-3 text-right">
+                      <ProfitDisplay
+                        value={totalEventPnL}
+                        formatValue={(v) => {
+                          if (Math.abs(v) < 0.005) return '$0.00'
+                          return `${v > 0 ? '+' : ''}$${v.toFixed(2)}`
+                        }}
+                        className="font-bold"
+                      />
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>

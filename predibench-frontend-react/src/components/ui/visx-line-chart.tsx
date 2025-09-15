@@ -823,7 +823,7 @@ export function VisxLineChart({
       {/* Hover state: single sliding container */}
       {hoverState && (() => {
         // Calculate anchoring once for the entire hover container
-        const tooltipWidth = 150
+        const tooltipWidth = 200
         const chartWidth = containerWidth - margin.left - margin.right
         const anchorRight = hoverState.xPosition + tooltipWidth > margin.left + chartWidth
 
@@ -988,7 +988,7 @@ export function VisxLineChart({
                         boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                       }}
                     >
-                      <strong>{(safeYAccessor(tooltip.datum) * 100).toFixed(1)}%</strong> - {(tooltip.lineConfig.name || tooltip.lineConfig.dataKey).substring(0, 20)}
+                      <strong>{(safeYAccessor(tooltip.datum) * 100).toFixed(1)}%</strong> - {(tooltip.lineConfig.name || tooltip.lineConfig.dataKey).substring(0, 50)}
                     </div>
                   </div>
                 ))
