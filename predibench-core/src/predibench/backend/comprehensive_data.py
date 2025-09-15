@@ -173,6 +173,11 @@ def _compute_model_performance(
                     market_prices.pct_change().fillna(0) * market_decision.decision.bet
                 )
 
+                # Zero out returns before the decision date
+                returns_since_decision[
+                    returns_since_decision.index <= model_decision.target_date
+                ] = 0.0
+
                 # Preserve market_id as column name, make name unique by adding the target date
                 returns_since_decision.name = (
                     market_decision.market_id
