@@ -168,7 +168,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
   // Portfolio Increase series since the beginning for the selected model
   const cumulativeSeries = useMemo(() => {
     if (!modelPerformance) return [] as { dataKey: string; data: { x: string; y: number }[]; stroke: string; name?: string }[]
-    const data = (modelPerformance.cumulative_pnl || []).map(pt => ({ x: pt.date, y: pt.value }))
+    const data = (modelPerformance.pnl_history || []).map(pt => ({ x: pt.date, y: pt.value }))
     return [
       {
         dataKey: `model_${modelPerformance.model_id}_cum`,
@@ -189,7 +189,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     const sortedDecisions = [...modelDecisions].sort((a, b) => a.target_date.localeCompare(b.target_date))
 
     // Get cumulative data for period profit calculations
-    const cumulativeData = (modelPerformance.cumulative_pnl || []).map(pt => ({ x: pt.date, y: pt.value }))
+    const cumulativeData = (modelPerformance.pnl_history || []).map(pt => ({ x: pt.date, y: pt.value }))
 
     sortedDecisions.forEach((decision, index) => {
       const nextDecision = index < sortedDecisions.length - 1 ? sortedDecisions[index + 1] : undefined

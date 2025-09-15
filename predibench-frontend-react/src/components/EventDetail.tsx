@@ -157,7 +157,7 @@ export function EventDetail({ event }: EventDetailProps) {
   // Build a map of model_id -> pretty model name using performance endpoint
   useEffect(() => {
     let cancelled = false
-    apiService.getPerformance('day')
+    apiService.getPerformance()
       .then(perfs => {
         if (cancelled) return
         const map: Record<string, string> = {}
