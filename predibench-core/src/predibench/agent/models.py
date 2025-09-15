@@ -24,7 +24,7 @@ class DataPoint(BaseModel):
         ]
 
 
-class SingleModelDecision(BaseModel):
+class SingleInvestmentDecision(BaseModel):
     rationale: str = Field(
         ...,
         description="Explanation for your decision and why you think this market is mispriced (or correctly priced if skipping). Write at least a few sentences. If you take a strong bet, make sure to highlight the facts you know/value that the market doesn't.",
@@ -53,7 +53,7 @@ class MarketInvestmentDecision(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
     market_id: str = Field(..., description="The market ID")
-    decision: SingleModelDecision = Field(
+    decision: SingleInvestmentDecision = Field(
         ...,
         description="Model's decision for this market",
         validation_alias=AliasChoices("decision", "model_decision"),

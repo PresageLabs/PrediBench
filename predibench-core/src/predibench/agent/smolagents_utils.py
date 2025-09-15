@@ -13,7 +13,7 @@ from openai import OpenAI
 from predibench.agent.models import (
     MarketInvestmentDecision,
     ModelInfo,
-    SingleModelDecision,
+    SingleInvestmentDecision,
 )
 from predibench.agent.tools_common import visit_webpage_scrapfly, web_search_common
 from predibench.logger_config import get_logger
@@ -319,7 +319,7 @@ def parse_market_decisions_and_unallocated(
                 f"Your confidence must be between an integer 0 and 10, got {decision_dict['confidence']} for market {decision_dict['market_id']}"
             )
 
-        decision = SingleModelDecision(
+        decision = SingleInvestmentDecision(
             rationale=decision_dict["rationale"],
             odds=decision_dict["odds"],
             bet=decision_dict["bet"],

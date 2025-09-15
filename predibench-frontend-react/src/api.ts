@@ -85,11 +85,11 @@ export interface EventInvestmentDecision {
 
 export interface MarketInvestmentDecision {
   market_id: string
-  decision: SingleModelDecision
+  decision: SingleInvestmentDecision
   market_question: string | null
 }
 
-export interface SingleModelDecision {
+export interface SingleInvestmentDecision {
   rationale: string
   odds: number
   bet: number

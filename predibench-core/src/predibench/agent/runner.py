@@ -9,7 +9,7 @@ from predibench.agent.models import (
     MarketInvestmentDecision,
     ModelInfo,
     ModelInvestmentDecisions,
-    SingleModelDecision,
+    SingleInvestmentDecision,
 )
 from predibench.agent.smolagents_utils import (
     BET_DESCRIPTION,
@@ -66,7 +66,7 @@ def _create_random_betting_decisions(
     for market_info, invested_value in zip(market_data.values(), invested_values):
         amount = invested_value
 
-        model_decision = SingleModelDecision(
+        model_decision = SingleInvestmentDecision(
             rationale=f"Random decision for testing market {market_info.id}",
             odds=np.random.uniform(0.1, 0.9),
             bet=amount,
@@ -118,7 +118,7 @@ def _create_most_likely_outcome_decisions(
             amount = 0.0
             rationale = "No price data available, no bet"
 
-        model_decision = SingleModelDecision(
+        model_decision = SingleInvestmentDecision(
             rationale=rationale,
             odds=current_price or 0.5,
             bet=amount,
@@ -181,7 +181,7 @@ def _create_volume_proportional_decisions(
             amount = 0.0
             rationale = f"Volume-proportional allocation: {volume_proportion:.2%} of capital based on volume {market_volumes[market_id]:.0f}, no price data available"
 
-        model_decision = SingleModelDecision(
+        model_decision = SingleInvestmentDecision(
             rationale=rationale,
             odds=current_price or 0.5,
             bet=amount,

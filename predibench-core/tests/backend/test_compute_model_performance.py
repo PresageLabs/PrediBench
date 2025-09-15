@@ -6,7 +6,7 @@ from predibench.agent.models import (
     MarketInvestmentDecision,
     ModelInfo,
     ModelInvestmentDecisions,
-    SingleModelDecision,
+    SingleInvestmentDecision,
 )
 from predibench.backend.comprehensive_data import _compute_model_performance
 
@@ -65,7 +65,7 @@ def _build_model_decisions(
     ) -> MarketInvestmentDecision:
         return MarketInvestmentDecision(
             market_id=market_id,
-            decision=SingleModelDecision(
+            decision=SingleInvestmentDecision(
                 rationale="test", odds=odds, bet=bet, confidence=5
             ),
         )
@@ -109,7 +109,11 @@ def _build_model_decisions(
         ),
         target_date=target,
         decision_datetime=datetime.combine(target, datetime.min.time()),
-        event_investment_decisions=[event_1_decision, event_2_decision, event_3_decision],
+        event_investment_decisions=[
+            event_1_decision,
+            event_2_decision,
+            event_3_decision,
+        ],
     )
 
 
@@ -123,7 +127,7 @@ def _build_model_decisions_alt(
     ) -> MarketInvestmentDecision:
         return MarketInvestmentDecision(
             market_id=market_id,
-            decision=SingleModelDecision(
+            decision=SingleInvestmentDecision(
                 rationale="test", odds=odds, bet=bet, confidence=5
             ),
         )
@@ -166,7 +170,11 @@ def _build_model_decisions_alt(
         ),
         target_date=target,
         decision_datetime=datetime.combine(target, datetime.min.time()),
-        event_investment_decisions=[event_1_decision, event_2_decision, event_3_decision],
+        event_investment_decisions=[
+            event_1_decision,
+            event_2_decision,
+            event_3_decision,
+        ],
     )
 
 
@@ -200,9 +208,7 @@ def test_compute_model_performance_end_to_end():
 
     # Two models, same target_date present in index (and > 2025-08-01 cutoff)
     target = date(2025, 8, 2)
-    model_a_investment_decisions = _build_model_decisions(
-        "model_A", "Model A", target
-    )
+    model_a_investment_decisions = _build_model_decisions("model_A", "Model A", target)
     model_b_investment_decisions = _build_model_decisions_alt(
         "model_B", "Model B", target
     )
