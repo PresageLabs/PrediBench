@@ -4,7 +4,7 @@ PrediBench is a benchmark focused on evaluating large language models' abilities
 
 ### What PrediBench Measures
 
-- Portfolio Value & Loss (PnL)
+- Portfolio Increase & Loss (PnL)
 - 1 − Brier Score (higher is better)
 - Consistency across time horizons
 

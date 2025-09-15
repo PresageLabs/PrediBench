@@ -1,7 +1,7 @@
 import type { LeaderboardEntry } from '../api'
 import { LeaderboardTable } from './LeaderboardTable'
 import { getChartColor } from './ui/chart-colors'
-import { PortfolioValueToolTip } from './ui/info-tooltip'
+import { PnLTooltip } from './ui/info-tooltip'
 import { RedirectButton } from './ui/redirect-button'
 import { VisxLineChart } from './ui/visx-line-chart'
 
@@ -31,11 +31,11 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
       {/* Horizontal Separator */}
       <div className="w-full h-px bg-border mb-16"></div>
 
-      {/* Portfolio Value Chart */}
+      {/* Portfolio Increase Chart */}
       <div className="mb-16">
         <h2 className="text-2xl font-bold text-center mb-8 flex items-center justify-center">
-          Portfolio Value
-          <PortfolioValueToolTip />
+          Portfolio Increase
+          <PnLTooltip />
         </h2>
         <div className="bg-card rounded-xl border border-border/30 p-6">
           <div className="h-[800px]">

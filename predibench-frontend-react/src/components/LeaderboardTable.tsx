@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import type { LeaderboardEntry } from '../api'
 import { encodeSlashes } from '../lib/utils'
 import { CompanyDisplay } from './ui/company-display'
-import { BrierScoreInfoTooltip, PortfolioValueToolTip } from './ui/info-tooltip'
+import { BrierScoreInfoTooltip, PnLTooltip } from './ui/info-tooltip'
 import { ProfitDisplay } from './ui/profit-display'
 import { RedirectButton } from './ui/redirect-button'
 
@@ -118,9 +118,9 @@ export function LeaderboardTable({
                       className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
                     >
                       <ArrowDown className={`h-4 w-4 ${sortKey === 'cumulative_profit' ? 'text-primary' : 'opacity-40'}`} />
-                      <span>Portfolio Value</span>
+                      <span>Portfolio Increase</span>
                     </button>
-                    <PortfolioValueToolTip />
+                    <PnLTooltip />
                   </div>
                 </th>
               </tr>

@@ -115,7 +115,7 @@ export function DecisionAnnotation({ decision, nextDecision, cumulativeData }: D
             />
           </div>
           <div style={{ fontSize: '10px', color: 'hsl(var(--muted-foreground))' }}>
-            Period Portfolio Value
+            Period Portfolio Increase
           </div>
         </div>
       </div>

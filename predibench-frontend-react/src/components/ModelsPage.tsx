@@ -9,7 +9,7 @@ import { getChartColor } from './ui/chart-colors'
 import { DecisionAnnotation } from './ui/DecisionAnnotation'
 import { EventDecisionModal } from './ui/EventDecisionModal'
 import { EventDecisionThumbnail } from './ui/EventDecisionThumbnail'
-import { BrierScoreInfoTooltip, PortfolioValueToolTip } from './ui/info-tooltip'
+import { BrierScoreInfoTooltip, PnLTooltip } from './ui/info-tooltip'
 // import { ProfitDisplay } from './ui/profit-display'
 import { VisxLineChart } from './ui/visx-line-chart'
 
@@ -165,7 +165,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
 
   // Removed event-based series metadata; cumulative series is used instead
 
-  // Portfolio Value series since the beginning for the selected model
+  // Portfolio Increase series since the beginning for the selected model
   const cumulativeSeries = useMemo(() => {
     if (!modelPerformance) return [] as { dataKey: string; data: { x: string; y: number }[]; stroke: string; name?: string }[]
     const data = (modelPerformance.cumulative_pnl || []).map(pt => ({ x: pt.date, y: pt.value }))
@@ -174,7 +174,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
         dataKey: `model_${modelPerformance.model_id}_cum`,
         data,
         stroke: getChartColor(0),
-        name: 'Portfolio Value'
+        name: 'Portfolio Increase'
       }
     ]
   }, [modelPerformance])
@@ -276,7 +276,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                 <div>
                   <div className="flex items-center text-muted-foreground">
                     Final Profit:
-                    <PortfolioValueToolTip />
+                    <PnLTooltip />
                   </div>
                   <div className="font-medium">{selectedModelData.final_profit.toFixed(1)}</div>
                 </div>
@@ -294,11 +294,11 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
               </div >
             </div >
 
-            {/* Portfolio Value Chart */}
+            {/* Portfolio Increase Chart */}
             <div className="mb-8">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
-                Portfolio Value
-                <PortfolioValueToolTip />
+                Portfolio Increase
+                <PnLTooltip />
               </h3>
               <div className="h-auto sm:h-[500px]">
                 {cumulativeSeries.length === 0 ? (
