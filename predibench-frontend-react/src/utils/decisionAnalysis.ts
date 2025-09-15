@@ -46,7 +46,7 @@ export async function calculateDecisionReturns(
 
       // Process each market decision within this event
       for (const marketDecision of eventDecision.market_investment_decisions) {
-        const betAmount = marketDecision.model_decision.bet
+        const betAmount = marketDecision.decision.bet
         totalBets++
         eventBetCount++
         eventTotalBet += Math.abs(betAmount)

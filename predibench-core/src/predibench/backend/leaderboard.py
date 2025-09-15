@@ -1,17 +1,20 @@
 from datetime import datetime
+from typing import Literal
 
 from predibench.backend.data_model import (
+    DataPoint,
     LeaderboardEntryBackend,
     ModelPerformanceBackend,
-    TimeseriesPointBackend,
 )
 from predibench.utils import date_to_string
 
 
-def _determine_trend(pnl_history: list[TimeseriesPointBackend]) -> str:
+def _determine_trend(
+    pnl_history: list[DataPoint],
+) -> Literal["up", "down", "stable"]:
     """Determine the trend direction based on recent PnL changes."""
     if len(pnl_history) >= 2:
-        recent_change = pnl_history[-1].value - pnl_history[-2].value
+        recent_change = pnl_history[-1].value - pnl_history[-3].value
         if recent_change > 0.1:
             return "up"
         elif recent_change < -0.1:
@@ -21,38 +24,34 @@ def _determine_trend(pnl_history: list[TimeseriesPointBackend]) -> str:
     return "stable"
 
 
-def _create_leaderboard_entry(
-    performance: ModelPerformanceBackend,
-) -> LeaderboardEntryBackend:
-    """Create a LeaderboardEntry from aggregated performance metrics."""
-    trend = _determine_trend(performance.cummulative_pnl)
-
-    return LeaderboardEntryBackend(
-        model_id=performance.model_id,  # use canonical model_id as identifier
-        model_name=performance.model_name,
-        final_cumulative_pnl=performance.final_pnl,
-        trades=getattr(performance, "trades", len(performance.trades_dates)),
-        lastUpdated=date_to_string(datetime.now()),
-        trend=trend,
-        pnl_history=performance.cummulative_pnl,
-        avg_brier_score=performance.final_brier_score,
-    )
-
-
 def get_leaderboard(
-    performance: list[ModelPerformanceBackend],
+    performances: list[ModelPerformanceBackend],
 ) -> list[LeaderboardEntryBackend]:
     """Generate leaderboard from precomputed performance data.
 
     Sorts by final cumulative PnL descending and builds UI-ready entries.
     """
-    sorted_performance = sorted(
-        performance,
-        key=lambda p: p.final_pnl,
+    sorted_performances = sorted(
+        performances,
+        key=lambda p: p.final_profit if p.final_profit is not None else 0,
         reverse=True,
     )
 
     leaderboard: list[LeaderboardEntryBackend] = []
-    for perf in sorted_performance:
-        leaderboard.append(_create_leaderboard_entry(perf))
+    for performance in sorted_performances:
+        trend = _determine_trend(
+            performance.pnl_history if performance.pnl_history is not None else []
+        )
+
+        leaderboard_entry = LeaderboardEntryBackend(
+            model_id=performance.model_id,
+            model_name=performance.model_name,
+            trades_count=performance.trades_count,
+            lastUpdated=date_to_string(datetime.now()),
+            trend=trend,
+            pnl_history=performance.pnl_history,
+            final_profit=performance.final_profit,
+            final_brier_score=performance.final_brier_score,
+        )
+        leaderboard.append(leaderboard_entry)
     return leaderboard

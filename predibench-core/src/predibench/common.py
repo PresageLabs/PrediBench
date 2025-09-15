@@ -1,7 +1,7 @@
-from pathlib import Path
 from datetime import date
-from predibench.utils import date_to_string
+from pathlib import Path
 
+from predibench.utils import date_to_string
 
 PREDIBENCH_PATH = Path(__file__).parent
 PREDIBENCH_REPO_PATH = PREDIBENCH_PATH.parent.parent.parent
@@ -16,6 +16,7 @@ DEFAULT_DAYS_AHEAD = 7 * 6
 DEFAULT_WEEKS_BACK = 7
 
 PREFIX_MODEL_RESULTS = "model_results"
+
 
 def get_date_output_path(target_date: date) -> Path:
     """

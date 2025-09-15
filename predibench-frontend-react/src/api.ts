@@ -3,12 +3,12 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080
 export interface LeaderboardEntry {
   model_id: string
   model_name: string
-  final_cumulative_pnl: number
-  trades: number
+  final_profit: number
+  trades_count: number
   lastUpdated: string
   trend: 'up' | 'down' | 'stable'
   pnl_history: { date: string; value: number }[]
-  avg_brier_score: number
+  final_brier_score: number
 }
 
 export interface TimeseriesPoint {
@@ -85,11 +85,11 @@ export interface EventInvestmentDecision {
 
 export interface MarketInvestmentDecision {
   market_id: string
-  model_decision: SingleModelDecision
+  decision: SingleInvestmentDecision
   market_question: string | null
 }
 
-export interface SingleModelDecision {
+export interface SingleInvestmentDecision {
   rationale: string
   odds: number
   bet: number
@@ -99,16 +99,15 @@ export interface SingleModelDecision {
 export interface ModelPerformance {
   model_name: string
   model_id: string
-  final_pnl: number
+  final_profit: number
   final_brier_score: number
-  trades: number | null
+  trades_count: number
   trades_dates: string[]
-  bried_scores: TimeseriesPoint[]
-  event_bried_scores: EventBrierScore[]
-  market_bried_scores: MarketBrierScore[]
-  cummulative_pnl: TimeseriesPoint[]
-  event_pnls: EventPnl[]
-  market_pnls: MarketPnl[]
+  brier_scores: TimeseriesPoint[]
+  event_brier_scores: EventBrierScore[]
+  market_brier_scores: MarketBrierScore[]
+  pnl_history: TimeseriesPoint[]
+  pnl_per_event_decision: { [eventId: string]: EventPnlBackend }
 }
 
 export interface EventBrierScore {
@@ -121,12 +120,12 @@ export interface MarketBrierScore {
   brier_score: TimeseriesPoint[]
 }
 
-export interface EventPnl {
+export interface EventPnlBackend {
   event_id: string
   pnl: TimeseriesPoint[]
 }
 
-export interface MarketPnl {
+export interface MarketPnlBackend {
   market_id: string
   pnl: TimeseriesPoint[]
 }
@@ -232,16 +231,16 @@ class ApiService {
     return await response.json()
   }
 
-  async getPerformance(by: 'day' | 'bet' = 'day'): Promise<ModelPerformance[]> {
-    const response = await this.fetchWithTimeout(`${API_BASE_URL}/performance?by=${by}`)
+  async getPerformance(): Promise<ModelPerformance[]> {
+    const response = await this.fetchWithTimeout(`${API_BASE_URL}/performance`)
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
     return await response.json()
   }
 
-  async getPerformanceByModel(modelId: string, by: 'day' | 'bet' = 'day'): Promise<ModelPerformance> {
-    const response = await this.fetchWithTimeout(`${API_BASE_URL}/performance/by_model?model_id=${encodeURIComponent(modelId)}&by=${by}`)
+  async getPerformanceByModel(modelId: string): Promise<ModelPerformance> {
+    const response = await this.fetchWithTimeout(`${API_BASE_URL}/performance/by_model?model_id=${encodeURIComponent(modelId)}`)
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
@@ -268,62 +267,6 @@ class ApiService {
     // Do not rely on response.text() logging here; read JSON body
     const data = await response.json()
     return data
-  }
-
-  // Legacy methods - keeping for backward compatibility but marking as deprecated
-  /** @deprecated Use getModelResultsById instead */
-  async getModelDetails(_modelId: string): Promise<LeaderboardEntry | null> {
-    throw new Error('This method is no longer supported. Use getModelResultsById instead.')
-  }
-
-  /** @deprecated Use getPerformanceByModel instead - kept for compatibility */
-  async getModelMarketDetails(modelId: string): Promise<ModelMarketDetails> {
-    // For backward compatibility, transform performance data to the old format
-    try {
-      const performance = await this.getPerformanceByModel(modelId)
-
-      const marketDetails: ModelMarketDetails = {}
-
-      // Get events to get market prices from the events data
-      const events = await this.getEvents()
-      const marketPricesMap = new Map<string, { date: string; price: number }[]>()
-
-      // Extract market prices from events
-      events.forEach(event => {
-        event.markets.forEach(market => {
-          if (market.prices) {
-            marketPricesMap.set(market.id, market.prices.map(p => ({
-              date: p.date,
-              price: p.value
-            })))
-          }
-        })
-      })
-
-      // Transform market PnLs to the old format
-      performance.market_pnls.forEach(marketPnl => {
-        marketDetails[marketPnl.market_id] = {
-          market_id: marketPnl.market_id,
-          question: `Market ${marketPnl.market_id}`,
-          prices: marketPricesMap.get(marketPnl.market_id) || [],
-          positions: [], // Not available in new format
-          pnl_data: marketPnl.pnl.map(point => ({
-            date: point.date,
-            pnl: point.value
-          }))
-        }
-      })
-
-      return marketDetails
-    } catch (error) {
-      console.warn('getModelMarketDetails: falling back to empty result', error)
-      return {}
-    }
-  }
-
-  /** @deprecated Market prices are now included in Event.markets[].prices */
-  async getEventMarketPrices(_eventId: string): Promise<{ [marketId: string]: { date: string; price: number }[] }> {
-    throw new Error('This method is no longer supported. Market prices are included in Event.markets[].prices.')
   }
 }
 

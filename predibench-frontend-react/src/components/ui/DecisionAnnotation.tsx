@@ -49,7 +49,7 @@ export function DecisionAnnotation({ decision, nextDecision, cumulativeData }: D
   }, [decision, nextDecision])
 
   const totalBets = decision.event_investment_decisions.reduce((total, eventDecision) => {
-    return total + eventDecision.market_investment_decisions.filter(md => md.model_decision.bet !== 0).length
+    return total + eventDecision.market_investment_decisions.filter(md => md.decision.bet !== 0).length
   }, 0)
 
   const formattedStartDate = new Date(decision.target_date).toLocaleDateString('en-US', {
@@ -115,7 +115,7 @@ export function DecisionAnnotation({ decision, nextDecision, cumulativeData }: D
             />
           </div>
           <div style={{ fontSize: '10px', color: 'hsl(var(--muted-foreground))' }}>
-            Period Cumulative Profit
+            Period Portfolio Increase
           </div>
         </div>
       </div>
@@ -138,8 +138,8 @@ export function DecisionAnnotation({ decision, nextDecision, cumulativeData }: D
                 padding: '4px 0',
                 opacity: hasNoBets ? 0.5 : 1
               }}>
-                <div style={{ 
-                  fontWeight: '500', 
+                <div style={{
+                  fontWeight: '500',
                   flex: 1,
                   color: hasNoBets ? 'hsl(var(--muted-foreground))' : 'inherit'
                 }}>

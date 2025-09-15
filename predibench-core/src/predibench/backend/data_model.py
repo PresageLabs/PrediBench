@@ -2,41 +2,26 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-import pandas as pd
-from predibench.agent.models import ModelInvestmentDecisions
+from predibench.agent.models import DataPoint, ModelInvestmentDecisions
 from predibench.polymarket_api import Event, Market
 from pydantic import BaseModel
-
-
-class TimeseriesPointBackend(BaseModel):
-    date: str
-    value: float
-
-    @staticmethod
-    def from_series_to_timeseries_points(
-        series: pd.Series,
-    ) -> list[TimeseriesPointBackend]:
-        return [
-            TimeseriesPointBackend(date=str(date), value=float(value))
-            for date, value in series.items()
-        ]
 
 
 class LeaderboardEntryBackend(BaseModel):
     model_id: str
     model_name: str
-    final_cumulative_pnl: float
-    trades: int
+    final_profit: float
+    trades_count: int
     lastUpdated: str
     trend: Literal["up", "down", "stable"]
-    pnl_history: list[TimeseriesPointBackend]
-    avg_brier_score: float
+    pnl_history: list[DataPoint]
+    final_brier_score: float
 
 
 class MarketBackend(Market):
     """Backend-compatible market model with serializable price data"""
 
-    prices: Optional[list[TimeseriesPointBackend]] = None
+    prices: Optional[list[DataPoint]] = None
 
     @classmethod
     def from_market(cls, market: Market) -> "MarketBackend":
@@ -44,7 +29,7 @@ class MarketBackend(Market):
         prices_backend = None
         if market.prices is not None:
             prices_backend = [
-                TimeseriesPointBackend(date=str(date), value=float(price))
+                DataPoint(date=str(date), value=float(price))
                 for date, price in market.prices.items()
             ]
 
@@ -65,42 +50,35 @@ class EventBackend(Event):
         )
 
 
-class EventPnlBackend(BaseModel):
+class EventDecisionPnlBackend(BaseModel):
     event_id: str
-    pnl: list[TimeseriesPointBackend]
+    pnl: list[DataPoint]
 
 
-class MarketPnlBackend(BaseModel):
+class MarketDecisionPnlBackend(BaseModel):
     market_id: str
-    pnl: list[TimeseriesPointBackend]
+    pnl: list[DataPoint]
 
 
 class EventBrierScoreBackend(BaseModel):
     event_id: str
-    brier_score: list[TimeseriesPointBackend]
+    brier_score: list[DataPoint]
 
 
 class MarketBrierScoreBackend(BaseModel):
     market_id: str
-    brier_score: list[TimeseriesPointBackend]
+    brier_score: list[DataPoint]
 
 
 class ModelPerformanceBackend(BaseModel):
     model_name: str
     model_id: str
-    final_pnl: float
-    final_brier_score: float
-    trades: int | None = None
-
+    trades_count: int
     trades_dates: list[str]
-
-    bried_scores: list[TimeseriesPointBackend]
-    event_bried_scores: list[EventBrierScoreBackend]
-    market_bried_scores: list[MarketBrierScoreBackend]
-
-    cummulative_pnl: list[TimeseriesPointBackend]
-    event_pnls: list[EventPnlBackend]
-    market_pnls: list[MarketPnlBackend]
+    pnl_history: list[DataPoint]
+    pnl_per_event_decision: dict[str, EventDecisionPnlBackend]
+    final_profit: float
+    final_brier_score: float
 
 
 class FullModelResult(BaseModel):
@@ -121,23 +99,22 @@ class BackendData(BaseModel):
     # Core data - matches API endpoints exactly
     leaderboard: list[LeaderboardEntryBackend]
     events: list[EventBackend]
-    model_results: list[ModelInvestmentDecisions]
-    performance_per_day: list[ModelPerformanceBackend]
-    performance_per_bet: list[ModelPerformanceBackend]
+    model_decisions: list[ModelInvestmentDecisions]
+    performance_per_model: dict[str, ModelPerformanceBackend]
 
     @property
     def prediction_dates(self) -> list[str]:
         """Derive unique prediction dates from model_results"""
         dates = set()
-        for result in self.model_results:
+        for result in self.model_decisions:
             dates.add(str(result.target_date))
         return sorted(list(dates))
 
     @property
     def model_results_by_id(self) -> dict[str, list[ModelInvestmentDecisions]]:
         """Group model results by model_id"""
-        result = {}
-        for model_result in self.model_results:
+        result: dict[str, list[ModelInvestmentDecisions]] = {}
+        for model_result in self.model_decisions:
             if model_result.model_id not in result:
                 result[model_result.model_id] = []
             result[model_result.model_id].append(model_result)
@@ -146,8 +123,8 @@ class BackendData(BaseModel):
     @property
     def model_results_by_date(self) -> dict[str, list[ModelInvestmentDecisions]]:
         """Group model results by prediction date"""
-        result = {}
-        for model_result in self.model_results:
+        result: dict[str, list[ModelInvestmentDecisions]] = {}
+        for model_result in self.model_decisions:
             date_str = str(model_result.target_date)
             if date_str not in result:
                 result[date_str] = []
@@ -159,8 +136,8 @@ class BackendData(BaseModel):
         self,
     ) -> dict[str, dict[str, ModelInvestmentDecisions]]:
         """Group model results by model_id and date"""
-        result = {}
-        for model_result in self.model_results:
+        result: dict[str, dict[str, ModelInvestmentDecisions]] = {}
+        for model_result in self.model_decisions:
             model_id = model_result.model_id
             date_str = str(model_result.target_date)
             if model_id not in result:
@@ -171,8 +148,8 @@ class BackendData(BaseModel):
     @property
     def model_results_by_event_id(self) -> dict[str, list[ModelInvestmentDecisions]]:
         """Group model results by event_id"""
-        result = {}
-        for model_result in self.model_results:
+        result: dict[str, list[ModelInvestmentDecisions]] = {}
+        for model_result in self.model_decisions:
             for event_decision in model_result.event_investment_decisions:
                 event_id = event_decision.event_id
                 if event_id not in result:

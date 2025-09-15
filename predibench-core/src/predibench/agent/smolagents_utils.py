@@ -1,21 +1,27 @@
 import json
-import os
 import logging
+import os
 import textwrap
+import urllib.parse
 from datetime import date
 from typing import Any, Literal
-import urllib.parse
 
 import numpy as np
 import requests
+from markdownify import markdownify as md
 from openai import OpenAI
 from predibench.agent.models import (
     MarketInvestmentDecision,
     ModelInfo,
-    SingleModelDecision,
+    SingleInvestmentDecision,
 )
+from predibench.agent.tools_common import visit_webpage_scrapfly, web_search_common
 from predibench.logger_config import get_logger
-from predibench.storage_utils import write_to_storage, read_from_storage, file_exists_in_storage
+from predibench.storage_utils import (
+    file_exists_in_storage,
+    read_from_storage,
+    write_to_storage,
+)
 from pydantic import BaseModel
 from smolagents import (
     ChatMessage,
@@ -28,16 +34,14 @@ from smolagents import (
     tool,
 )
 from tenacity import (
+    after_log,
+    before_sleep_log,
     retry,
     retry_if_exception,
     retry_if_exception_type,
     stop_after_attempt,
     wait_random,
-    before_sleep_log,
-    after_log,
 )
-from markdownify import markdownify as md
-from predibench.agent.tools_common import web_search_common, visit_webpage_scrapfly
 
 logger = get_logger(__name__)
 
@@ -64,12 +68,12 @@ class VisitWebpageToolWithSources(Tool):
     def __init__(self):
         super().__init__()
         self.sources: list[str] = []
-    
+
     def _add_source(self, url: str) -> None:
         """Add a URL to the sources list, avoiding duplicates."""
         self.sources.append(url)
         self.sources = list(dict.fromkeys(self.sources))
-    
+
 
 class GoogleSearchTool(Tool):
     name = "web_search"
@@ -78,9 +82,12 @@ class GoogleSearchTool(Tool):
         "query": {"type": "string", "description": "The search query to perform."},
     }
     output_type = "string"
-    
 
-    def __init__(self, provider: Literal["serpapi", "bright_data", "serper"], cutoff_date: date | None):
+    def __init__(
+        self,
+        provider: Literal["serpapi", "bright_data", "serper"],
+        cutoff_date: date | None,
+    ):
         super().__init__()
         self.provider = provider
         if provider == "serpapi":
@@ -94,7 +101,7 @@ class GoogleSearchTool(Tool):
             self.api_key = os.getenv("SERPER_API_KEY")
         else:
             raise ValueError(f"Invalid provider: {provider}")
-        
+
         self.cutoff_date = cutoff_date
         self.sources: list[str] = []
 
@@ -105,7 +112,9 @@ class GoogleSearchTool(Tool):
         reraise=True,
     )
     def forward(self, query: str) -> str:
-        markdown, sources = web_search_common(query=query, provider=self.provider, cutoff_date=self.cutoff_date)
+        markdown, sources = web_search_common(
+            query=query, provider=self.provider, cutoff_date=self.cutoff_date
+        )
         self.sources.extend(sources)
         self.sources = list(dict.fromkeys(self.sources))
         return markdown
@@ -113,9 +122,7 @@ class GoogleSearchTool(Tool):
 
 class BrightDataVisitWebpageTool(VisitWebpageToolWithSources):
     name = "visit_webpage"
-    description = (
-        "Visits a webpage at the given url and reads its content as a markdown string. Use this to browse webpages."
-    )
+    description = "Visits a webpage at the given url and reads its content as a markdown string. Use this to browse webpages."
     inputs = {
         "url": {
             "type": "string",
@@ -164,7 +171,9 @@ class BrightDataVisitWebpageTool(VisitWebpageToolWithSources):
                 pass
 
         if not html:
-            raise ValueError("Failed to retrieve page content via Bright Data Playwright.")
+            raise ValueError(
+                "Failed to retrieve page content via Bright Data Playwright."
+            )
 
         markdown_content = md(html, heading_style="ATX")
         self._add_source(url)
@@ -173,9 +182,7 @@ class BrightDataVisitWebpageTool(VisitWebpageToolWithSources):
 
 class ScrapeDoVisitWebpageTool(VisitWebpageToolWithSources):
     name = "visit_webpage"
-    description = (
-        "Visits a webpage at the given url and reads its content as a markdown string. Use this to browse webpages."
-    )
+    description = "Visits a webpage at the given url and reads its content as a markdown string. Use this to browse webpages."
     inputs = {
         "url": {
             "type": "string",
@@ -203,9 +210,7 @@ class ScrapeDoVisitWebpageTool(VisitWebpageToolWithSources):
 
         response = requests.get(scrape_api_url)
         if response.status_code != 200:
-            logger.error(
-                f"Scrape.do error {response.status_code}: {response.text}"
-            )
+            logger.error(f"Scrape.do error {response.status_code}: {response.text}")
             raise ValueError(response.text)
 
         # Scrape.do already returns markdown when output=markdown
@@ -215,9 +220,7 @@ class ScrapeDoVisitWebpageTool(VisitWebpageToolWithSources):
 
 class ScrapflyVisitWebPageTool(VisitWebpageToolWithSources):
     name = "visit_webpage"
-    description = (
-        "Visits a webpage at the given url and reads its content as a markdown string. Use this to browse webpages."
-    )
+    description = "Visits a webpage at the given url and reads its content as a markdown string. Use this to browse webpages."
     inputs = {
         "url": {
             "type": "string",
@@ -232,9 +235,12 @@ class ScrapflyVisitWebPageTool(VisitWebpageToolWithSources):
         self.render_js = render_js
 
     def forward(self, url: str) -> str:
-        markdown_content = visit_webpage_scrapfly(url, asp=self.asp, render_js=self.render_js)
+        markdown_content = visit_webpage_scrapfly(
+            url, asp=self.asp, render_js=self.render_js
+        )
         self._add_source(url)
         return markdown_content
+
 
 def parse_market_decisions_and_unallocated(
     market_decisions: list[dict], unallocated_capital: float
@@ -313,7 +319,7 @@ def parse_market_decisions_and_unallocated(
                 f"Your confidence must be between an integer 0 and 10, got {decision_dict['confidence']} for market {decision_dict['market_id']}"
             )
 
-        model_decision = SingleModelDecision(
+        decision = SingleInvestmentDecision(
             rationale=decision_dict["rationale"],
             odds=decision_dict["odds"],
             bet=decision_dict["bet"],
@@ -323,7 +329,7 @@ def parse_market_decisions_and_unallocated(
 
         market_decision = MarketInvestmentDecision(
             market_id=decision_dict["market_id"],
-            model_decision=model_decision,
+            decision=decision,
         )
         validated_decisions.append(market_decision)
 
@@ -332,7 +338,7 @@ def parse_market_decisions_and_unallocated(
     # ) @ NOTE: models like gpt-4.1 are too dumb to respect this constraint, let's just enforce it a-posteriori with rescaling if needed.
     # if total_allocated + unallocated_capital != 1.0:
     #     for decision in validated_decisions:
-    #         decision.model_decision.bet = decision.model_decision.bet / (
+    #         decision.decision.bet = decision.decision.bet / (
     #             total_allocated + unallocated_capital
     #         )
     # NOTE: don't rescale in the end
@@ -370,6 +376,7 @@ class CompleteMarketInvestmentDecisions(ListMarketInvestmentDecisions):
     token_usage: TokenUsage | None = None
     sources_google: list[str] | None = None
     sources_visit_webpage: list[str] | None = None
+
 
 def _should_retry(exception: Exception) -> bool:
     """Check if the exception is a rate limit error."""
@@ -441,24 +448,31 @@ The final_answer tool must contain the arguments rationale and decision.
         unallocated_capital=full_result.output[1],
         full_response=full_result.steps,
         token_usage=full_result.token_usage,
-        sources_google=google_search_tool.sources if google_search_tool.sources else None,
-        sources_visit_webpage=visit_webpage_tool.sources if visit_webpage_tool.sources else None,
+        sources_google=google_search_tool.sources
+        if google_search_tool.sources
+        else None,
+        sources_visit_webpage=visit_webpage_tool.sources
+        if visit_webpage_tool.sources
+        else None,
     )
 
 
-def _get_cached_research_result(model_info: ModelInfo, target_date: date, event_id: str) -> dict | None:
+def _get_cached_research_result(
+    model_info: ModelInfo, target_date: date, event_id: str
+) -> dict | None:
     """Try to load cached full_response from storage."""
     if model_info is None or target_date is None or event_id is None:
         return None
-        
+
     model_result_path = model_info.get_model_result_path(target_date)
     cache_file_path = model_result_path / f"{event_id}_full_result_cache.json"
-    
+
     if file_exists_in_storage(cache_file_path):
         logger.info(f"Loading cached research result from {cache_file_path}")
         return json.loads(read_from_storage(cache_file_path))
-        
+
     return None
+
 
 def _save_research_result_to_cache(
     full_response: dict, model_info: ModelInfo, target_date: date, event_id: str
@@ -466,10 +480,10 @@ def _save_research_result_to_cache(
     """Save full_response to cache storage as JSON."""
     if model_info is None or target_date is None or event_id is None:
         return
-        
+
     model_result_path = model_info.get_model_result_path(target_date)
     cache_file_path = model_result_path / f"{event_id}_full_result_cache.json"
-    
+
     write_to_storage(cache_file_path, json.dumps(full_response, indent=2))
     logger.info(f"Saved research result to cache: {cache_file_path}")
 
@@ -567,9 +581,11 @@ def run_openai_deep_research(
             ],
         )
         research_output = full_response.output_text
-        
+
         # Save to cache before attempting structured output
-        _save_research_result_to_cache(full_response.model_dump(), model_info, target_date, event_id)
+        _save_research_result_to_cache(
+            full_response.model_dump(), model_info, target_date, event_id
+        )
 
     # Use structured output to get EventDecisions
     structured_market_decisions, unallocated_capital = structure_final_answer(
@@ -578,12 +594,30 @@ def run_openai_deep_research(
     return CompleteMarketInvestmentDecisions(
         market_investment_decisions=structured_market_decisions,
         unallocated_capital=unallocated_capital,
-        full_response=full_response.model_dump() if hasattr(full_response, 'model_dump') else full_response,
+        full_response=full_response.model_dump()
+        if hasattr(full_response, "model_dump")
+        else full_response,
         token_usage=TokenUsage(
-            input_tokens=full_response.get("usage", {}).get("input_tokens", 0) if isinstance(full_response, dict) else full_response.usage.input_tokens,
-            output_tokens=(full_response.get("usage", {}).get("output_tokens", 0) + full_response.get("usage", {}).get("output_tokens_details", {}).get("reasoning_tokens", 0)) if isinstance(full_response, dict) else (full_response.usage.output_tokens + full_response.usage.output_tokens_details.reasoning_tokens),
-        ) if full_response is not None else None,
-        sources_visit_webpage=full_response.get("citations", None) if isinstance(full_response, dict) else None,
+            input_tokens=full_response.get("usage", {}).get("input_tokens", 0)
+            if isinstance(full_response, dict)
+            else full_response.usage.input_tokens,
+            output_tokens=(
+                full_response.get("usage", {}).get("output_tokens", 0)
+                + full_response.get("usage", {})
+                .get("output_tokens_details", {})
+                .get("reasoning_tokens", 0)
+            )
+            if isinstance(full_response, dict)
+            else (
+                full_response.usage.output_tokens
+                + full_response.usage.output_tokens_details.reasoning_tokens
+            ),
+        )
+        if full_response is not None
+        else None,
+        sources_visit_webpage=full_response.get("citations", None)
+        if isinstance(full_response, dict)
+        else None,
     )
 
 
@@ -593,7 +627,7 @@ def run_perplexity_deep_research(
     model_info: ModelInfo | None = None,
     target_date: date | None = None,
     event_id: str | None = None,
-    dummy: bool = False, # SET AT FALSE
+    dummy: bool = False,  # SET AT FALSE
 ) -> CompleteMarketInvestmentDecisions:
     # Try to load cached result first
     cached_result = _get_cached_research_result(model_info, target_date, event_id)
@@ -606,7 +640,9 @@ def run_perplexity_deep_research(
         full_response = {"dummy": True}
         # Save dummy result to cache
         if model_info is not None and target_date is not None and event_id is not None:
-            _save_research_result_to_cache(full_response, model_info, target_date, event_id)
+            _save_research_result_to_cache(
+                full_response, model_info, target_date, event_id
+            )
     else:
         url = "https://api.perplexity.ai/chat/completions"
 
@@ -628,9 +664,14 @@ def run_perplexity_deep_research(
         raw_response.raise_for_status()
         full_response = raw_response.json()
         research_output = full_response["choices"][0]["message"]["content"]
-        
+
         # Save to cache before attempting structured output
-        _save_research_result_to_cache(full_response, model_info=model_info, target_date=target_date, event_id=event_id)
+        _save_research_result_to_cache(
+            full_response,
+            model_info=model_info,
+            target_date=target_date,
+            event_id=event_id,
+        )
 
     # Handle dummy case with minimal data
     if dummy and research_output == "dummy":
@@ -641,7 +682,7 @@ def run_perplexity_deep_research(
             token_usage=None,
             sources_visit_webpage=full_response.get("citations", None),
         )
-    
+
     structured_market_decisions, unallocated_capital = structure_final_answer(
         research_output, question
     )
@@ -652,6 +693,8 @@ def run_perplexity_deep_research(
         token_usage=TokenUsage(
             input_tokens=full_response["usage"]["prompt_tokens"],
             output_tokens=full_response["usage"]["completion_tokens"],
-        ) if full_response is not None else None,
+        )
+        if full_response is not None
+        else None,
         sources_visit_webpage=full_response.get("citations", None),
     )

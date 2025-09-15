@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import type { LeaderboardEntry } from '../api'
 import { encodeSlashes } from '../lib/utils'
 import { CompanyDisplay } from './ui/company-display'
-import { BrierScoreInfoTooltip, CumulativeProfitInfoTooltip } from './ui/info-tooltip'
+import { BrierScoreInfoTooltip, PnLTooltip } from './ui/info-tooltip'
 import { ProfitDisplay } from './ui/profit-display'
 import { RedirectButton } from './ui/redirect-button'
 
@@ -28,8 +28,8 @@ export function LeaderboardTable({
       switch (sortKey) {
         case 'cumulative_profit': {
           // Calculate display scores (rounded to 1 decimal place)
-          const aDisplayScore = parseFloat((a.final_cumulative_pnl * 100).toFixed(1))
-          const bDisplayScore = parseFloat((b.final_cumulative_pnl * 100).toFixed(1))
+          const aDisplayScore = parseFloat((a.final_profit * 100).toFixed(1))
+          const bDisplayScore = parseFloat((b.final_profit * 100).toFixed(1))
 
           // Primary sort by display score (higher first)
           if (bDisplayScore !== aDisplayScore) {
@@ -37,13 +37,13 @@ export function LeaderboardTable({
           }
 
           // Tie-breaker: if display scores are identical, use Brier score (lower is better)
-          return a.avg_brier_score - b.avg_brier_score
+          return a.final_brier_score - b.final_brier_score
         }
 
         case 'brier_score': {
           // Calculate display scores for Brier (rounded to 3 decimal places)
-          const aBrierDisplay = parseFloat(a.avg_brier_score.toFixed(3))
-          const bBrierDisplay = parseFloat(b.avg_brier_score.toFixed(3))
+          const aBrierDisplay = parseFloat(a.final_brier_score.toFixed(3))
+          const bBrierDisplay = parseFloat(b.final_brier_score.toFixed(3))
 
           // Primary sort by Brier display score (lower first - ascending)
           if (aBrierDisplay !== bBrierDisplay) {
@@ -51,7 +51,7 @@ export function LeaderboardTable({
           }
 
           // Tie-breaker: if display scores are identical, use PnL
-          return b.final_cumulative_pnl - a.final_cumulative_pnl
+          return b.final_profit - a.final_profit
         }
 
         default:
@@ -68,7 +68,7 @@ export function LeaderboardTable({
   // Calculate min and max profit values for color scaling
   const profitRange = useMemo(() => {
     if (leaderboard.length === 0) return { min: 0, max: 0 }
-    const profits = leaderboard.map(model => model.final_cumulative_pnl)
+    const profits = leaderboard.map(model => model.final_profit)
     return {
       min: Math.min(...profits),
       max: Math.max(...profits)
@@ -118,9 +118,9 @@ export function LeaderboardTable({
                       className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
                     >
                       <ArrowDown className={`h-4 w-4 ${sortKey === 'cumulative_profit' ? 'text-primary' : 'opacity-40'}`} />
-                      <span>Cumulative Profit</span>
+                      <span>Portfolio Increase</span>
                     </button>
-                    <CumulativeProfitInfoTooltip />
+                    <PnLTooltip />
                   </div>
                 </th>
               </tr>
@@ -170,13 +170,13 @@ export function LeaderboardTable({
                     </td>
                     <td className="py-4 px-4 text-center font-medium">
                       <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
-                        {model.avg_brier_score ? model.avg_brier_score.toFixed(3) : 'N/A'}
+                        {model.final_brier_score ? model.final_brier_score.toFixed(3) : 'N/A'}
                       </a>
                     </td>
                     <td className="py-4 px-4 text-center font-medium">
                       <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
                         <ProfitDisplay
-                          value={model.final_cumulative_pnl}
+                          value={model.final_profit}
                           minValue={profitRange.min}
                           maxValue={profitRange.max}
                           formatValue={(v) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`}

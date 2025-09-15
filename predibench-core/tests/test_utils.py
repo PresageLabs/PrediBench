@@ -53,7 +53,9 @@ And a third
     Market ID: 4321  
     Market ID: 3azdoi5
     """
-    list_decisions, unallocated_capital = structure_final_answer(research_output, mock_original_question)
+    list_decisions, unallocated_capital = structure_final_answer(
+        research_output, mock_original_question
+    )
 
     first_decision = list_decisions[0]
     second_decision = list_decisions[1]
@@ -65,34 +67,35 @@ And a third
     # Test first decision
     assert first_decision.market_id == "1234"
     assert (
-        first_decision.model_decision.rationale
+        first_decision.decision.rationale
         == "I think this market is grossly underpriced"
     )
-    assert first_decision.model_decision.odds == 1.0
-    assert first_decision.model_decision.confidence == 10
-    assert first_decision.model_decision.bet == -1.0
+    assert first_decision.decision.odds == 1.0
+    assert first_decision.decision.confidence == 10
+    assert first_decision.decision.bet == -1.0
 
     # Test second decision
     assert second_decision.market_id == "4321"
     assert (
-        second_decision.model_decision.rationale
+        second_decision.decision.rationale
         == "I think there's too much hype in the market"
     )
-    assert second_decision.model_decision.odds == 0.25
-    assert second_decision.model_decision.confidence == 3
-    assert second_decision.model_decision.bet == -0.57
+    assert second_decision.decision.odds == 0.25
+    assert second_decision.decision.confidence == 3
+    assert second_decision.decision.bet == -0.57
 
     # Test third decision
     assert third_decision.market_id == "3azdoi5"
-    assert third_decision.model_decision.rationale == "This is it."
-    assert third_decision.model_decision.odds == 0.0
-    assert third_decision.model_decision.confidence == 0
-    assert third_decision.model_decision.bet == 0
+    assert third_decision.decision.rationale == "This is it."
+    assert third_decision.decision.odds == 0.0
+    assert third_decision.decision.confidence == 0
+    assert third_decision.decision.bet == 0
 
     # Test unallocated capital is a float
     assert isinstance(unallocated_capital, float)
 
     print("test_structure_final_answer completed successfully!")
+
 
 if __name__ == "__main__":
     test_structure_final_answer()

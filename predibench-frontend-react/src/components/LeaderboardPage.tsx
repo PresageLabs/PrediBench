@@ -1,9 +1,11 @@
 import type { LeaderboardEntry } from '../api'
 import { LeaderboardTable } from './LeaderboardTable'
 import { getChartColor } from './ui/chart-colors'
-import { CumulativeProfitInfoTooltip } from './ui/info-tooltip'
+import { PnLTooltip } from './ui/info-tooltip'
 import { RedirectButton } from './ui/redirect-button'
 import { VisxLineChart } from './ui/visx-line-chart'
+
+const START_DATE = new Date('2025-08-25')
 
 interface LeaderboardPageProps {
   leaderboard: LeaderboardEntry[]
@@ -29,11 +31,11 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
       {/* Horizontal Separator */}
       <div className="w-full h-px bg-border mb-16"></div>
 
-      {/* Profit Evolution Chart */}
+      {/* Portfolio Increase Chart */}
       <div className="mb-16">
         <h2 className="text-2xl font-bold text-center mb-8 flex items-center justify-center">
-          Profit Evolution
-          <CumulativeProfitInfoTooltip />
+          Portfolio Increase
+          <PnLTooltip />
         </h2>
         <div className="bg-card rounded-xl border border-border/30 p-6">
           <div className="h-[800px]">
@@ -50,16 +52,20 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
                 margin={{ left: 60, top: 35, bottom: 38, right: 27 }}
                 series={leaderboard.map((model, index) => ({
                   dataKey: model.model_name,
-                  data: (model.pnl_history || []).map(point => ({
-                    x: point.date,
-                    y: point.value
-                  })),
+                  data: (model.pnl_history || [])
+                    .filter(point => new Date(point.date) >= START_DATE)
+                    .map(point => ({
+                      x: point.date,
+                      y: point.value
+                    })),
                   stroke: getChartColor(index),
                   name: model.model_name
                 }))}
                 yDomain={(() => {
                   const allValues = leaderboard.flatMap(model =>
-                    (model.pnl_history || []).map(point => point.value)
+                    (model.pnl_history || [])
+                      .filter(point => new Date(point.date) >= START_DATE)
+                      .map(point => point.value)
                   )
                   if (allValues.length === 0) return [0, 1]
                   const min = Math.min(...allValues)

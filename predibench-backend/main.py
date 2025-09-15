@@ -41,19 +41,9 @@ def load_backend() -> BackendData:
     data = None
     try:
         json_content = read_from_storage(cache_file_path)
-        cached_data = json.loads(json_content)
-        # Basic migration: ensure required fields exist
-        required = {
-            "leaderboard",
-            "events",
-            "model_results",
-            "performance_per_day",
-            "performance_per_bet",
-        }
-        if not required.issubset(set(cached_data.keys())):
-            raise KeyError("backend cache missing required fields")
-        return BackendData.model_validate(cached_data)
+        return BackendData.model_validate(json.loads(json_content))
     except (FileNotFoundError, ValidationError, KeyError, json.JSONDecodeError) as e:
+        raise e
         print(f"Cache invalid or missing, recomputing backend data: {e}")
         data = get_data_for_backend()
         try:
@@ -139,7 +129,7 @@ def get_all_models_endpoint():
 
 @app.get("/api/model_results", response_model=list[ModelInvestmentDecisions])
 def get_model_results_endpoint():
-    return load_backend_cache().model_results
+    return load_backend_cache().model_decisions
 
 
 @app.get("/api/model_results/by_id", response_model=list[ModelInvestmentDecisions])
@@ -184,26 +174,21 @@ def get_model_results_by_event_id_endpoint(event_id: str):
 
 
 @app.get("/api/performance", response_model=list[ModelPerformanceBackend])
-def get_performance_endpoint(by: Literal["day", "bet"] = "day"):
-    """Return model performance by day or by bet.
-
-    Query param 'by' can be 'day' (default) or 'bet'.
-    """
+def get_performance_endpoint():
+    """Return model performance by day."""
     data = load_backend_cache()
-    if by == "bet":
-        return data.performance_per_bet
-    return data.performance_per_day
+    return list(data.performance_per_model.values())
 
 
 @app.get("/api/performance/by_model", response_model=ModelPerformanceBackend)
-def get_performance_by_model_endpoint(model_id: str, by: Literal["day", "bet"] = "day"):
-    """Return performance for a specific model, by day or by bet."""
+def get_performance_by_model_endpoint(model_id: str):
+    """Return performance for a specific model, by day."""
     data = load_backend_cache()
-    perf_list = data.performance_per_bet if by == "bet" else data.performance_per_day
-    for perf in perf_list:
-        if perf.model_id == model_id:
-            return perf
-    raise HTTPException(status_code=404, detail="model_id not found")
+    try:
+        return data.performance_per_model[model_id]
+    except KeyError as e:
+        print(f"Model not found: {e}")
+        raise HTTPException(status_code=404, detail="model_id not found")
 
 
 @app.get("/api/events/by_id", response_model=EventBackend)
