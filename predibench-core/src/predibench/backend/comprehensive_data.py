@@ -7,7 +7,6 @@ import json
 from datetime import date, datetime
 from typing import List
 
-import numpy as np
 import pandas as pd
 from predibench.agent.models import (
     DataPoint,
@@ -146,20 +145,30 @@ def _compute_model_performance(
 
     for model_decision in model_decisions:
         # NOTE: is it really necessary to deduplicate "multiple decisions for the same market on the same date" : does it really happen?
+        if model_decision.target_date == date(2025, 9, 3):
+            print("FLAGGG")
 
         for event_decision in model_decision.event_investment_decisions:
             positions_increases_for_event = []
+
             for market_decision in event_decision.market_investment_decisions:
-                # Get latest non-NaN price
                 market_prices = prices_df[market_decision.market_id].dropna()
+                latest_price = float(market_prices.ffill().iloc[-1])
+                market_decision.brier_score_pair_current = (
+                    latest_price,
+                    market_decision.decision.odds,
+                )
                 if model_decision.target_date not in market_prices.index:
                     continue
+                if market_decision.decision.bet == 0:
+                    continue
                 # NOTE: market decision should not be done after the market is closed.
-                latest_price = float(market_prices.ffill().iloc[-1])
 
                 prices_column = prices_df[market_decision.market_id].copy()
 
-                prices_column.loc[: model_decision.target_date] = np.nan
+                prices_column.loc[: model_decision.target_date] = prices_column.loc[
+                    model_decision.target_date
+                ]  # Set prices stable before change date, so that pct change is 0
 
                 returns_since_decision = (
                     prices_column.pct_change().fillna(0) * market_decision.decision.bet
@@ -180,10 +189,7 @@ def _compute_model_performance(
                 market_decision.gains_since_decision = (
                     latest_price - returns_since_decision.iloc[-1]
                 )
-                market_decision.brier_score_pair_current = (
-                    latest_price,
-                    market_decision.decision.odds,
-                )
+
                 if market_decision.decision.bet != 0:
                     model_decision_additional_info[
                         model_decision.model_id
