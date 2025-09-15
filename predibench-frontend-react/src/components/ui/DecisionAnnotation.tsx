@@ -9,9 +9,14 @@ interface DecisionAnnotationProps {
   allDecisions: ModelInvestmentDecision[]
   /** Cumulative PnL data to calculate period profit */
   cumulativeData: { x: string; y: number }[]
+  /** Model information for modal header */
+  modelName: string
+  modelId: string
+  /** Callback when an event is clicked */
+  onEventClick?: (eventDecision: any, decisionDate: string, decisionDatetime: string) => void
 }
 
-export function DecisionAnnotation({ decision, nextDecision, cumulativeData }: DecisionAnnotationProps) {
+export function DecisionAnnotation({ decision, nextDecision, cumulativeData, modelName, modelId, onEventClick }: DecisionAnnotationProps) {
   const [analysis, setAnalysis] = useState<DecisionAnalysis | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isMobile, setIsMobile] = useState<boolean>(() => {
@@ -88,6 +93,14 @@ export function DecisionAnnotation({ decision, nextDecision, cumulativeData }: D
     return 0
   }, [cumulativeData, decision.target_date, nextDecision])
 
+  const handleEventClick = (eventId: string) => {
+    const eventDecision = decision.event_investment_decisions.find(ed => ed.event_id === eventId)
+    if (eventDecision && onEventClick) {
+      onEventClick(eventDecision, decision.target_date, decision.decision_datetime)
+    }
+  }
+
+
   return (
     <div>
       {/* Header with period dates and profit change */}
@@ -138,11 +151,16 @@ export function DecisionAnnotation({ decision, nextDecision, cumulativeData }: D
                 padding: '4px 0',
                 opacity: hasNoBets ? 0.5 : 1
               }}>
-                <div style={{
-                  fontWeight: '500',
-                  flex: 1,
-                  color: hasNoBets ? 'hsl(var(--muted-foreground))' : 'inherit'
-                }}>
+                <div
+                  style={{
+                    fontWeight: '500',
+                    flex: 1,
+                    color: hasNoBets ? 'hsl(var(--muted-foreground))' : 'inherit',
+                    cursor: 'pointer',
+                    textDecoration: 'underline'
+                  }}
+                  onClick={() => handleEventClick(driver.eventId)}
+                >
                   {driver.eventTitle}
                 </div>
                 <div style={{ textAlign: 'right', fontWeight: '600', fontSize: '12px' }}>

@@ -36,12 +36,12 @@ export function InfoTooltip({ content }: InfoTooltipProps) {
 
 export function BrierScoreInfoTooltip() {
   return (
-    <InfoTooltip content="A measure of prediction accuracy. Lower values indicate better calibration - how well the model's confidence matches actual outcomes (0 = perfect, 1 = worst)" />
+    <InfoTooltip content="How well the model's confidence matches actual outcomes (0 = perfect, 1 = worst). More precisely, it measures model calibration, through the Mean Squared Error between the model's predictions and the actual outcomes." />
   )
 }
 
 export function PnLTooltip() {
   return (
-    <InfoTooltip content="This number is calculated as a variation on top of the original amount of money invested (At every date where we run model decisions, 1$ is allocated to each event) : so +20% means the investment returned 120% of the amount invested." />
+    <InfoTooltip content="How much the total invested amount has grown. On every event, each model can allocate $1.0 between markets, and we measure how much comes out, then we sum this across predictions. So +20% means that in total, investments returned 120% of the amount invested." />
   )
 }

@@ -2,6 +2,7 @@ import type { ModelInvestmentDecision } from '../api'
 import { apiService } from '../api'
 
 export interface DecisionDriver {
+  eventId: string
   eventTitle: string
   marketQuestion: string
   betAmount: number
@@ -106,6 +107,7 @@ export async function calculateDecisionReturns(
         const combinedReturnPercentage = combinedBetAmount > 0 ? (combinedReturnAmount / combinedBetAmount) * 100 : 0
 
         eventDriversMap.set(eventDecision.event_title, {
+          eventId: eventDecision.event_id,
           eventTitle: eventDecision.event_title,
           marketQuestion: marketSummary, // Use latest market summary
           betAmount: combinedBetAmount,
@@ -118,6 +120,7 @@ export async function calculateDecisionReturns(
       } else {
         // Add new event (even if no bets)
         eventDriversMap.set(eventDecision.event_title, {
+          eventId: eventDecision.event_id,
           eventTitle: eventDecision.event_title,
           marketQuestion: marketSummary,
           betAmount: eventTotalBet,

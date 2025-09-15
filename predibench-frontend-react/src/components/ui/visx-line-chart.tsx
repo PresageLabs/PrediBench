@@ -922,7 +922,8 @@ export function VisxLineChart({
                   boxShadow: '0 8px 25px -3px rgba(0, 0, 0, 0.15)',
                   minWidth: isMobile ? `${Math.min(420, containerWidth - 24)}px` : '420px',
                   maxWidth: isMobile ? `${Math.max(420, containerWidth - 24)}px` : '500px',
-                  whiteSpace: 'normal'
+                  whiteSpace: 'normal',
+                  pointerEvents: 'auto'
                 }}
               >
                 {hoverState.customAnnotation.content}
