@@ -249,75 +249,36 @@ def test_compute_model_performance_end_to_end():
     assert model_a_performance.trades_dates == ["2025-08-02"]
     assert model_b_performance.trades_dates == ["2025-08-02"]
 
-    # Verify per-event final position_increase matches expected event returns
+    # Verify per-event final pnl matches expected event returns
     def last_value(datapoints):
         return datapoints[-1].value if datapoints else None
 
     assert (
-        abs(
-            last_value(
-                model_a_performance.position_increase_per_event_decision[
-                    "event_2"
-                ].position_values
-            )
-            - 0.3
-        )
+        abs(last_value(model_a_performance.pnl_per_event_decision["event_2"].pnl) - 0.3)
         < 1e-9
     )
     assert (
-        abs(
-            last_value(
-                model_a_performance.position_increase_per_event_decision[
-                    "event_1"
-                ].position_values
-            )
-            - 0.0
-        )
+        abs(last_value(model_a_performance.pnl_per_event_decision["event_1"].pnl) - 0.0)
         < 1e-9
     )
     assert (
-        abs(
-            last_value(
-                model_a_performance.position_increase_per_event_decision[
-                    "event_3"
-                ].position_values
-            )
-            - 0.0
-        )
+        abs(last_value(model_a_performance.pnl_per_event_decision["event_3"].pnl) - 0.0)
         < 1e-9
     )
 
     assert (
         abs(
-            last_value(
-                model_b_performance.position_increase_per_event_decision[
-                    "event_2"
-                ].position_values
-            )
+            last_value(model_b_performance.pnl_per_event_decision["event_2"].pnl)
             - (-0.4)
         )
         < 1e-9
     )
     assert (
-        abs(
-            last_value(
-                model_b_performance.position_increase_per_event_decision[
-                    "event_3"
-                ].position_values
-            )
-            - 0.1
-        )
+        abs(last_value(model_b_performance.pnl_per_event_decision["event_3"].pnl) - 0.1)
         < 1e-9
     )
     assert (
-        abs(
-            last_value(
-                model_b_performance.position_increase_per_event_decision[
-                    "event_1"
-                ].position_values
-            )
-            - 0.0
-        )
+        abs(last_value(model_b_performance.pnl_per_event_decision["event_1"].pnl) - 0.0)
         < 1e-9
     )
     print("Test passed!")

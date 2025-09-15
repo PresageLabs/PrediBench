@@ -21,7 +21,7 @@ from predibench.backend.data_loader import (
 from predibench.backend.data_model import (
     BackendData,
     EventBackend,
-    EventDecisionPositionValuesBackend,
+    EventDecisionPnlBackend,
     FullModelResult,
     ModelPerformanceBackend,
 )
@@ -109,7 +109,7 @@ class ModelSummaryInfo:
     def __init__(self):
         self.trades_dates = set()
         self.trade_count = 0
-        self.position_increase_per_event_decision = {}
+        self.pnl_per_event_decision = {}
         self.brier_scores = {}
 
 
@@ -217,31 +217,25 @@ def _compute_model_performance(
             )
             model_decision_additional_info[
                 model_decision.model_id
-            ].position_increase_per_event_decision[
+            ].pnl_per_event_decision[
                 event_decision.event_id
             ] = sum_positions_increase_for_event_df
 
-            event_decision.position_increase_since_decision = (
-                DataPoint.list_datapoints_from_series(
-                    sum_positions_increase_for_event_df,
-                )
+            event_decision.pnl_since_decision = DataPoint.list_datapoints_from_series(
+                sum_positions_increase_for_event_df,
             )
 
     # Get each model's daily performance
     model_performances: dict[str, ModelPerformanceBackend] = {}
     for model_id, model_name in all_model_ids:
-        all_position_values = pd.concat(
-            model_decision_additional_info[
-                model_id
-            ].position_increase_per_event_decision,
+        all_pnl = pd.concat(
+            model_decision_additional_info[model_id].pnl_per_event_decision,
             axis=1,
         ).ffill()
-        sums = all_position_values.sum(axis=1)
-        counts = all_position_values.count(axis=1).replace(
-            0, 1
-        )  # Avoid division by zero
-        normalized_position_values = (sums / counts).ffill()
-        final_positions_value = float(normalized_position_values.iloc[-1])
+        sums = all_pnl.sum(axis=1)
+        counts = all_pnl.count(axis=1).replace(0, 1)  # Avoid division by zero
+        normalized_pnl = (sums / counts).ffill()
+        final_positions_value = float(normalized_pnl.iloc[-1])
 
         brier_scores = model_decision_additional_info[model_id].brier_scores.values()
         final_brier_score = (
@@ -257,20 +251,16 @@ def _compute_model_performance(
             trades_dates=sorted(
                 list(model_decision_additional_info[model_id].trades_dates),
             ),
-            position_increase_per_event_decision={
-                event_id: EventDecisionPositionValuesBackend(
+            pnl_per_event_decision={
+                event_id: EventDecisionPnlBackend(
                     event_id=event_id,
-                    position_values=DataPoint.list_datapoints_from_series(
-                        position_values
-                    ),
+                    pnl=DataPoint.list_datapoints_from_series(pnl),
                 )
-                for event_id, position_values in model_decision_additional_info[
+                for event_id, pnl in model_decision_additional_info[
                     model_id
-                ].position_increase_per_event_decision.items()
+                ].pnl_per_event_decision.items()
             },
-            position_values_history=DataPoint.list_datapoints_from_series(
-                normalized_position_values
-            ),
+            pnl_history=DataPoint.list_datapoints_from_series(normalized_pnl),
             final_positions_value=final_positions_value,
             final_brier_score=final_brier_score,
         )

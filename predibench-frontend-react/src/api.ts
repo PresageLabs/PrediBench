@@ -7,7 +7,7 @@ export interface LeaderboardEntry {
   trades_count: number
   lastUpdated: string
   trend: 'up' | 'down' | 'stable'
-  position_values_history: { date: string; value: number }[]
+  pnl_history: { date: string; value: number }[]
   final_brier_score: number
 }
 
@@ -106,8 +106,8 @@ export interface ModelPerformance {
   brier_scores: TimeseriesPoint[]
   event_brier_scores: EventBrierScore[]
   market_brier_scores: MarketBrierScore[]
-  position_values_history: TimeseriesPoint[]
-  position_increase_per_event_decision: { [eventId: string]: EventPositionValuesBackend }
+  pnl_history: TimeseriesPoint[]
+  pnl_per_event_decision: { [eventId: string]: EventPnlBackend }
 }
 
 export interface EventBrierScore {
@@ -120,14 +120,14 @@ export interface MarketBrierScore {
   brier_score: TimeseriesPoint[]
 }
 
-export interface EventPositionValuesBackend {
+export interface EventPnlBackend {
   event_id: string
-  position_values: TimeseriesPoint[]
+  pnl: TimeseriesPoint[]
 }
 
-export interface MarketPositionValuesBackend {
+export interface MarketPnlBackend {
   market_id: string
-  position_values: TimeseriesPoint[]
+  pnl: TimeseriesPoint[]
 }
 
 export interface FullModelResult {

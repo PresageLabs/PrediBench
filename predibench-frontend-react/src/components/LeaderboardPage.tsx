@@ -52,7 +52,7 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
                 margin={{ left: 60, top: 35, bottom: 38, right: 27 }}
                 series={leaderboard.map((model, index) => ({
                   dataKey: model.model_name,
-                  data: (model.position_values_history || [])
+                  data: (model.pnl_history || [])
                     .filter(point => new Date(point.date) >= START_DATE)
                     .map(point => ({
                       x: point.date,
@@ -63,7 +63,7 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
                 }))}
                 yDomain={(() => {
                   const allValues = leaderboard.flatMap(model =>
-                    (model.position_values_history || [])
+                    (model.pnl_history || [])
                       .filter(point => new Date(point.date) >= START_DATE)
                       .map(point => point.value)
                   )

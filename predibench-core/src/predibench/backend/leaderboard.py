@@ -10,13 +10,11 @@ from predibench.utils import date_to_string
 
 
 def _determine_trend(
-    position_values_history: list[DataPoint],
+    pnl_history: list[DataPoint],
 ) -> Literal["up", "down", "stable"]:
     """Determine the trend direction based on recent PnL changes."""
-    if len(position_values_history) >= 2:
-        recent_change = (
-            position_values_history[-1].value - position_values_history[-3].value
-        )
+    if len(pnl_history) >= 2:
+        recent_change = pnl_history[-1].value - pnl_history[-3].value
         if recent_change > 0.1:
             return "up"
         elif recent_change < -0.1:
@@ -44,9 +42,7 @@ def get_leaderboard(
     leaderboard: list[LeaderboardEntryBackend] = []
     for performance in sorted_performances:
         trend = _determine_trend(
-            performance.position_values_history
-            if performance.position_values_history is not None
-            else []
+            performance.pnl_history if performance.pnl_history is not None else []
         )
 
         leaderboard_entry = LeaderboardEntryBackend(
@@ -55,7 +51,7 @@ def get_leaderboard(
             trades_count=performance.trades_count,
             lastUpdated=date_to_string(datetime.now()),
             trend=trend,
-            position_values_history=performance.position_values_history,
+            pnl_history=performance.pnl_history,
             final_positions_value=performance.final_positions_value,
             final_brier_score=performance.final_brier_score,
         )

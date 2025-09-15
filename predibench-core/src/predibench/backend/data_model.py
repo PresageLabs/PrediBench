@@ -14,7 +14,7 @@ class LeaderboardEntryBackend(BaseModel):
     trades_count: int
     lastUpdated: str
     trend: Literal["up", "down", "stable"]
-    position_values_history: list[DataPoint]
+    pnl_history: list[DataPoint]
     final_brier_score: float
 
 
@@ -50,14 +50,14 @@ class EventBackend(Event):
         )
 
 
-class EventDecisionPositionValuesBackend(BaseModel):
+class EventDecisionPnlBackend(BaseModel):
     event_id: str
-    position_values: list[DataPoint]
+    pnl: list[DataPoint]
 
 
-class MarketDecisionPositionValuesBackend(BaseModel):
+class MarketDecisionPnlBackend(BaseModel):
     market_id: str
-    position_values: list[DataPoint]
+    pnl: list[DataPoint]
 
 
 class EventBrierScoreBackend(BaseModel):
@@ -75,8 +75,8 @@ class ModelPerformanceBackend(BaseModel):
     model_id: str
     trades_count: int
     trades_dates: list[str]
-    position_values_history: list[DataPoint]
-    position_increase_per_event_decision: dict[str, EventDecisionPositionValuesBackend]
+    pnl_history: list[DataPoint]
+    pnl_per_event_decision: dict[str, EventDecisionPnlBackend]
     final_positions_value: float
     final_brier_score: float
 

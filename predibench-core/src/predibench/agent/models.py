@@ -79,7 +79,7 @@ class EventInvestmentDecisions(BaseModel):
     timing: Timing | None = None
     sources_google: list[str] | None = None
     sources_visit_webpage: list[str] | None = None
-    position_increase_since_decision: list[DataPoint] | None = None
+    pnl_since_decision: list[DataPoint] | None = None
 
     def normalize_gains(self) -> None:
         """Normalize the bet amounts so that total allocated capital + unallocated capital = 1.0"""
