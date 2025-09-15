@@ -2,7 +2,6 @@ from datetime import date
 
 import numpy as np
 import pandas as pd
-from predibench.backend.data_loader import load_agent_position
 from predibench.logger_config import get_logger
 
 logger = get_logger(__name__)
@@ -160,27 +159,3 @@ def get_historical_returns(
             prices_df[market_id] = prices
 
     return prices_df
-
-
-def get_positions_df():
-    # Calculate market-level data
-    data = load_agent_position()
-
-    # Working with Pydantic models from GCP
-    positions = []
-    for model_result in data:
-        model_name = model_result.model_info.model_pretty_name
-        date = model_result.target_date
-
-        for event_decision in model_result.event_investment_decisions:
-            for market_decision in event_decision.market_investment_decisions:
-                positions.append(
-                    {
-                        "date": date,
-                        "market_id": market_decision.market_id,
-                        "bet": market_decision.model_decision.bet,
-                        "model_name": model_name,
-                    }
-                )
-
-    return pd.DataFrame.from_records(positions)

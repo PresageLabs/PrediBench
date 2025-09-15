@@ -3,8 +3,7 @@ from datetime import date
 import numpy as np
 import pandas as pd
 import pytest
-from predibench.brier import BrierScoreCalculator
-from predibench.pnl import PnlCalculator
+from predibench.backend.brier import calculate_brier_scores
 
 
 def test_brier_score_calculation():
@@ -36,13 +35,11 @@ def test_brier_score_calculation():
         index=dates,
     )
 
-    # Create PnL calculator
-    pnl_calculator = PnlCalculator(positions=positions_df, prices=prices_df)
-    brier_calculator = BrierScoreCalculator(decisions_df, prices_df)
+    # Create PnL calculator    brier_calculator = calculate_brier_scores(decisions_df, prices_df)
 
     # Test that Brier scores are calculated
     assert brier_calculator.brier_scores is not None
-    assert brier_calculator.avg_brier_score is not None
+    assert brier_calculator.final_brier_score is not None
 
     # Test Brier score values
     # For market_1: final outcome = 0.9
@@ -71,7 +68,7 @@ def test_brier_score_calculation():
 
     # Check average Brier score
     expected_avg = np.mean([0.09, 0.01, 0.0, 0.09, 0.04, 0.01])
-    assert abs(brier_calculator.avg_brier_score - expected_avg) < 1e-5
+    assert abs(brier_calculator.final_brier_score - expected_avg) < 1e-5
 
 
 def test_brier_score_perfect_predictions():
@@ -97,7 +94,7 @@ def test_brier_score_perfect_predictions():
     )
 
     pnl_calculator = PnlCalculator(positions=positions_df, prices=prices_df)
-    brier_calculator = BrierScoreCalculator(decisions_df, prices_df)
+    brier_calculator = calculate_brier_scores(decisions_df, prices_df)
 
     # Perfect predictions should have Brier score of 0
     expected_scores = [0.0, 0.0]  # (1.0-1.0)^2 = 0 for both
@@ -106,7 +103,7 @@ def test_brier_score_perfect_predictions():
     )
 
     # Average should also be 0
-    assert abs(brier_calculator.avg_brier_score) < 1e-10
+    assert abs(brier_calculator.final_brier_score) < 1e-10
 
 
 def test_brier_score_worst_predictions():
@@ -132,14 +129,14 @@ def test_brier_score_worst_predictions():
     )
 
     pnl_calculator = PnlCalculator(positions=positions_df, prices=prices_df)
-    brier_calculator = BrierScoreCalculator(decisions_df, prices_df)
+    brier_calculator = calculate_brier_scores(decisions_df, prices_df)
 
     # Worst prediction should have Brier score of 1
     expected_score = 1.0  # (0.0-1.0)^2 = 1
     assert (
         abs(brier_calculator.brier_scores["market_1"].iloc[0] - expected_score) < 1e-10
     )
-    assert abs(brier_calculator.avg_brier_score - expected_score) < 1e-10
+    assert abs(brier_calculator.final_brier_score - expected_score) < 1e-10
 
 
 def test_brier_score_with_missing_market_data():
@@ -185,7 +182,7 @@ def test_brier_score_with_missing_market_data():
 
     # Test that Brier scores are calculated
     assert pnl_calculator.brier_scores is not None
-    assert pnl_calculator.avg_brier_score is not None
+    assert pnl_calculator.final_brier_score is not None
 
     # Test that only markets with decision data have Brier scores
     assert "market_1" in pnl_calculator.brier_scores.columns
@@ -206,7 +203,7 @@ def test_brier_score_with_missing_market_data():
 
     # Test that average Brier score only includes markets with data
     expected_avg = np.mean([0.09, 0.01, 0.09, 0.04])  # Only market_1 and market_2
-    assert abs(pnl_calculator.avg_brier_score - expected_avg) < 1e-5
+    assert abs(pnl_calculator.final_brier_score - expected_avg) < 1e-5
 
 
 if __name__ == "__main__":

@@ -4,15 +4,17 @@ This module pre-computes all data needed for all backend API endpoints.
 """
 
 import json
-from datetime import date
-from datetime import datetime as dt
+from datetime import date, datetime
 from typing import List
 
+import numpy as np
 import pandas as pd
-from predibench.agent.models import ModelInfo, ModelInvestmentDecisions
-from predibench.backend.brier import compute_brier_scores_df
+from predibench.agent.models import (
+    DataPoint,
+    ModelInfo,
+    ModelInvestmentDecisions,
+)
 from predibench.backend.data_loader import (
-    load_agent_position,
     load_investment_choices_from_google,
     load_market_prices,
     load_saved_events,
@@ -20,17 +22,18 @@ from predibench.backend.data_loader import (
 from predibench.backend.data_model import (
     BackendData,
     EventBackend,
-    EventPnlBackend,
+    EventDecisionPositionValuesBackend,
     FullModelResult,
-    MarketPnlBackend,
     ModelPerformanceBackend,
-    TimeseriesPointBackend,
 )
 from predibench.backend.events import get_non_duplicated_events
 from predibench.backend.leaderboard import get_leaderboard
-from predibench.backend.pnl import compute_pnl_series_per_model, get_historical_returns
+from predibench.backend.pnl import get_historical_returns
+from predibench.logger_config import get_logger
 from predibench.storage_utils import file_exists_in_storage, read_from_storage
-from predibench.utils import date_to_string, string_to_date
+from predibench.utils import string_to_date
+
+logger = get_logger(__name__)
 
 
 def _to_date_index(df: pd.DataFrame) -> pd.DataFrame:
@@ -43,7 +46,7 @@ def _to_date_index(df: pd.DataFrame) -> pd.DataFrame:
         return df
     new_index: list[date] = []
     for idx in df.index:
-        if isinstance(idx, dt):
+        if isinstance(idx, datetime):
             new_index.append(idx.date())
         elif hasattr(idx, "date") and not isinstance(idx, date):
             # e.g., pandas Timestamp
@@ -64,223 +67,207 @@ def get_data_for_backend() -> BackendData:
     This function loads all data sources only once and computes everything needed
     for maximum performance at runtime.
     """
-    print("Starting comprehensive backend data computation...")
+    logger.info("Starting comprehensive backend data computation...")
 
     # Step 1: Load all base data sources (load once, use everywhere)
-    print("Loading base data sources...")
-    model_results = load_investment_choices_from_google()  # Load once
+    logger.info("Loading base data sources...")
+    model_decisions = load_investment_choices_from_google()  # Load once
     _saved_events = load_saved_events()  # Load once
     events = get_non_duplicated_events(_saved_events)
-    positions_df = load_agent_position(model_results)  # Load once - pass model_results
+    logger.info("Loading market prices...")
     market_prices = load_market_prices(events)  # Load once
     prices_df = get_historical_returns(market_prices)  # Load once
+    prices_df = prices_df.sort_index()
+    # prices_df = prices_df.resample("D").last()  # Do this BEFORE _to_date_index
     prices_df = _to_date_index(prices_df)
 
     # Step 1.5: Convert Polymarket Event models to backend Event models
     backend_events = [EventBackend.from_event(e) for e in events]
 
     # Step 2: Compute ModelPerformanceBackend for each model
-    print("Computing model performance data (PnL + Brier)...")
-    performance = _compute_model_performance_list(
-        positions_df=positions_df,
+    logger.info("Computing model performance data (per day + per event)...")
+    model_decisions, performance_per_model = _compute_model_performance(
         prices_df=prices_df,
         backend_events=backend_events,
-        model_results=model_results,
-    )
-    performance_per_bet = _compute_model_performance_list(
-        positions_df=positions_df,
-        prices_df=prices_df,
-        backend_events=backend_events,
-        model_results=model_results,
-        by_bet=True,
+        model_decisions=model_decisions,
     )
 
     # Step 3: Compute leaderboard from performance
-    print("Building leaderboard from performance data...")
-    leaderboard = get_leaderboard(performance)
+    logger.info("Building leaderboard from performance data...")
+    leaderboard = get_leaderboard(list(performance_per_model.values()))
 
-    print("Finished computing comprehensive backend data!")
+    logger.info("Finished computing comprehensive backend data!")
 
     return BackendData(
         leaderboard=leaderboard,
         events=backend_events,
-        performance_per_day=performance,
-        performance_per_bet=performance_per_bet,
-        model_results=model_results,
+        performance_per_model=performance_per_model,
+        model_decisions=model_decisions,
     )
 
 
-def _compute_model_performance_list(
-    positions_df: pd.DataFrame,
+class ModelSummaryInfo:
+    def __init__(self):
+        self.trades_dates = set()
+        self.trade_count = 0
+        self.position_increase_per_event_decision = {}
+        self.brier_scores = {}
+
+
+def _compute_model_performance(
     prices_df: pd.DataFrame,
     backend_events: List[EventBackend],
-    model_results: List[ModelInvestmentDecisions],
-    by_bet: bool = False,
-) -> List[ModelPerformanceBackend]:
-    """Compute ModelPerformanceBackend data for each model.
+    model_decisions: List[ModelInvestmentDecisions],
+) -> tuple[List[ModelInvestmentDecisions], dict[str, ModelPerformanceBackend]]:
+    """Compute performance data (cumulative profit and brier score) for each model.
 
     Produces per-model cumulative PnL (overall/event/market) and Brier scores
     (overall/event/market) as time series, along with summary metrics.
     """
     # Map market -> event for aggregations
     market_to_event: dict[str, str] = {}
-    for ev in backend_events:
-        for m in ev.markets:
-            market_to_event[m.id] = ev.id
+    for event in backend_events:
+        for market in event.markets:
+            market_to_event[market.id] = event.id
 
-    # Pre-compute events by id for iteration
-    events_by_id = {e.id: e for e in backend_events}
+    all_model_ids: set[tuple[str, str]] = {
+        (decision.model_id, decision.model_info.model_pretty_name)
+        for decision in model_decisions
+    }
 
-    performance_list: list[ModelPerformanceBackend] = []
+    model_decision_additional_info: dict[str, ModelSummaryInfo] = {
+        model_id: ModelSummaryInfo() for model_id, _ in all_model_ids
+    }
+    cutoff = date(2025, 8, 1)
 
-    # Iterate unique models by model_id
-    for model_id in positions_df["model_id"].unique():
-        # Filter positions/predictions for this model
-        model_positions = positions_df[positions_df["model_id"] == model_id]
-        # Get the model_name for this model_id (they should be consistent within a model_id)
-        model_name = model_positions["model_name"].iloc[0]
+    # Filter rows strictly after August 1
+    prices_df = prices_df[prices_df.index > cutoff]
+    prices_df = prices_df.sort_index()
 
-        # Trades metadata
-        trade_rows = model_positions[model_positions["bet"] != 0]
-        trade_dates = sorted({str(d) for d in trade_rows["date"].unique()})
-        trades_count = int(len(trade_rows))
+    for model_decision in model_decisions:
+        # NOTE: is it really necessary to deduplicate "multiple decisions for the same market on the same date" : does it really happen?
 
-        # Handle duplicates by keeping the last entry (most recent decision)
-        # This handles cases where the same model made multiple decisions for the same market on the same date
-        model_positions_deduped = model_positions.drop_duplicates(
-            subset=["date", "market_id"], keep="last"
-        )
+        for event_decision in model_decision.event_investment_decisions:
+            positions_increases_for_event = []
+            for market_decision in event_decision.market_investment_decisions:
+                # Get latest non-NaN price
+                market_prices = prices_df[market_decision.market_id].dropna()
+                if model_decision.target_date not in market_prices.index:
+                    continue
+                # NOTE: market decision should not be done after the market is closed.
+                latest_price = float(market_prices.ffill().iloc[-1])
 
-        # Pivot to date x market for positions and predictions
-        positions_pivot = model_positions_deduped.pivot(
-            index="date", columns="market_id", values="bet"
-        )
-        decisions_pivot = model_positions_deduped.pivot(
-            index="date", columns="market_id", values="odds"
-        )
+                prices_column = prices_df[market_decision.market_id].copy()
 
-        # Choose price index: daily or bet dates (plus final for closure)
-        if by_bet:
-            bet_dates = list(positions_pivot.index)
-            if len(prices_df.index) > 0:
-                final_date = prices_df.index.max()
-                price_index = sorted(set(bet_dates + [final_date]))
-            else:
-                price_index = sorted(set(bet_dates))
-            prices_for_calc = prices_df.reindex(price_index, method="ffill")
-        else:
-            prices_for_calc = prices_df
+                prices_column.loc[: model_decision.target_date] = np.nan
 
-        # Compute PnL series
-        portfolio_cum_pnl, market_cum_pnls = compute_pnl_series_per_model(
-            positions_agent_df=positions_pivot, prices_df=prices_for_calc
-        )
-
-        # If per-bet, fold final move back onto last bet so index shows only bet dates
-        if by_bet:
-            bet_index = pd.Index(sorted(positions_pivot.index))
-            if len(portfolio_cum_pnl) > 0:
-                portfolio_cum_pnl = portfolio_cum_pnl.reindex(bet_index, method="ffill")
-            market_cum_pnls = {
-                m_id: (s.reindex(bet_index, method="ffill") if len(s) > 0 else s)
-                for m_id, s in market_cum_pnls.items()
-            }
-
-        # Convert overall cumulative pnl to backend points
-        overall_cum_pnl_points = [
-            TimeseriesPointBackend(
-                date=(date_to_string(idx) if hasattr(idx, "strftime") else str(idx)),
-                value=float(val),
-            )
-            for idx, val in portfolio_cum_pnl.items()
-        ]
-
-        # Market-level PnL to backend
-        market_pnls_backend: list[MarketPnlBackend] = []
-        for market_id, cum_series in market_cum_pnls.items():
-            market_points = [
-                TimeseriesPointBackend(
-                    date=(
-                        date_to_string(idx) if hasattr(idx, "strftime") else str(idx)
-                    ),
-                    value=float(val),
+                returns_since_decision = (
+                    prices_column.pct_change().fillna(0) * market_decision.decision.bet
                 )
-                for idx, val in cum_series.items()
-            ]
-            market_pnls_backend.append(
-                MarketPnlBackend(market_id=market_id, pnl=market_points)
-            )
 
-        # Event-level PnL = sum of cumulative PnL across markets in the event (aligned by date)
-        event_pnls_backend: list[EventPnlBackend] = []
-        # Build per-event cumulative series
-        for event_id, event in events_by_id.items():
-            # Gather cumulative series for markets in this event
-            series_list = []
-            for m in event.markets:
-                if m.id in market_cum_pnls:
-                    s = market_cum_pnls[m.id]
-                    series_list.append(s)
-            if not series_list:
-                continue
-            # Align on union of dates and sum
-            aligned = pd.concat(series_list, axis=1).fillna(0.0)
-            event_cum = aligned.sum(axis=1)
-            event_points = [
-                TimeseriesPointBackend(
-                    date=(
-                        date_to_string(idx) if hasattr(idx, "strftime") else str(idx)
-                    ),
-                    value=float(val),
+                # Preserve market_id as column name, make name unique by adding the target date
+                returns_since_decision.name = (
+                    market_decision.market_id
+                    + "_"
+                    + model_decision.target_date.strftime("%Y-%m-%d")
                 )
-                for idx, val in event_cum.items()
-            ]
-            event_pnls_backend.append(
-                EventPnlBackend(event_id=event_id, pnl=event_points)
-            )
 
-        # Compute Brier score series
-        if by_bet:
-            # Include final outcome row for outcome reference
-            if len(prices_df.index) > 0:
-                final_date = prices_df.index.max()
-                brier_index = sorted(set(list(decisions_pivot.index) + [final_date]))
-                prices_for_brier = prices_df.reindex(brier_index, method="ffill")
+                positions_increases_for_event.append(
+                    returns_since_decision.cumsum().ffill()
+                )
+
+                # Gain, brier score, trade count
+                market_decision.gains_since_decision = (
+                    latest_price - returns_since_decision.iloc[-1]
+                )
+                market_decision.brier_score_pair_current = (
+                    latest_price,
+                    market_decision.decision.odds,
+                )
+                if market_decision.decision.bet != 0:
+                    model_decision_additional_info[
+                        model_decision.model_id
+                    ].trade_count += 1
+                model_decision_additional_info[model_decision.model_id].brier_scores[
+                    market_decision.market_id
+                ] = (latest_price, market_decision.decision.odds)
+
+            if len(positions_increases_for_event) > 0:
+                positions_increase_for_event_df = pd.concat(
+                    positions_increases_for_event, axis=1
+                )
             else:
-                prices_for_brier = prices_for_calc
-            brier_df_all = compute_brier_scores_df(
-                decisions_df=decisions_pivot, prices_df=prices_for_brier
-            )
-            # Keep only bet dates (rows) in the output
-            brier_df = brier_df_all.reindex(decisions_pivot.index)
-        else:
-            brier_df = compute_brier_scores_df(
-                decisions_df=decisions_pivot, prices_df=prices_for_calc
+                positions_increase_for_event_df = pd.DataFrame(index=prices_df.index)
+
+            # Add expensed_capital column: 0 before target_date,expensed_capital after
+            sum_positions_increase_for_event_df = positions_increase_for_event_df.sum(
+                axis=1
             )
 
-        # Final brier = mean across all available predictions
+            model_decision_additional_info[model_decision.model_id].trades_dates.add(
+                model_decision.target_date.strftime("%Y-%m-%d")
+            )
+            model_decision_additional_info[
+                model_decision.model_id
+            ].position_increase_per_event_decision[
+                event_decision.event_id
+            ] = sum_positions_increase_for_event_df
+
+            event_decision.position_increase_since_decision = (
+                DataPoint.list_datapoints_from_series(
+                    sum_positions_increase_for_event_df,
+                )
+            )
+
+    # Get each model's daily performance
+    model_performances: dict[str, ModelPerformanceBackend] = {}
+    for model_id, model_name in all_model_ids:
+        all_position_values = pd.concat(
+            model_decision_additional_info[
+                model_id
+            ].position_increase_per_event_decision,
+            axis=1,
+        ).ffill()
+        sums = all_position_values.sum(axis=1)
+        counts = all_position_values.count(axis=1).replace(
+            0, 1
+        )  # Avoid division by zero
+        normalized_position_values = (sums / counts).ffill()
+        final_positions_value = float(normalized_position_values.iloc[-1])
+
+        brier_scores = model_decision_additional_info[model_id].brier_scores.values()
         final_brier_score = (
-            float(brier_df.stack().mean()) if not brier_df.empty else 0.0
+            sum([(a - b) ** 2 for a, b in brier_scores]) / len(brier_scores)
+            if len(brier_scores) > 0
+            else 1.0
         )
 
-        # Build performance object
-        performance_list.append(
-            ModelPerformanceBackend(
-                model_name=model_name,
-                model_id=model_id,
-                final_pnl=float(portfolio_cum_pnl.iloc[-1])
-                if len(portfolio_cum_pnl)
-                else 0.0,
-                final_brier_score=final_brier_score,
-                trades=trades_count,
-                trades_dates=trade_dates,
-                cummulative_pnl=overall_cum_pnl_points,
-                event_pnls=event_pnls_backend,
-                market_pnls=market_pnls_backend,
-            )
+        model_performances[model_id] = ModelPerformanceBackend(
+            model_id=model_id,
+            model_name=model_name,
+            trades_count=model_decision_additional_info[model_id].trade_count,
+            trades_dates=sorted(
+                list(model_decision_additional_info[model_id].trades_dates),
+            ),
+            position_increase_per_event_decision={
+                event_id: EventDecisionPositionValuesBackend(
+                    event_id=event_id,
+                    position_values=DataPoint.list_datapoints_from_series(
+                        position_values
+                    ),
+                )
+                for event_id, position_values in model_decision_additional_info[
+                    model_id
+                ].position_increase_per_event_decision.items()
+            },
+            position_values_history=DataPoint.list_datapoints_from_series(
+                normalized_position_values
+            ),
+            final_positions_value=final_positions_value,
+            final_brier_score=final_brier_score,
         )
 
-    return performance_list
+    return model_decisions, model_performances
 
 
 def load_full_result_from_bucket(

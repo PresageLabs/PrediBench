@@ -98,32 +98,3 @@ def load_market_prices(events: list[Event]) -> dict[str, pd.Series | None]:
                 market.prices = market_to_prices[market.id]
 
     return market_to_prices
-
-
-def load_agent_position(model_results: list[ModelInvestmentDecisions]) -> pd.DataFrame:
-    """Load agent choices from GCP instead of HuggingFace dataset"""
-
-    print(f"Loaded {len(model_results)} model results from GCP")
-
-    positions = []
-    for model_result in model_results:
-        model_name = model_result.model_info.model_pretty_name
-        date = model_result.target_date
-
-        for event_decision in model_result.event_investment_decisions:
-            for market_decision in event_decision.market_investment_decisions:
-                positions.append(
-                    {
-                        "date": date,
-                        "market_id": market_decision.market_id,
-                        "bet": market_decision.model_decision.bet,
-                        "model_name": model_name,
-                        "model_id": model_result.model_id,
-                        "odds": market_decision.model_decision.odds,
-                        "confidence": market_decision.model_decision.confidence,
-                    }
-                )
-
-    positions_df = pd.DataFrame.from_records(positions)
-    print(f"Created {len(positions_df)} position records")
-    return positions_df

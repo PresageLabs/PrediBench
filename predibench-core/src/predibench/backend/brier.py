@@ -1,21 +1,21 @@
 from datetime import date
 
-import pandas as pd
-from pydantic import BaseModel
-
-from predibench.logger_config import get_logger
 import numpy as np
+import pandas as pd
+from predibench.logger_config import get_logger
+from pydantic import BaseModel
 
 logger = get_logger(__name__)
 
 
 class BrierResult(BaseModel):
     """Clean, typed result from Brier score calculation"""
+
     # DataFrame of per-date Brier scores per market (nullable when no decisions)
     brier_scores: pd.DataFrame
     # Average Brier score across all available predictions
-    avg_brier_score: float
-    
+    final_brier_score: float
+
     class Config:
         arbitrary_types_allowed = True
 
@@ -36,11 +36,11 @@ def calculate_brier_scores(
     Args:
         decisions_df: DataFrame with model predictions/odds, with columns as markets and index as dates
         prices_df: DataFrame with market prices, with columns as markets and index as dates
-        
+
     Returns:
         dict containing:
             - brier_scores: DataFrame with Brier scores for each market and date
-            - avg_brier_score: float with average Brier score across all predictions
+            - final_brier_score: float with average Brier score across all predictions
     """
     _assert_index_is_date(decisions_df)
     _assert_index_is_date(prices_df)
@@ -49,9 +49,7 @@ def calculate_brier_scores(
     final_prices = prices_df.iloc[-1]  # Last available price
 
     # Create a DataFrame to store Brier scores
-    brier_scores_df = pd.DataFrame(
-        index=decisions_df.index, columns=prices_df.columns
-    )
+    brier_scores_df = pd.DataFrame(index=decisions_df.index, columns=prices_df.columns)
 
     for market_id in prices_df.columns:
         # Skip markets that don't have decision data
@@ -68,11 +66,11 @@ def calculate_brier_scores(
         brier_scores_df[market_id] = (predictions - outcome) ** 2
 
     brier_scores_cleaned = brier_scores_df.dropna(how="all", axis=1)
-    avg_brier_score = brier_scores_cleaned.mean().mean()
-    
+    final_brier_score = brier_scores_cleaned.mean().mean()
+
     return BrierResult(
         brier_scores=brier_scores_cleaned,
-        avg_brier_score=float(avg_brier_score),
+        final_brier_score=float(final_brier_score),
     )
 
 
@@ -103,7 +101,9 @@ def compute_brier_scores_df(
 
     # Broadcast final prices across index and compute squared error
     final_prices_broadcast = pd.DataFrame(
-        np.tile(final_prices[common_markets].to_numpy(), (len(decisions_aligned.index), 1)),
+        np.tile(
+            final_prices[common_markets].to_numpy(), (len(decisions_aligned.index), 1)
+        ),
         index=decisions_aligned.index,
         columns=common_markets,
     )

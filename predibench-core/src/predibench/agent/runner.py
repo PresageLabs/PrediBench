@@ -10,14 +10,13 @@ from predibench.agent.models import (
     ModelInvestmentDecisions,
     SingleModelDecision,
 )
-from predibench.backend.data_model import FullModelResult
-from predibench.utils import date_to_string
 from predibench.agent.smolagents_utils import (
     BET_DESCRIPTION,
     run_openai_deep_research,
     run_perplexity_deep_research,
     run_smolagents,
 )
+from predibench.backend.data_model import FullModelResult
 from predibench.date_utils import is_backward_mode
 from predibench.logger_config import get_logger
 from predibench.polymarket_api import Event, Market
@@ -26,6 +25,7 @@ from predibench.storage_utils import (
     read_from_storage,
     write_to_storage,
 )
+from predibench.utils import date_to_string
 from pydantic import ValidationError
 from smolagents import Timing
 
@@ -174,7 +174,7 @@ You are an expert prediction-market analyst. You have been given an amount of US
         for market_info, invested_value in zip(market_data.values(), invested_values):
             amount = invested_value
 
-            model_decision = SingleModelDecision(
+            decision = SingleModelDecision(
                 rationale=f"Random decision for testing market {market_info['id']}",
                 odds=np.random.uniform(0.1, 0.9),
                 bet=amount,
@@ -182,7 +182,7 @@ You are an expert prediction-market analyst. You have been given an amount of US
             )
             market_decision = MarketInvestmentDecision(
                 market_id=market_info["id"],
-                model_decision=model_decision,
+                decision=decision,
             )
             market_investments.append(market_decision)
 
@@ -237,8 +237,13 @@ You are an expert prediction-market analyst. You have been given an amount of US
     full_response_json = complete_market_investment_decisions.full_response
 
     # Determine agent type - use deepresearch for deep research models, otherwise use model_info.agent_type
-    if (model_info.inference_provider == "openai" and "deep-research" in model_info.model_id) or \
-       (model_info.inference_provider == "perplexity" and "deep-research" in model_info.model_id):
+    if (
+        model_info.inference_provider == "openai"
+        and "deep-research" in model_info.model_id
+    ) or (
+        model_info.inference_provider == "perplexity"
+        and "deep-research" in model_info.model_id
+    ):
         agent_type = "deepresearch"
     else:
         agent_type = model_info.agent_type
@@ -249,7 +254,7 @@ You are an expert prediction-market analyst. You have been given an amount of US
         event_id=event.id,
         target_date=date_to_string(target_date),
         agent_type=agent_type,
-        full_result_listdict=full_response_json
+        full_result_listdict=full_response_json,
     )
     model_result_path = model_info.get_model_result_path(target_date)
     full_response_file = model_result_path / f"{event.id}_full_response.json"
@@ -355,4 +360,3 @@ def run_agent_investments(
         results.append(model_result)
 
     return results
-

@@ -5,9 +5,9 @@ import { apiService } from '../api'
 import { useAnalytics } from '../hooks/useAnalytics'
 import { formatVolume } from '../lib/utils'
 import { getChartColor } from './ui/chart-colors'
-import { VisxLineChart } from './ui/visx-line-chart'
 import { EventDecisionModal } from './ui/EventDecisionModal'
 import { EventDecisionThumbnail } from './ui/EventDecisionThumbnail'
+import { VisxLineChart } from './ui/visx-line-chart'
 
 interface EventDetailProps {
   event: Event
@@ -124,9 +124,9 @@ export function EventDetail({ event }: EventDetailProps) {
               transformedDecisions.push({
                 market_id: marketDecision.market_id,
                 model_name: modelResult.model_id, // keep id here; we map to pretty name for display
-                bet: marketDecision.model_decision.bet,
-                odds: marketDecision.model_decision.odds,
-                rationale: marketDecision.model_decision.rationale
+                bet: marketDecision.decision.bet,
+                odds: marketDecision.decision.odds,
+                rationale: marketDecision.decision.rationale
               })
             })
           }
@@ -169,7 +169,7 @@ export function EventDetail({ event }: EventDetailProps) {
       .catch(console.error)
     return () => { cancelled = true }
   }, [])
-  
+
   // Prepare latest decision per model for this event
   const latestByModel = useMemo(() => {
     const byModel: Record<string, ModelInvestmentDecision | undefined> = {}
@@ -305,8 +305,8 @@ export function EventDetail({ event }: EventDetailProps) {
               {uniqueModelIds.map(modelId => {
                 const md = latestByModel[modelId]!
                 const ed = md.event_investment_decisions.find(ed => ed.event_id === event.id)!
-                const top = [...ed.market_investment_decisions].sort((a, b) => Math.abs(b.model_decision.bet) - Math.abs(a.model_decision.bet))[0]
-                const topBet = top?.model_decision.bet ?? null
+                const top = [...ed.market_investment_decisions].sort((a, b) => Math.abs(b.decision.bet) - Math.abs(a.decision.bet))[0]
+                const topBet = top?.decision.bet ?? null
                 const topQuestion = top?.market_question || 'Top market'
 
                 return (

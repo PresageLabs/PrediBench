@@ -33,7 +33,7 @@ def test_brier_score_calculation():
 
     # Test that Brier scores are calculated
     assert brier_result.brier_scores is not None
-    assert brier_result.avg_brier_score is not None
+    assert brier_result.final_brier_score is not None
 
     # Test Brier score values
     # For market_1: final outcome = 0.9
@@ -62,7 +62,7 @@ def test_brier_score_calculation():
 
     # Check average Brier score
     expected_avg = np.mean([0.09, 0.01, 0.0, 0.09, 0.04, 0.01])
-    assert abs(brier_result.avg_brier_score - expected_avg) < 1e-5
+    assert abs(brier_result.final_brier_score - expected_avg) < 1e-5
 
 
 def test_brier_score_perfect_predictions():
@@ -94,7 +94,7 @@ def test_brier_score_perfect_predictions():
     )
 
     # Average should also be 0
-    assert abs(brier_result.avg_brier_score) < 1e-10
+    assert abs(brier_result.final_brier_score) < 1e-10
 
 
 def test_brier_score_worst_predictions():
@@ -121,10 +121,8 @@ def test_brier_score_worst_predictions():
 
     # Worst prediction should have Brier score of 1
     expected_score = 1.0  # (0.0-1.0)^2 = 1
-    assert (
-        abs(brier_result.brier_scores["market_1"].iloc[0] - expected_score) < 1e-10
-    )
-    assert abs(brier_result.avg_brier_score - expected_score) < 1e-10
+    assert abs(brier_result.brier_scores["market_1"].iloc[0] - expected_score) < 1e-10
+    assert abs(brier_result.final_brier_score - expected_score) < 1e-10
 
 
 def test_brier_score_missing_market_data():
@@ -160,26 +158,36 @@ def test_brier_score_missing_market_data():
         expected_scores,
         decimal=5,
     )
-    
+
     # Check average Brier score matches expected
     expected_avg = np.mean(expected_scores)  # 0.05
-    assert abs(brier_result.avg_brier_score - expected_avg) < 1e-5
+    assert abs(brier_result.final_brier_score - expected_avg) < 1e-5
 
 
 def test_brier_score_multiple_time_periods():
     """Test Brier score calculation with predictions over multiple time periods"""
-    
+
     dates = [date(2023, 1, 1), date(2023, 1, 2), date(2023, 1, 3), date(2023, 1, 4)]
-    
+
     # Model predictions that get better over time
     decisions_df = pd.DataFrame(
         {
-            "market_1": [0.3, 0.5, 0.7, 0.9],  # Improving predictions toward final outcome of 1.0
-            "market_2": [0.8, 0.6, 0.4, 0.2],  # Improving predictions toward final outcome of 0.0
+            "market_1": [
+                0.3,
+                0.5,
+                0.7,
+                0.9,
+            ],  # Improving predictions toward final outcome of 1.0
+            "market_2": [
+                0.8,
+                0.6,
+                0.4,
+                0.2,
+            ],  # Improving predictions toward final outcome of 0.0
         },
         index=dates,
     )
-    
+
     prices_df = pd.DataFrame(
         {
             "market_1": [0.4, 0.6, 0.8, 1.0],  # Final outcome: 1.0
@@ -187,9 +195,9 @@ def test_brier_score_multiple_time_periods():
         },
         index=dates,
     )
-    
+
     brier_result = calculate_brier_scores(decisions_df, prices_df)
-    
+
     # Expected scores for market_1 (final outcome = 1.0)
     expected_market_1_scores = [
         (0.3 - 1.0) ** 2,  # 0.49
@@ -197,7 +205,7 @@ def test_brier_score_multiple_time_periods():
         (0.7 - 1.0) ** 2,  # 0.09
         (0.9 - 1.0) ** 2,  # 0.01
     ]
-    
+
     # Expected scores for market_2 (final outcome = 0.0)
     expected_market_2_scores = [
         (0.8 - 0.0) ** 2,  # 0.64
@@ -205,30 +213,30 @@ def test_brier_score_multiple_time_periods():
         (0.4 - 0.0) ** 2,  # 0.16
         (0.2 - 0.0) ** 2,  # 0.04
     ]
-    
+
     np.testing.assert_array_almost_equal(
         brier_result.brier_scores["market_1"].values,
         expected_market_1_scores,
         decimal=5,
     )
-    
+
     np.testing.assert_array_almost_equal(
         brier_result.brier_scores["market_2"].values,
         expected_market_2_scores,
         decimal=5,
     )
-    
+
     # Check average Brier score
     all_scores = expected_market_1_scores + expected_market_2_scores
     expected_avg = np.mean(all_scores)
-    assert abs(brier_result.avg_brier_score - expected_avg) < 1e-5
+    assert abs(brier_result.final_brier_score - expected_avg) < 1e-5
 
 
 def test_brier_score_edge_cases():
     """Test Brier score calculation with edge case predictions (0.0 and 1.0)"""
-    
+
     dates = [date(2023, 1, 1), date(2023, 1, 2)]
-    
+
     # Edge case predictions: 0.0 and 1.0
     decisions_df = pd.DataFrame(
         {
@@ -237,7 +245,7 @@ def test_brier_score_edge_cases():
         },
         index=dates,
     )
-    
+
     prices_df = pd.DataFrame(
         {
             "market_1": [0.5, 1.0],  # Final outcome: 1.0
@@ -245,33 +253,33 @@ def test_brier_score_edge_cases():
         },
         index=dates,
     )
-    
+
     brier_result = calculate_brier_scores(decisions_df, prices_df)
-    
+
     # Expected scores for market_1 (final outcome = 1.0)
     expected_market_1_scores = [
         (0.0 - 1.0) ** 2,  # 1.0 (worst possible)
         (1.0 - 1.0) ** 2,  # 0.0 (perfect)
     ]
-    
-    # Expected scores for market_2 (final outcome = 0.0) 
+
+    # Expected scores for market_2 (final outcome = 0.0)
     expected_market_2_scores = [
         (1.0 - 0.0) ** 2,  # 1.0 (worst possible)
         (0.0 - 0.0) ** 2,  # 0.0 (perfect)
     ]
-    
+
     np.testing.assert_array_almost_equal(
         brier_result.brier_scores["market_1"].values,
         expected_market_1_scores,
         decimal=5,
     )
-    
+
     np.testing.assert_array_almost_equal(
         brier_result.brier_scores["market_2"].values,
         expected_market_2_scores,
         decimal=5,
     )
-    
+
     # Average should be 0.5 (average of [1.0, 0.0, 1.0, 0.0])
     expected_avg = 0.5
-    assert abs(brier_result.avg_brier_score - expected_avg) < 1e-5
+    assert abs(brier_result.final_brier_score - expected_avg) < 1e-5

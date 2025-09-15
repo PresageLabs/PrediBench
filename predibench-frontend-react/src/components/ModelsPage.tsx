@@ -9,7 +9,7 @@ import { getChartColor } from './ui/chart-colors'
 import { DecisionAnnotation } from './ui/DecisionAnnotation'
 import { EventDecisionModal } from './ui/EventDecisionModal'
 import { EventDecisionThumbnail } from './ui/EventDecisionThumbnail'
-import { BrierScoreInfoTooltip, CumulativeProfitInfoTooltip } from './ui/info-tooltip'
+import { BrierScoreInfoTooltip, PortfolioValueToolTip } from './ui/info-tooltip'
 // import { ProfitDisplay } from './ui/profit-display'
 import { VisxLineChart } from './ui/visx-line-chart'
 
@@ -152,11 +152,11 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     return days
   }
 
-  // Fetch model performance for event-level PnL series
+  // Fetch model performance
   useEffect(() => {
     let cancelled = false
     if (selectedModelId) {
-      apiService.getPerformanceByModel(selectedModelId, 'day')
+      apiService.getPerformanceByModel(selectedModelId)
         .then(perf => { if (!cancelled) setModelPerformance(perf) })
         .catch(console.error)
     }
@@ -165,16 +165,16 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
 
   // Removed event-based series metadata; cumulative series is used instead
 
-  // Cumulative Profit series since the beginning for the selected model
+  // Portfolio Value series since the beginning for the selected model
   const cumulativeSeries = useMemo(() => {
     if (!modelPerformance) return [] as { dataKey: string; data: { x: string; y: number }[]; stroke: string; name?: string }[]
-    const data = (modelPerformance.cummulative_pnl || []).map(pt => ({ x: pt.date, y: pt.value }))
+    const data = (modelPerformance.cumulative_pnl || []).map(pt => ({ x: pt.date, y: pt.value }))
     return [
       {
         dataKey: `model_${modelPerformance.model_id}_cum`,
         data,
         stroke: getChartColor(0),
-        name: 'Cumulative Profit'
+        name: 'Portfolio Value'
       }
     ]
   }, [modelPerformance])
@@ -189,7 +189,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     const sortedDecisions = [...modelDecisions].sort((a, b) => a.target_date.localeCompare(b.target_date))
 
     // Get cumulative data for period profit calculations
-    const cumulativeData = (modelPerformance.cummulative_pnl || []).map(pt => ({ x: pt.date, y: pt.value }))
+    const cumulativeData = (modelPerformance.cumulative_pnl || []).map(pt => ({ x: pt.date, y: pt.value }))
 
     sortedDecisions.forEach((decision, index) => {
       const nextDecision = index < sortedDecisions.length - 1 ? sortedDecisions[index + 1] : undefined
@@ -252,7 +252,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                         <div>
                           <div className="font-medium">{model.model_name}</div>
                           <div className="text-xs text-muted-foreground mt-1">
-                            Profit: {(model.final_cumulative_pnl * 100).toFixed(1)}% | Brier score: {model.avg_brier_score.toFixed(3)}
+                            Profit: {(model.final_positions_value * 100).toFixed(1)}% | Brier score: {model.final_brier_score.toFixed(3)}
                           </div>
                         </div>
                       </div>
@@ -276,29 +276,29 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                 <div>
                   <div className="flex items-center text-muted-foreground">
                     Final Profit:
-                    <CumulativeProfitInfoTooltip />
+                    <PortfolioValueToolTip />
                   </div>
-                  <div className="font-medium">{selectedModelData.final_cumulative_pnl.toFixed(1)}</div>
+                  <div className="font-medium">{selectedModelData.final_positions_value.toFixed(1)}</div>
                 </div>
                 <div>
                   <div className="flex items-center text-muted-foreground">
                     Brier score:
                     <BrierScoreInfoTooltip />
                   </div>
-                  <div className="font-medium">{selectedModelData.avg_brier_score.toFixed(3)}</div>
+                  <div className="font-medium">{selectedModelData.final_brier_score.toFixed(3)}</div>
                 </div >
                 <div>
                   <span className="text-muted-foreground">Bets taken:</span>
-                  <div className="font-medium">{selectedModelData.trades}</div>
+                  <div className="font-medium">{selectedModelData.trades_count}</div>
                 </div>
               </div >
             </div >
 
-            {/* Cumulative Profit Chart */}
+            {/* Portfolio Value Chart */}
             <div className="mb-8">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
-                Cumulative Profit
-                <CumulativeProfitInfoTooltip />
+                Portfolio Value
+                <PortfolioValueToolTip />
               </h3>
               <div className="h-auto sm:h-[500px]">
                 {cumulativeSeries.length === 0 ? (
@@ -397,8 +397,8 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                     {modelDecisions
                       .find(d => d.target_date === selectedDate)
                       ?.event_investment_decisions.map((eventDecision, index) => {
-                        const top = [...eventDecision.market_investment_decisions].sort((a, b) => Math.abs(b.model_decision.bet) - Math.abs(a.model_decision.bet))[0]
-                        const topBet = top?.model_decision.bet ?? null
+                        const top = [...eventDecision.market_investment_decisions].sort((a, b) => Math.abs(b.decision.bet) - Math.abs(a.decision.bet))[0]
+                        const topBet = top?.decision.bet ?? null
                         const topQuestion = top?.market_question || 'Top market'
                         return (
                           <EventDecisionThumbnail

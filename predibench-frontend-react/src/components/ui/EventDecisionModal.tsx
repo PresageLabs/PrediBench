@@ -2,11 +2,11 @@ import { X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { EventInvestmentDecision } from '../../api'
 import { apiService } from '../../api'
+import { encodeSlashes } from '../../lib/utils'
 import { AgentLogsDisplay } from './AgentLogsDisplay'
 import { getChartColor } from './chart-colors'
 import { ProfitDisplay } from './profit-display'
 import { VisxLineChart } from './visx-line-chart'
-import { encodeSlashes } from '../../lib/utils'
 
 interface EventDecisionModalProps {
   isOpen: boolean
@@ -118,7 +118,7 @@ export function EventDecisionModal({
     let cancelled = false
     const loadPricesAndReturns = async () => {
       if (!isOpen) return
-      
+
       setPricesLoading(true)
       try {
         const event = await apiService.getEventDetails(eventDecision.event_id)
@@ -150,7 +150,7 @@ export function EventDecisionModal({
                   .find(md => md.market_id === m.id)
 
                 if (marketDecision) {
-                  const betAmount = marketDecision.model_decision.bet
+                  const betAmount = marketDecision.decision.bet
                   const priceChange = endPrice - startPrice
                   const realizedReturn = betAmount * priceChange
                   returns[m.id] = realizedReturn
@@ -182,7 +182,7 @@ export function EventDecisionModal({
         }
       }
     }
-    
+
     loadPricesAndReturns()
     return () => { cancelled = true }
   }, [isOpen, eventDecision, decisionDate, positionEndDate])
@@ -249,8 +249,8 @@ export function EventDecisionModal({
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
                     <th className="text-left py-2 px-3">Market</th>
-                    <th className="text-right py-2 px-3">Bet ($)</th>
-                    <th className="text-right py-2 px-3">Odds</th>
+                    <th className="text-center py-2 px-3">Bet ($)</th>
+                    <th className="text-right py-2 px-3">Estimated odds</th>
                     <th className="text-right py-2 px-3">Confidence</th>
                     {positionEndDate && <th className="text-right py-2 px-3">Realized Returns</th>}
                   </tr>
@@ -259,9 +259,20 @@ export function EventDecisionModal({
                   {eventDecision.market_investment_decisions.map((md, idx) => (
                     <tr key={idx} className="border-b border-border/50">
                       <td className="py-2 px-3">{md.market_question || `Market ${md.market_id}`}</td>
-                      <td className="py-2 px-3 text-right">{md.model_decision.bet < 0 ? `-$${Math.abs(md.model_decision.bet).toFixed(2)}` : `$${md.model_decision.bet.toFixed(2)}`}</td>
-                      <td className="py-2 px-3 text-right">{(md.model_decision.odds * 100).toFixed(1)}%</td>
-                      <td className="py-2 px-3 text-right">{md.model_decision.confidence}/10</td>
+                      <td className="py-2 px-3 text-center">
+                        {md.decision.bet === 0 ? (
+                          `${md.decision.bet.toFixed(2)}`
+                        ) : (
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${md.decision.bet > 0
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                            }`}>
+                            {md.decision.bet > 0 ? '+' : '-'}{Math.abs(md.decision.bet).toFixed(2)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 px-3 text-right">{(md.decision.odds * 100).toFixed(1)}%</td>
+                      <td className="py-2 px-3 text-right">{md.decision.confidence}/10</td>
                       {positionEndDate && (
                         <td className="py-2 px-3 text-right">
                           {realizedReturns[md.market_id] !== undefined ? (
@@ -277,7 +288,7 @@ export function EventDecisionModal({
                   {/* Unallocated capital row */}
                   <tr className="border-b border-border/50 bg-muted/10">
                     <td className="py-2 px-3 italic text-muted-foreground">Unallocated capital</td>
-                    <td className="py-2 px-3 text-right">${eventDecision.unallocated_capital.toFixed(2)}</td>
+                    <td className="py-2 px-3 text-center">{eventDecision.unallocated_capital.toFixed(2)}</td>
                     <td className="py-2 px-3"></td>
                     <td className="py-2 px-3"></td>
                     {positionEndDate && <td className="py-2 px-3"></td>}
@@ -313,7 +324,7 @@ export function EventDecisionModal({
                       {md.market_question || `Market ${md.market_id}`}
                     </div>
                     <div className="text-sm text-foreground">
-                      ▸ {md.model_decision.rationale}
+                      ▸ {md.decision.rationale}
                     </div>
                   </div>
                 ))}
