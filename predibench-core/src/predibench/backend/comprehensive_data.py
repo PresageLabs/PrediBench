@@ -165,9 +165,7 @@ def _compute_model_performance(
                 if market_decision.decision.bet == 0:
                     continue
 
-                market_prices = (
-                    market_prices.bfill()
-                )  # Set prices stable before change date, so that pct change is 0
+                market_prices = market_prices.bfill()
 
                 returns_since_decision = (
                     market_prices.pct_change().fillna(0) * market_decision.decision.bet
