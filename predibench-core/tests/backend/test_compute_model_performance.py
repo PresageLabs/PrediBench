@@ -238,8 +238,8 @@ def test_compute_model_performance_end_to_end():
     model_a_performance = perf["model_A"]
     model_b_performance = perf["model_B"]
 
-    assert abs(model_a_performance.final_positions_value - expected_a_final) < 1e-9
-    assert abs(model_b_performance.final_positions_value - expected_b_final) < 1e-9
+    assert abs(model_a_performance.final_profit - expected_a_final) < 1e-9
+    assert abs(model_b_performance.final_profit - expected_b_final) < 1e-9
 
     # Trades count: Model A has 6 non-zero bets; Model B has 5 (one zero)
     assert model_a_performance.trades_count == 6

@@ -10,7 +10,7 @@ from pydantic import BaseModel
 class LeaderboardEntryBackend(BaseModel):
     model_id: str
     model_name: str
-    final_positions_value: float
+    final_profit: float
     trades_count: int
     lastUpdated: str
     trend: Literal["up", "down", "stable"]
@@ -77,7 +77,7 @@ class ModelPerformanceBackend(BaseModel):
     trades_dates: list[str]
     pnl_history: list[DataPoint]
     pnl_per_event_decision: dict[str, EventDecisionPnlBackend]
-    final_positions_value: float
+    final_profit: float
     final_brier_score: float
 
 

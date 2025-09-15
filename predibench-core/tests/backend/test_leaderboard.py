@@ -33,7 +33,7 @@ def test_get_leaderboard():
     result = get_leaderboard(performance)
     assert isinstance(result, list)
     if result:
-        assert hasattr(result[0], "final_positions_value")
+        assert hasattr(result[0], "final_profit")
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080
 export interface LeaderboardEntry {
   model_id: string
   model_name: string
-  final_positions_value: number
+  final_profit: number
   trades_count: number
   lastUpdated: string
   trend: 'up' | 'down' | 'stable'
@@ -99,7 +99,7 @@ export interface SingleInvestmentDecision {
 export interface ModelPerformance {
   model_name: string
   model_id: string
-  final_positions_value: number
+  final_profit: number
   final_brier_score: number
   trades_count: number
   trades_dates: string[]

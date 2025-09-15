@@ -28,8 +28,8 @@ export function LeaderboardTable({
       switch (sortKey) {
         case 'cumulative_profit': {
           // Calculate display scores (rounded to 1 decimal place)
-          const aDisplayScore = parseFloat((a.final_positions_value * 100).toFixed(1))
-          const bDisplayScore = parseFloat((b.final_positions_value * 100).toFixed(1))
+          const aDisplayScore = parseFloat((a.final_profit * 100).toFixed(1))
+          const bDisplayScore = parseFloat((b.final_profit * 100).toFixed(1))
 
           // Primary sort by display score (higher first)
           if (bDisplayScore !== aDisplayScore) {
@@ -51,7 +51,7 @@ export function LeaderboardTable({
           }
 
           // Tie-breaker: if display scores are identical, use PnL
-          return b.final_positions_value - a.final_positions_value
+          return b.final_profit - a.final_profit
         }
 
         default:
@@ -68,7 +68,7 @@ export function LeaderboardTable({
   // Calculate min and max profit values for color scaling
   const profitRange = useMemo(() => {
     if (leaderboard.length === 0) return { min: 0, max: 0 }
-    const profits = leaderboard.map(model => model.final_positions_value)
+    const profits = leaderboard.map(model => model.final_profit)
     return {
       min: Math.min(...profits),
       max: Math.max(...profits)
@@ -176,7 +176,7 @@ export function LeaderboardTable({
                     <td className="py-4 px-4 text-center font-medium">
                       <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
                         <ProfitDisplay
-                          value={model.final_positions_value}
+                          value={model.final_profit}
                           minValue={profitRange.min}
                           maxValue={profitRange.max}
                           formatValue={(v) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`}

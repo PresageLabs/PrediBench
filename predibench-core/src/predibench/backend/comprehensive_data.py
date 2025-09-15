@@ -146,7 +146,7 @@ def _compute_model_performance(
     for model_decision in model_decisions:
         # NOTE: is it really necessary to deduplicate "multiple decisions for the same market on the same date" : does it really happen?
         for event_decision in model_decision.event_investment_decisions:
-            positions_increases_for_event = []
+            pnl_for_event = []
 
             for market_decision in event_decision.market_investment_decisions:
                 if (
@@ -180,9 +180,7 @@ def _compute_model_performance(
                     + model_decision.target_date.strftime("%Y-%m-%d")
                 )
 
-                positions_increases_for_event.append(
-                    returns_since_decision.cumsum().ffill()
-                )
+                pnl_for_event.append(returns_since_decision.cumsum().ffill())
 
                 # Gain, brier score, trade count
                 market_decision.gains_since_decision = (
@@ -197,29 +195,23 @@ def _compute_model_performance(
                     market_decision.market_id
                 ] = (latest_price, market_decision.decision.odds)
 
-            if len(positions_increases_for_event) > 0:
-                positions_increase_for_event_df = pd.concat(
-                    positions_increases_for_event, axis=1
-                )
+            if len(pnl_for_event) > 0:
+                pnl_for_event_df = pd.concat(pnl_for_event, axis=1)
             else:
-                positions_increase_for_event_df = pd.DataFrame(index=prices_df.index)
+                pnl_for_event_df = pd.DataFrame(index=prices_df.index)
 
             # Add expensed_capital column: 0 before target_date,expensed_capital after
-            sum_positions_increase_for_event_df = positions_increase_for_event_df.sum(
-                axis=1
-            )
+            sum_pnl_for_event_df = pnl_for_event_df.sum(axis=1)
 
             model_decision_additional_info[model_decision.model_id].trades_dates.add(
                 model_decision.target_date.strftime("%Y-%m-%d")
             )
             model_decision_additional_info[
                 model_decision.model_id
-            ].pnl_per_event_decision[
-                event_decision.event_id
-            ] = sum_positions_increase_for_event_df
+            ].pnl_per_event_decision[event_decision.event_id] = sum_pnl_for_event_df
 
             event_decision.pnl_since_decision = DataPoint.list_datapoints_from_series(
-                sum_positions_increase_for_event_df,
+                sum_pnl_for_event_df,
             )
 
     # Get each model's daily performance
@@ -232,7 +224,7 @@ def _compute_model_performance(
         sums = all_pnl.sum(axis=1)
         counts = all_pnl.count(axis=1).replace(0, 1)  # Avoid division by zero
         normalized_pnl = (sums / counts).ffill()
-        final_positions_value = float(normalized_pnl.iloc[-1])
+        final_profit = float(normalized_pnl.iloc[-1])
 
         brier_scores = model_decision_additional_info[model_id].brier_scores.values()
         final_brier_score = (
@@ -258,7 +250,7 @@ def _compute_model_performance(
                 ].pnl_per_event_decision.items()
             },
             pnl_history=DataPoint.list_datapoints_from_series(normalized_pnl),
-            final_positions_value=final_positions_value,
+            final_profit=final_profit,
             final_brier_score=final_brier_score,
         )
 

@@ -33,9 +33,7 @@ def get_leaderboard(
     """
     sorted_performances = sorted(
         performances,
-        key=lambda p: p.final_positions_value
-        if p.final_positions_value is not None
-        else 0,
+        key=lambda p: p.final_profit if p.final_profit is not None else 0,
         reverse=True,
     )
 
@@ -52,7 +50,7 @@ def get_leaderboard(
             lastUpdated=date_to_string(datetime.now()),
             trend=trend,
             pnl_history=performance.pnl_history,
-            final_positions_value=performance.final_positions_value,
+            final_profit=performance.final_profit,
             final_brier_score=performance.final_brier_score,
         )
         leaderboard.append(leaderboard_entry)

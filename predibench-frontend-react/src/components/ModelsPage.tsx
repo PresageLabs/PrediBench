@@ -252,7 +252,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                         <div>
                           <div className="font-medium">{model.model_name}</div>
                           <div className="text-xs text-muted-foreground mt-1">
-                            Profit: {(model.final_positions_value * 100).toFixed(1)}% | Brier score: {model.final_brier_score.toFixed(3)}
+                            Profit: {(model.final_profit * 100).toFixed(1)}% | Brier score: {model.final_brier_score.toFixed(3)}
                           </div>
                         </div>
                       </div>
@@ -278,7 +278,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                     Final Profit:
                     <PortfolioValueToolTip />
                   </div>
-                  <div className="font-medium">{selectedModelData.final_positions_value.toFixed(1)}</div>
+                  <div className="font-medium">{selectedModelData.final_profit.toFixed(1)}</div>
                 </div>
                 <div>
                   <div className="flex items-center text-muted-foreground">
