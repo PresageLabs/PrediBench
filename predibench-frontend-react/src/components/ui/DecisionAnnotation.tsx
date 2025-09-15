@@ -9,14 +9,11 @@ interface DecisionAnnotationProps {
   allDecisions: ModelInvestmentDecision[]
   /** Cumulative PnL data to calculate period profit */
   cumulativeData: { x: string; y: number }[]
-  /** Model information for modal header */
-  modelName: string
-  modelId: string
   /** Callback when an event is clicked */
   onEventClick?: (eventDecision: any, decisionDate: string, decisionDatetime: string) => void
 }
 
-export function DecisionAnnotation({ decision, nextDecision, cumulativeData, modelName, modelId, onEventClick }: DecisionAnnotationProps) {
+export function DecisionAnnotation({ decision, nextDecision, cumulativeData, onEventClick }: DecisionAnnotationProps) {
   const [analysis, setAnalysis] = useState<DecisionAnalysis | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isMobile, setIsMobile] = useState<boolean>(() => {

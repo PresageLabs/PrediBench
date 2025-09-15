@@ -201,8 +201,6 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
             nextDecision={nextDecision}
             allDecisions={sortedDecisions}
             cumulativeData={cumulativeData}
-            modelName={modelPerformance.model_name}
-            modelId={modelPerformance.model_id}
             onEventClick={handleEventClick}
           />
         )

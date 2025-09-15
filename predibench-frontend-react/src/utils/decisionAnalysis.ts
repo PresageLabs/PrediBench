@@ -23,7 +23,7 @@ export interface DecisionAnalysis {
  */
 export async function calculateDecisionReturns(
   decision: ModelInvestmentDecision,
-  nextDecision?: ModelInvestmentDecision
+  _nextDecision?: ModelInvestmentDecision
 ): Promise<DecisionAnalysis> {
   const drivers: DecisionDriver[] = []
   let totalReturn = 0
