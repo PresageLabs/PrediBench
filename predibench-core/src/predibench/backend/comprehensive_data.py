@@ -165,15 +165,17 @@ def _compute_model_performance(
                 if market_decision.decision.bet == 0:
                     continue
 
-                market_prices = market_prices.bfill()
+                market_prices = (
+                    market_prices.bfill()
+                )  # Set prices stable before change date, so that pct change is 0
 
                 returns_since_decision = (
                     market_prices.pct_change().fillna(0) * market_decision.decision.bet
                 )
 
-                # Zero out returns before the decision date
+                # Zero out returns before the decision date (STRICT IS IMPORTANT)
                 returns_since_decision[
-                    returns_since_decision.index <= model_decision.target_date
+                    returns_since_decision.index < model_decision.target_date
                 ] = 0.0
 
                 # Preserve market_id as column name, make name unique by adding the target date
