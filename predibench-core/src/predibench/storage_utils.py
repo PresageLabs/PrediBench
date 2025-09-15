@@ -12,15 +12,19 @@ import uuid
 from functools import cache
 from pathlib import Path
 
+from dotenv import load_dotenv
 from google.api_core.exceptions import ClientError
 from google.cloud import storage
 
 from predibench.common import DATA_PATH
 from predibench.logger_config import get_logger
 
+load_dotenv()
+
 logger = get_logger(__name__)
 
 BUCKET_ENV_VAR = "BUCKET_PREDIBENCH"
+
 
 # Automatically determine storage mode based on bucket availability
 def _storage_using_bucket() -> bool:
@@ -28,9 +32,12 @@ def _storage_using_bucket() -> bool:
     if os.environ.get("USE_LOCAL_STORAGE", "false").lower() == "true":
         return False
     if BUCKET_ENV_VAR not in os.environ:
-        logger.info(f"Bucket environment variable {BUCKET_ENV_VAR} not set. Using local storage mode.")
+        logger.info(
+            f"Bucket environment variable {BUCKET_ENV_VAR} not set. Using local storage mode."
+        )
         return False
     return True
+
 
 STORAGE_MODE_BUCKET = _storage_using_bucket()
 
@@ -159,7 +166,9 @@ def _write_to_bucket_or_data_dir(content: str, blob_name: str) -> bool:
             blob.upload_from_string(content)
             print(f"✅ Uploaded {blob_name} to bucket")
         else:
-            raise RuntimeError(f"Bucket storage mode enabled but GCP access not available. Set {BUCKET_ENV_VAR} environment variable or check GCP credentials.")
+            raise RuntimeError(
+                f"Bucket storage mode enabled but GCP access not available. Set {BUCKET_ENV_VAR} environment variable or check GCP credentials."
+            )
     else:
         # Use local storage only
         local_path = DATA_PATH / blob_name
@@ -200,7 +209,9 @@ def _read_file_from_bucket_or_data_dir(blob_name: str) -> str:
             blob = bucket.blob(blob_name)
             return blob.download_as_text()
         else:
-            raise RuntimeError(f"Bucket storage mode enabled but GCP access not available. Set {BUCKET_ENV_VAR} environment variable or check GCP credentials.")
+            raise RuntimeError(
+                f"Bucket storage mode enabled but GCP access not available. Set {BUCKET_ENV_VAR} environment variable or check GCP credentials."
+            )
     else:
         # Use local storage only
         local_path = DATA_PATH / blob_name
@@ -262,7 +273,9 @@ def file_exists_in_storage(file_path: Path, force_rewrite: bool = False) -> bool
             blob = bucket.blob(blob_name)
             return blob.exists()
         else:
-            raise RuntimeError(f"Bucket storage mode enabled but GCP access not available. Set {BUCKET_ENV_VAR} environment variable or check GCP credentials.")
+            raise RuntimeError(
+                f"Bucket storage mode enabled but GCP access not available. Set {BUCKET_ENV_VAR} environment variable or check GCP credentials."
+            )
     else:
         # Check local only
         return file_path.exists()
@@ -298,7 +311,9 @@ def delete_from_storage(file_path: Path) -> bool:
                 return True
             return False
         else:
-            raise RuntimeError(f"Bucket storage mode enabled but GCP access not available. Set {BUCKET_ENV_VAR} environment variable or check GCP credentials.")
+            raise RuntimeError(
+                f"Bucket storage mode enabled but GCP access not available. Set {BUCKET_ENV_VAR} environment variable or check GCP credentials."
+            )
     else:
         # Delete from local only
         if file_path.exists():
