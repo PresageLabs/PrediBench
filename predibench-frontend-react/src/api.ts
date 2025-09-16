@@ -73,6 +73,9 @@ export interface ModelInvestmentDecision {
   target_date: string
   decision_datetime: string
   event_investment_decisions: EventInvestmentDecision[]
+  // Backend-computed cumulative net gains for the whole model between this decision and the next
+  // Values are net gains relative to 1.0 starting portfolio for the decision period
+  net_gains_until_next_decision?: TimeseriesPoint[]
 }
 
 export interface EventInvestmentDecision {

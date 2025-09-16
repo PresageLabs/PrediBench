@@ -10,8 +10,8 @@ import { MarkerAnnotations } from './MarkerAnnotations'
 const tickLabelOffset = 2
 
 interface DataPoint {
-  x?: string | Date | null
-  y?: number | null
+  date: string | Date
+  value: number
   [key: string]: unknown
 }
 
@@ -29,6 +29,7 @@ interface VisxLineChartProps {
   xAccessor?: (d: DataPoint) => Date
   yAccessor?: (d: DataPoint) => number
   yDomain?: [number, number]
+  xDomain?: [Date, Date]
   formatTooltipX?: (value: Date) => string
   showGrid?: boolean
   numTicks?: number
@@ -47,14 +48,14 @@ interface VisxLineChartProps {
 const defaultAccessors = {
   // Be tolerant to null/undefined values to support discontinuities.
   xAccessor: (d: DataPoint) => {
-    if (!d || d.x == null) return new Date(NaN)
-    const val = d.x
+    if (!d || d.date == null) return new Date(NaN)
+    const val = d.date
     const date = val instanceof Date ? val : new Date(val as string)
     return isNaN(date.getTime()) ? new Date(NaN) : date
   },
   yAccessor: (d: DataPoint) => {
-    if (!d || d.y == null) return NaN
-    const num = Number(d.y)
+    if (!d || d.value == null) return NaN
+    const num = Number(d.value)
     return Number.isFinite(num) ? num : NaN
   }
 }
@@ -84,6 +85,7 @@ export function VisxLineChart({
   xAccessor = defaultAccessors.xAccessor,
   yAccessor = defaultAccessors.yAccessor,
   yDomain,
+  xDomain,
   formatTooltipX = (value: Date) => format(value, 'MMM d, yyyy'),
   showGrid = true,
   numTicks = 4,
@@ -193,7 +195,7 @@ export function VisxLineChart({
     const allData = series.flatMap(s => s.data).filter(d => d != null)
     if (allData.length === 0) return null
 
-    const xExtent = extent(allData, safeXAccessor) as [Date, Date]
+    const xExtent = xDomain || (extent(allData, safeXAccessor) as [Date, Date])
 
     let yExtent: [number, number]
     if (yDomain) {
@@ -318,7 +320,7 @@ export function VisxLineChart({
     })
 
     return { xScale, yScale, yDomain: yExtent, actualTickCount, yTicks, yStep }
-  }, [series, safeXAccessor, safeYAccessor, yDomain, margin, chartHeight, containerWidth, effectiveNumTicks])
+  }, [series, safeXAccessor, safeYAccessor, yDomain, xDomain, margin, chartHeight, containerWidth, effectiveNumTicks])
 
   const processCalculationQueue = useCallback((targetX: number) => {
     if (!containerRef.current || !scales) return
@@ -828,7 +830,7 @@ export function VisxLineChart({
           <MarkerAnnotations
             xScale={scales.xScale}
             yScale={scales.yScale}
-            cumulativeData={series.length > 0 ? series[0].data.map(d => ({ x: d.x as string, y: d.y as number })) : []}
+            cumulativeData={series.length > 0 ? series[0].data.map(d => ({ date: d.date as string, value: d.value as number })) : []}
             modelDecisions={modelDecisions}
           />
         )}

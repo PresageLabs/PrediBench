@@ -184,7 +184,8 @@ def test_compute_model_performance_gain():
     end_gain_second_decision = (
         0.5 * ((0.5 - 0.9) / 0.9) + 0.4 * ((0.5 - 0.1) / 0.1)
     ) / 10
-    # Why? Betting 0.5 on market
+    # Why a profit? -> Model bet 0.5 against market, 0.4 with it. The 0.4 earns much more, since it was bought for dirt cheap.
+
     assert second_decision_gains[0].value == 0
     assert second_decision_gains[1].value == 0
     assert second_decision_gains[2].value == end_gain_second_decision

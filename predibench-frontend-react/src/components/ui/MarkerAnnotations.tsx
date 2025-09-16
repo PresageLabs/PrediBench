@@ -14,7 +14,7 @@ interface MarkerAnnotationsProps {
   yScale: (value: number) => number
   
   /** Data for markers - cumulative PnL data points */
-  cumulativeData: { x: string; y: number }[]
+  cumulativeData: { date: string; value: number }[]
   
   /** Investment decisions data to show on hover */
   modelDecisions: ModelInvestmentDecision[]
@@ -40,17 +40,17 @@ export function MarkerAnnotations({
     
     // Find cumulative PnL points that have corresponding decisions
     cumulativeData.forEach(point => {
-      const decisionsOnDate = decisionsByDate.get(point.x)
+      const decisionsOnDate = decisionsByDate.get(point.date)
       if (decisionsOnDate && decisionsOnDate.length > 0) {
-        const x = xScale(new Date(point.x))
-        const y = yScale(point.y)
-        
+        const x = xScale(new Date(point.date))
+        const y = yScale(point.value)
+
         // Only add marker if coordinates are valid
         if (Number.isFinite(x) && Number.isFinite(y)) {
           markers.push({
             x,
             y,
-            date: point.x,
+            date: point.date,
             decisions: decisionsOnDate
           })
         }
