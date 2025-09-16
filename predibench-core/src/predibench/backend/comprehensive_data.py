@@ -163,33 +163,48 @@ def _compute_model_performance(
                 )
                 if market_decision.decision.bet == 0:
                     continue
+                assert (
+                    min(market_prices.fillna(0)) >= 0
+                    and max(market_prices.fillna(0)) <= 1
+                ), "Market prices must be between 0 and 1, got: " + str(market_prices)
 
                 market_prices = (
                     market_prices.bfill()
                 )  # Set prices stable before change date, so that pct change is 0
 
-                returns_since_decision = (
-                    market_prices.pct_change().fillna(0) * market_decision.decision.bet
-                )
+                import numpy as np
 
-                # Zero out returns before the decision date (STRICT IS IMPORTANT)
-                returns_since_decision[
-                    returns_since_decision.index < model_decision.target_date
-                ] = 0.0
+                market_prices = market_prices.bfill().ffill()
+                price_at_decision = market_prices.loc[model_decision.target_date]
+                if price_at_decision == 0:
+                    raise ValueError("Price at decision is 0!")
 
+                market_prices.loc[: model_decision.target_date] = price_at_decision
+
+                net_gain_since_decision = (
+                    market_prices.fillna(0) / price_at_decision - 1
+                ) * abs(market_decision.decision.bet)
+                assert np.min(net_gain_since_decision) >= -abs(
+                    market_decision.decision.bet
+                ), "Cannot lose more than the bet, got: " + str(net_gain_since_decision)
+
+                # Zero out returns before the decision date
+                net_gain_since_decision[
+                    net_gain_since_decision.index <= model_decision.target_date
+                ] = 0
+
+                net_gain_since_decision = net_gain_since_decision.ffill()
                 # Preserve market_id as column name, make name unique by adding the target date
-                returns_since_decision.name = (
+                net_gain_since_decision.name = (
                     market_decision.market_id
                     + "_"
                     + model_decision.target_date.strftime("%Y-%m-%d")
                 )
 
-                pnl_for_event.append(returns_since_decision.cumsum().ffill())
+                pnl_for_event.append(net_gain_since_decision)
 
                 # Gain, brier score, trade count
-                market_decision.gains_since_decision = (
-                    latest_price - returns_since_decision.iloc[-1]
-                )
+                market_decision.gains_since_decision = net_gain_since_decision.iloc[-1]
 
                 if market_decision.decision.bet != 0:
                     model_decision_additional_info[
@@ -225,9 +240,11 @@ def _compute_model_performance(
             model_decision_additional_info[model_id].pnl_per_event_decision,
             axis=1,
         ).ffill()
-        sums = all_pnl.sum(axis=1)
-        counts = all_pnl.count(axis=1).replace(0, 1)  # Avoid division by zero
-        normalized_pnl = (sums / counts).ffill()
+        # Aggregate across events by averaging per-event PnL so that
+        # models with more events are not advantaged by event count.
+        means = all_pnl.mean(axis=1)
+        # Use the averaged PnL as the normalized overall PnL history
+        normalized_pnl = (means).ffill()
         final_profit = float(normalized_pnl.iloc[-1])
 
         brier_scores = model_decision_additional_info[model_id].brier_scores.values()
