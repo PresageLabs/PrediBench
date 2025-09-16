@@ -233,9 +233,9 @@ export function EventDecisionModal({
                   <tr className="border-b border-border text-muted-foreground">
                     <th className="text-left py-2 px-3">Market</th>
                     <th className="text-center py-2 px-3">Bet ($)</th>
-                    <th className="text-right py-2 px-3">Estimated odds</th>
-                    <th className="text-right py-2 px-3">Confidence</th>
-                    <th className="text-right py-2 px-3">Returns</th>
+                    <th className="text-center py-2 px-3">Estimated odds</th>
+                    <th className="text-center py-2 px-3">Confidence level</th>
+                    <th className="text-center py-2 px-3">Current returns</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -254,9 +254,9 @@ export function EventDecisionModal({
                           </span>
                         )}
                       </td>
-                      <td className="py-2 px-3 text-right">{(md.decision.odds * 100).toFixed(1)}%</td>
-                      <td className="py-2 px-3 text-right">{md.decision.confidence}/10</td>
-                      <td className="py-2 px-3 text-right">
+                      <td className="py-2 px-3 text-center">{(md.decision.odds * 100).toFixed(1)}%</td>
+                      <td className="py-2 px-3 text-center">{md.decision.confidence}/10</td>
+                      <td className="py-2 px-3 text-center">
                         {realizedReturns[md.market_id] !== undefined ? (
                           <ProfitDisplay value={realizedReturns[md.market_id]} />
                         ) : (
@@ -278,7 +278,7 @@ export function EventDecisionModal({
                   {/* Overall returns row */}
                   <tr className="border-t-2 border-border bg-muted/20 font-medium">
                     <td className="py-3 px-3" colSpan={4}>Overall returns</td>
-                    <td className="py-3 px-3 text-right">
+                    <td className="py-3 px-3 text-center">
                       <ProfitDisplay
                         value={totalEventPnL}
                         formatValue={(v) => {

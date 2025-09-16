@@ -145,7 +145,7 @@ def _compute_model_performance(
     for model_decision in model_decisions:
         # NOTE: is it really necessary to deduplicate "multiple decisions for the same market on the same date" : does it really happen?
         for event_decision in model_decision.event_investment_decisions:
-            pnl_for_event = []
+            net_gains_per_market = []
 
             for market_decision in event_decision.market_investment_decisions:
                 if (
@@ -200,7 +200,7 @@ def _compute_model_performance(
                     + model_decision.target_date.strftime("%Y-%m-%d")
                 )
 
-                pnl_for_event.append(net_gain_since_decision)
+                net_gains_per_market.append(net_gain_since_decision)
 
                 # Gain, brier score, trade count
                 market_decision.gains_since_decision = net_gain_since_decision.iloc[-1]
@@ -213,23 +213,26 @@ def _compute_model_performance(
                     market_decision.market_id
                 ] = (latest_price, market_decision.decision.odds)
 
-            if len(pnl_for_event) > 0:
-                pnl_for_event_df = pd.concat(pnl_for_event, axis=1)
+            # Aggregate market gains to get the event gain
+            if len(net_gains_per_market) > 0:
+                net_gains_for_event_df = pd.concat(net_gains_per_market, axis=1)
             else:
-                pnl_for_event_df = pd.DataFrame(index=prices_df.index)
+                net_gains_for_event_df = pd.DataFrame(index=prices_df.index)
 
             # Add expensed_capital column: 0 before target_date,expensed_capital after
-            sum_pnl_for_event_df = pnl_for_event_df.sum(axis=1)
+            sum_net_gains_for_event_df = net_gains_for_event_df.sum(axis=1)
 
             model_decision_additional_info[model_decision.model_id].trades_dates.add(
                 model_decision.target_date.strftime("%Y-%m-%d")
             )
             model_decision_additional_info[
                 model_decision.model_id
-            ].pnl_per_event_decision[event_decision.event_id] = sum_pnl_for_event_df
+            ].pnl_per_event_decision[
+                event_decision.event_id
+            ] = sum_net_gains_for_event_df
 
             event_decision.pnl_since_decision = DataPoint.list_datapoints_from_series(
-                sum_pnl_for_event_df,
+                sum_net_gains_for_event_df,
             )
 
     # Get each model's daily performance
