@@ -82,7 +82,7 @@ export interface EventInvestmentDecision {
   market_investment_decisions: MarketInvestmentDecision[]
   unallocated_capital: number
   // Backend-computed cumulative PnL time series for this event since the decision date
-  pnl_since_decision?: TimeseriesPoint[]
+  net_gains_until_next_decision?: TimeseriesPoint[]
 }
 
 export interface MarketInvestmentDecision {
@@ -90,7 +90,7 @@ export interface MarketInvestmentDecision {
   decision: SingleInvestmentDecision
   market_question: string | null
   // Backend-computed gains for this market since the decision date (optional)
-  gains_since_decision?: number | null
+  net_gains_at_decision_end?: number | null
   // Backend-computed pair: [current_price, estimated_odds] (optional)
   brier_score_pair_current?: [number, number] | null
 }

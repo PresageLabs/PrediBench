@@ -155,12 +155,12 @@ export function EventDecisionModal({
     return () => { cancelled = true }
   }, [isOpen, eventDecision, decisionDate, positionEndDate])
 
-  // Compute per-market returns from backend-provided gains_since_decision, and sum for overall
+  // Compute per-market returns from backend-provided net_gains_at_decision_end, and sum for overall
   useEffect(() => {
     const per: Record<string, number> = {}
     let total = 0
     eventDecision.market_investment_decisions.forEach(market_decision => {
-      const g = market_decision.gains_since_decision
+      const g = market_decision.net_gains_at_decision_end
       if (g !== null && g !== undefined) {
         per[market_decision.market_id] = g
         total += g
