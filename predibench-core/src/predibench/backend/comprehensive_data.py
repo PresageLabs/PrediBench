@@ -164,18 +164,19 @@ def _compute_model_performance(
                 if market_decision.decision.bet == 0:
                     continue
 
-                market_prices = (
-                    market_prices.bfill()
-                )  # Set prices stable before change date, so that pct change is 0
+                if market_decision.decision.bet < 0:
+                    market_prices = 1 - market_prices
 
-                returns_since_decision = (
-                    market_prices.pct_change().fillna(0) * market_decision.decision.bet
-                )
+                market_prices = market_prices.bfill().ffill()
+
+                returns_since_decision = market_prices.pct_change(periods=1).shift(
+                    1
+                ).fillna(0) * abs(market_decision.decision.bet)
 
                 # Zero out returns before the decision date (STRICT IS IMPORTANT)
                 returns_since_decision[
-                    returns_since_decision.index < model_decision.target_date
-                ] = 0.0
+                    returns_since_decision.index <= model_decision.target_date
+                ] = 0
 
                 # Preserve market_id as column name, make name unique by adding the target date
                 returns_since_decision.name = (
@@ -184,12 +185,11 @@ def _compute_model_performance(
                     + model_decision.target_date.strftime("%Y-%m-%d")
                 )
 
-                pnl_for_event.append(returns_since_decision.cumsum().ffill())
+                pnl = returns_since_decision.cumsum().ffill()
+                pnl_for_event.append(pnl)
 
                 # Gain, brier score, trade count
-                market_decision.gains_since_decision = (
-                    latest_price - returns_since_decision.iloc[-1]
-                )
+                market_decision.gains_since_decision = pnl.iloc[-1]
 
                 if market_decision.decision.bet != 0:
                     model_decision_additional_info[
@@ -226,8 +226,14 @@ def _compute_model_performance(
             axis=1,
         ).ffill()
         sums = all_pnl.sum(axis=1)
-        counts = all_pnl.count(axis=1).replace(0, 1)  # Avoid division by zero
-        normalized_pnl = (sums / counts).ffill()
+        # counts = np.maximum(
+        #     all_pnl.count(axis=1), 2
+        # )  # Avoid division by zero, at least 3 to warm up
+        # print(counts)
+        # assert (
+        #     counts.iloc[0] + 5 < counts.iloc[-1]
+        # )  # The count should be higher towards the end.
+        normalized_pnl = (sums).ffill()
         final_profit = float(normalized_pnl.iloc[-1])
 
         brier_scores = model_decision_additional_info[model_id].brier_scores.values()

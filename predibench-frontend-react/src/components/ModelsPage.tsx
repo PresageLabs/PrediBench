@@ -201,6 +201,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
             nextDecision={nextDecision}
             allDecisions={sortedDecisions}
             cumulativeData={cumulativeData}
+            onEventClick={handleEventClick}
           />
         )
       }
