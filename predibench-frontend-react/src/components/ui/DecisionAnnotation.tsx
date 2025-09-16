@@ -9,9 +9,11 @@ interface DecisionAnnotationProps {
   allDecisions: ModelInvestmentDecision[]
   /** Cumulative PnL data to calculate period profit */
   cumulativeData: { x: string; y: number }[]
+  /** Callback when an event is clicked */
+  onEventClick?: (eventDecision: any, decisionDate: string, decisionDatetime: string) => void
 }
 
-export function DecisionAnnotation({ decision, nextDecision, cumulativeData }: DecisionAnnotationProps) {
+export function DecisionAnnotation({ decision, nextDecision, cumulativeData, onEventClick }: DecisionAnnotationProps) {
   const [analysis, setAnalysis] = useState<DecisionAnalysis | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isMobile, setIsMobile] = useState<boolean>(() => {
@@ -49,7 +51,7 @@ export function DecisionAnnotation({ decision, nextDecision, cumulativeData }: D
   }, [decision, nextDecision])
 
   const totalBets = decision.event_investment_decisions.reduce((total, eventDecision) => {
-    return total + eventDecision.market_investment_decisions.filter(md => md.decision.bet !== 0).length
+    return total + eventDecision.market_investment_decisions.length
   }, 0)
 
   const formattedStartDate = new Date(decision.target_date).toLocaleDateString('en-US', {
@@ -88,6 +90,14 @@ export function DecisionAnnotation({ decision, nextDecision, cumulativeData }: D
     return 0
   }, [cumulativeData, decision.target_date, nextDecision])
 
+  const handleEventClick = (eventId: string) => {
+    const eventDecision = decision.event_investment_decisions.find(ed => ed.event_id === eventId)
+    if (eventDecision && onEventClick) {
+      onEventClick(eventDecision, decision.target_date, decision.decision_datetime)
+    }
+  }
+
+
   return (
     <div>
       {/* Header with period dates and profit change */}
@@ -120,46 +130,48 @@ export function DecisionAnnotation({ decision, nextDecision, cumulativeData }: D
         </div>
       </div>
 
-      {/* Simplified event list */}
+      {/* Per-market returns list (in dollars) */}
       {isLoading ? (
         <div style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))', fontStyle: 'italic' }}>
           Calculating returns...
         </div>
       ) : analysis ? (
         <div style={{ fontSize: '12px' }}>
-          {(isMobile ? analysis.topDrivers.slice(0, 3) : analysis.topDrivers).map((driver, idx) => {
-            const hasNoBets = driver.betAmount === 0
-            return (
-              <div key={idx} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '6px',
-                padding: '4px 0',
-                opacity: hasNoBets ? 0.5 : 1
-              }}>
-                <div style={{
-                  fontWeight: '500',
-                  flex: 1,
-                  color: hasNoBets ? 'hsl(var(--muted-foreground))' : 'inherit'
+          {(() => {
+            const limit = isMobile ? 3 : 5
+            const items = analysis.topDrivers.slice(0, limit)
+            return items.map((driver, idx) => {
+              return (
+                <div key={idx} style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '6px',
+                  padding: '4px 0',
+                  opacity: 1
                 }}>
-                  {driver.eventTitle}
+                  <div
+                    style={{
+                      fontWeight: '500',
+                      flex: 1,
+                      color: 'inherit',
+                      cursor: 'pointer',
+                      textDecoration: 'underline',
+                      transition: 'color 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = 'hsl(var(--primary))' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = 'inherit' }}
+                    onClick={() => handleEventClick(driver.eventId)}
+                   >
+                     {driver.eventTitle}
+                   </div>
+                  <div style={{ textAlign: 'right', fontWeight: '600', fontSize: '12px' }}>
+                    <ProfitDisplay value={driver.returnAmount} />
+                  </div>
                 </div>
-                <div style={{ textAlign: 'right', fontWeight: '600', fontSize: '12px' }}>
-                  {hasNoBets ? (
-                    <span style={{ color: 'hsl(var(--muted-foreground))', fontStyle: 'italic' }}>
-                      No bets
-                    </span>
-                  ) : (
-                    <ProfitDisplay
-                      value={driver.returnAmount}
-                      formatValue={(v) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`}
-                    />
-                  )}
-                </div>
-              </div>
-            )
-          })}
+              )
+            })
+          })()}
         </div>
       ) : (
         <div style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))' }}>

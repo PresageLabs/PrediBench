@@ -168,9 +168,8 @@ def _compute_model_performance(
                     and max(market_prices.fillna(0)) <= 1
                 ), "Market prices must be between 0 and 1, got: " + str(market_prices)
 
-                market_prices = (
-                    market_prices.bfill()
-                )  # Set prices stable before change date, so that pct change is 0
+                if market_decision.decision.bet < 0:
+                    market_prices = 1 - market_prices
 
                 import numpy as np
 

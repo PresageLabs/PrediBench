@@ -194,7 +194,21 @@ export function VisxLineChart({
     if (allData.length === 0) return null
 
     const xExtent = extent(allData, safeXAccessor) as [Date, Date]
-    let yExtent = yDomain || (extent(allData, safeYAccessor) as [number, number])
+
+    let yExtent: [number, number]
+    if (yDomain) {
+      yExtent = yDomain
+    } else {
+      // Filter out NaN values and compute extent manually to ensure proper handling of negative values
+      const validYValues = allData.map(safeYAccessor).filter(v => Number.isFinite(v))
+      if (validYValues.length === 0) {
+        yExtent = [0, 1] // fallback
+      } else {
+        const minY = Math.min(...validYValues)
+        const maxY = Math.max(...validYValues)
+        yExtent = [minY, maxY]
+      }
+    }
 
     // Simplified tick/domain calculation per 20% rule
     let actualTickCount = effectiveNumTicks
@@ -823,7 +837,7 @@ export function VisxLineChart({
       {/* Hover state: single sliding container */}
       {hoverState && (() => {
         // Calculate anchoring once for the entire hover container
-        const tooltipWidth = 150
+        const tooltipWidth = 200
         const chartWidth = containerWidth - margin.left - margin.right
         const anchorRight = hoverState.xPosition + tooltipWidth > margin.left + chartWidth
 
@@ -922,7 +936,8 @@ export function VisxLineChart({
                   boxShadow: '0 8px 25px -3px rgba(0, 0, 0, 0.15)',
                   minWidth: isMobile ? `${Math.min(420, containerWidth - 24)}px` : '420px',
                   maxWidth: isMobile ? `${Math.max(420, containerWidth - 24)}px` : '500px',
-                  whiteSpace: 'normal'
+                  whiteSpace: 'normal',
+                  pointerEvents: 'auto'
                 }}
               >
                 {hoverState.customAnnotation.content}
@@ -987,7 +1002,7 @@ export function VisxLineChart({
                         boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                       }}
                     >
-                      <strong>{(safeYAccessor(tooltip.datum) * 100).toFixed(1)}%</strong> - {(tooltip.lineConfig.name || tooltip.lineConfig.dataKey).substring(0, 20)}
+                      <strong>{(safeYAccessor(tooltip.datum) * 100).toFixed(1)}%</strong> - {(tooltip.lineConfig.name || tooltip.lineConfig.dataKey).substring(0, 50)}
                     </div>
                   </div>
                 ))
