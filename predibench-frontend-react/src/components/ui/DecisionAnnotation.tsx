@@ -162,9 +162,9 @@ export function DecisionAnnotation({ decision, nextDecision, cumulativeData, onE
                     onMouseEnter={(e) => { e.currentTarget.style.color = 'hsl(var(--primary))' }}
                     onMouseLeave={(e) => { e.currentTarget.style.color = 'inherit' }}
                     onClick={() => handleEventClick(driver.eventId)}
-                  >
-                    {driver.marketQuestion}
-                  </div>
+                   >
+                     {driver.eventTitle}
+                   </div>
                   <div style={{ textAlign: 'right', fontWeight: '600', fontSize: '12px' }}>
                     <ProfitDisplay value={driver.returnAmount} />
                   </div>

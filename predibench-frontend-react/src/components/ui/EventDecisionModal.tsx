@@ -159,10 +159,10 @@ export function EventDecisionModal({
   useEffect(() => {
     const per: Record<string, number> = {}
     let total = 0
-    eventDecision.market_investment_decisions.forEach(md => {
-      const g = md.gains_since_decision
+    eventDecision.market_investment_decisions.forEach(market_decision => {
+      const g = market_decision.gains_since_decision
       if (g !== null && g !== undefined) {
-        per[md.market_id] = g
+        per[market_decision.market_id] = g
         total += g
       }
     })

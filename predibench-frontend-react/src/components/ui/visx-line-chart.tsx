@@ -194,7 +194,21 @@ export function VisxLineChart({
     if (allData.length === 0) return null
 
     const xExtent = extent(allData, safeXAccessor) as [Date, Date]
-    let yExtent = yDomain || (extent(allData, safeYAccessor) as [number, number])
+
+    let yExtent: [number, number]
+    if (yDomain) {
+      yExtent = yDomain
+    } else {
+      // Filter out NaN values and compute extent manually to ensure proper handling of negative values
+      const validYValues = allData.map(safeYAccessor).filter(v => Number.isFinite(v))
+      if (validYValues.length === 0) {
+        yExtent = [0, 1] // fallback
+      } else {
+        const minY = Math.min(...validYValues)
+        const maxY = Math.max(...validYValues)
+        yExtent = [minY, maxY]
+      }
+    }
 
     // Simplified tick/domain calculation per 20% rule
     let actualTickCount = effectiveNumTicks

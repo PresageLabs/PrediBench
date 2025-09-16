@@ -23,35 +23,48 @@ export interface DecisionAnalysis {
  */
 export async function calculateDecisionReturns(
   decision: ModelInvestmentDecision,
-  _nextDecision?: ModelInvestmentDecision
+  nextDecision?: ModelInvestmentDecision
 ): Promise<DecisionAnalysis> {
+  // Use backend event-level pnl_since_decision when available; fallback to summing market gains
+  const endDate = nextDecision?.target_date || null
   const drivers: DecisionDriver[] = []
   let totalReturn = 0
   let totalBets = 0
 
   for (const eventDecision of decision.event_investment_decisions) {
-    for (const marketDecision of eventDecision.market_investment_decisions) {
-      const betAmount = marketDecision.decision.bet
-      totalBets += 1
-      const ret = marketDecision.gains_since_decision ?? 0
-      totalReturn += ret
+    const marketCount = eventDecision.market_investment_decisions.length
+    const eventBet = eventDecision.market_investment_decisions.reduce((acc, md) => acc + Math.abs(md.decision.bet), 0)
 
-      drivers.push({
-        eventId: eventDecision.event_id,
-        eventTitle: eventDecision.event_title,
-        marketQuestion: marketDecision.market_question || 'Market',
-        betAmount: Math.abs(betAmount),
-        returnAmount: ret,
-        returnPercentage: Math.abs(betAmount) > 0 ? (ret / Math.abs(betAmount)) * 100 : 0,
-        priceChange: 0,
-        startPrice: 0,
-        endPrice: 0,
-      })
+    let eventReturn = 0
+    const series = eventDecision.pnl_since_decision || []
+    if (series.length > 0) {
+      if (!endDate) {
+        eventReturn = series[series.length - 1]?.value ?? 0
+      } else {
+        const candidates = series.filter(p => p.date <= endDate)
+        eventReturn = candidates.length ? candidates[candidates.length - 1].value : 0
+      }
+    } else {
+      // Fallback: sum market gains
+      eventReturn = eventDecision.market_investment_decisions.reduce((acc, md) => acc + (md.gains_since_decision ?? 0), 0)
     }
+
+    totalReturn += eventReturn
+    totalBets += marketCount
+    drivers.push({
+      eventId: eventDecision.event_id,
+      eventTitle: eventDecision.event_title,
+      marketQuestion: `${marketCount} markets`,
+      betAmount: eventBet,
+      returnAmount: eventReturn,
+      returnPercentage: eventBet > 0 ? (eventReturn / eventBet) * 100 : 0,
+      priceChange: 0,
+      startPrice: 0,
+      endPrice: 0,
+    })
   }
 
   const sortedDrivers = drivers.sort((a, b) => Math.abs(b.returnAmount) - Math.abs(a.returnAmount))
-
   return { totalReturn, totalBets, topDrivers: sortedDrivers }
 }
 
