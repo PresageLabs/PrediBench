@@ -63,13 +63,13 @@ def _build_model_decisions(
     market_decision_for = MarketInvestmentDecision(
         market_id="event_1_market_1",
         decision=SingleInvestmentDecision(
-            rationale="test", odds=0.8, bet=-0.5, confidence=5
+            rationale="test", estimated_probability=0.8, bet=-0.5, confidence=5
         ),
     )
     market_decision_against = MarketInvestmentDecision(
         market_id="event_1_market_1",
         decision=SingleInvestmentDecision(
-            rationale="test", odds=0.8, bet=0.4, confidence=5
+            rationale="test", estimated_probability=0.8, bet=0.4, confidence=5
         ),
     )
 
@@ -102,13 +102,13 @@ def _build_model_decisions_second_event(
     market_decision_for = MarketInvestmentDecision(
         market_id="event_1_market_2",
         decision=SingleInvestmentDecision(
-            rationale="test", odds=0.8, bet=-0.5, confidence=5
+            rationale="test", estimated_probability=0.8, bet=-0.5, confidence=5
         ),
     )
     market_decision_against = MarketInvestmentDecision(
         market_id="event_1_market_2",
         decision=SingleInvestmentDecision(
-            rationale="test", odds=0.8, bet=0.4, confidence=5
+            rationale="test", estimated_probability=0.8, bet=0.4, confidence=5
         ),
     )
 

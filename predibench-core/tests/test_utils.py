@@ -27,21 +27,21 @@ So here are the investment decisions:
 For the first one:
 1. market_id (str): 1234
 2. rationale (str): I think this market is grossly underpriced
-3. odds (float, 0 to 1): 1
+3. estimated_probability (float, 0 to 1): 1
 4. confidence (int, 0 to 10): 10
 5. bet (float, -1 to 1): -1
 
 Now the second one:
 1. market_id (str): 4321
 2. rationale (str): I think there's too much hype in the market
-3. odds (float, 0 to 1): 0.25
+3. estimated_probability (float, 0 to 1): 0.25
 4. confidence (int, 0 to 10): 3
 5. bet (float, -1 to 1): -0.57
 
 And a third
 1. market_id (str): 3azdoi5
 2. rationale (str): This is it.
-3. odds (float, 0 to 1): 0.
+3. estimated_probability (float, 0 to 1): 0.
 4. confidence (int, 0 to 10): 0
 5. bet (float, -1 to 1): -0.0
 """
@@ -70,7 +70,7 @@ And a third
         first_decision.decision.rationale
         == "I think this market is grossly underpriced"
     )
-    assert first_decision.decision.odds == 1.0
+    assert first_decision.decision.estimated_probability == 1.0
     assert first_decision.decision.confidence == 10
     assert first_decision.decision.bet == -1.0
 
@@ -80,14 +80,14 @@ And a third
         second_decision.decision.rationale
         == "I think there's too much hype in the market"
     )
-    assert second_decision.decision.odds == 0.25
+    assert second_decision.decision.estimated_probability == 0.25
     assert second_decision.decision.confidence == 3
     assert second_decision.decision.bet == -0.57
 
     # Test third decision
     assert third_decision.market_id == "3azdoi5"
     assert third_decision.decision.rationale == "This is it."
-    assert third_decision.decision.odds == 0.0
+    assert third_decision.decision.estimated_probability == 0.0
     assert third_decision.decision.confidence == 0
     assert third_decision.decision.bet == 0
 

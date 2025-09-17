@@ -64,7 +64,7 @@ def _create_random_betting_decisions(
 
         model_decision = SingleInvestmentDecision(
             rationale=f"Random decision for testing market {market_info.id}",
-            odds=np.random.uniform(0.1, 0.9),
+            estimated_probability=np.random.uniform(0.1, 0.9),
             bet=amount,
             confidence=np.random.choice(list(range(1, 10))),
         )
@@ -116,7 +116,7 @@ def _create_most_likely_outcome_decisions(
 
         model_decision = SingleInvestmentDecision(
             rationale=rationale,
-            odds=current_price or 0.5,
+            estimated_probability=current_price or 0.5,
             bet=amount,
             confidence=6,
         )
@@ -179,7 +179,7 @@ def _create_volume_proportional_decisions(
 
         model_decision = SingleInvestmentDecision(
             rationale=rationale,
-            odds=current_price or 0.5,
+            estimated_probability=current_price or 0.5,
             bet=amount,
             confidence=6,
         )
@@ -306,7 +306,7 @@ You are an expert prediction-market analyst. You have been given an amount of US
 <analysis_guidelines>
 - Use web search to gather up-to-date information about this event
 - Be critical of any sources, and be cautious of sensationalized headlines or partisan sources
-- If some web search results appear to indicate the event's outcome directly, that is weird because the event should still be unresolved : so double-check that they do not refer to another event, for instance unrelated or long past.
+- If some web search results appear to indicate the event's outcome directly, that would be weird because the event should still be unresolved : so double-check that they do not refer to another event, for instance unrelated or long past.
 - Only place a bet when you estimate that the market is mispriced.
 </analysis_guidelines>
 
@@ -314,7 +314,7 @@ You are an expert prediction-market analyst. You have been given an amount of US
 - You have exactly 1.0 dollars to allocate. Use the "bet" field to allocate your capital. Negative means you buy the second outcome of the market (outcomes are listed in each market description), but they still count in absolute value towards the 1.0 dollar allocation.
 - For EACH market, specify your bet. Provide exactly:
 {BET_DESCRIPTION}
-- You can of course choose not to bet on some markets.
+- You can of course choose not to bet on some markets: then the bet should be 0.0.
 - The sum of all absolute values of bets + unallocated_capital must equal 1.0. Example: If you bet 0.3 in market A, -0.2 in market B, and nothing on market C, your unallocated_capital should be 0.5, such that the sum is 0.3 + 0.2 + 0.5 = 1.0.
 </capital_allocation_rules>"""
 

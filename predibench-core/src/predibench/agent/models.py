@@ -52,11 +52,12 @@ class SingleInvestmentDecision(BaseModel):
         ...,
         description="Explanation for your decision and why you think this market is mispriced (or correctly priced if skipping). Write at least a few sentences. If you take a strong bet, make sure to highlight the facts you know/value that the market doesn't.",
     )
-    odds: float = Field(
+    estimated_probability: float = Field(
         ...,
         ge=0.0,
         le=1.0,
-        description="The odds you think the market will settle at (your true probability estimate)",
+        description="Your estimate for the true probability of the market",
+        validation_alias=AliasChoices("estimated_probability", "odds"),
     )
     bet: float = Field(
         ...,
@@ -68,7 +69,7 @@ class SingleInvestmentDecision(BaseModel):
         ...,
         ge=0,
         le=10,
-        description="Your confidence in the odds and your bet. Should be between 0 (absolute uncertainty, you shouldn't bet if you're not confident) and 10 (absolute certainty, then you can bet high).",
+        description="Your confidence in the estimated_probability and your bet. Should be between 0 (absolute uncertainty, you shouldn't bet if you're not confident) and 10 (absolute certainty, then you can bet high).",
     )
 
 
@@ -84,7 +85,7 @@ class MarketInvestmentDecision(BaseModel):
     market_question: str | None = None
     net_gains_at_decision_end: float | None = None
     brier_score_pair_current: tuple[float, float] | None = (
-        None  # tuple of (price current, estimated odds)
+        None  # tuple of (price current, estimated estimated_probability)
     )
 
 
@@ -115,7 +116,7 @@ class EventInvestmentDecisions(BaseModel):
         - Default behavior (apply_kelly_bet_criterion=False): keep legacy behavior where
           bets and unallocated capital are jointly scaled so total equals 1.0.
         - Kelly behavior (apply_kelly_bet_criterion=True): compute a Kelly-sized bet
-          per market using model odds vs the market price at decision time (if available),
+          per market using model probability vs the market price at decision time (if available),
           then rescale only the bets so that total allocated equals (1 - unallocated_capital).
           Unallocated capital remains unchanged.
         """
@@ -140,7 +141,7 @@ class EventInvestmentDecisions(BaseModel):
         if apply_kelly_criterion_at_date is not None and market_prices is not None:
             # Compute Kelly bet per market from provided market price history
             for md in self.market_investment_decisions:
-                estimated_odds = float(md.decision.odds)
+                estimated_odds = float(md.decision.estimated_probability)
                 market_price_series = market_prices.get(md.market_id)
                 if market_price_series is None or len(market_price_series) == 0:
                     continue

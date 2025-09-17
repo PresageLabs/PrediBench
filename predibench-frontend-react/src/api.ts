@@ -102,7 +102,7 @@ export interface MarketInvestmentDecision {
 
 export interface SingleInvestmentDecision {
   rationale: string
-  odds: number
+  estimated_probability: number
   bet: number
   confidence: number
 }

@@ -10,7 +10,7 @@ def test_brier_score_calculation():
 
     dates = [date(2023, 1, 1), date(2023, 1, 2), date(2023, 1, 3)]
 
-    # Create decisions DataFrame (model predictions/odds)
+    # Create decisions DataFrame (model predictions/estimated_probability)
     decisions_df = pd.DataFrame(
         {
             "market_1": [0.6, 0.8, 0.9],  # Predictions for market_1
