@@ -1,11 +1,11 @@
+import { curveMonotoneX } from '@visx/curve'
 import { scaleLinear, scaleTime } from '@visx/scale'
-import { AnimatedLineSeries, Axis, XYChart } from '@visx/xychart'
+import { AnimatedLineSeries, Axis, GlyphSeries, Grid, XYChart, buildChartTheme } from '@visx/xychart'
 import { extent } from 'd3-array'
 import { format } from 'date-fns'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
-import type { ModelInvestmentDecision } from '../../api'
-import { MarkerAnnotations } from './MarkerAnnotations'
+// Removed unused decision marker props and annotations integration
 
 const tickLabelOffset = 2
 
@@ -33,10 +33,6 @@ interface VisxLineChartProps {
   formatTooltipX?: (value: Date) => string
   showGrid?: boolean
   numTicks?: number
-  /** Optional: Show decision point markers with hover annotations */
-  showDecisionMarkers?: boolean
-  /** Optional: Investment decisions data for markers (required if showDecisionMarkers is true) */
-  modelDecisions?: ModelInvestmentDecision[]
   /** Optional: Custom annotations indexed by date string (YYYY-MM-DD) */
   additionalAnnotations?: Record<string, {
     content: React.ReactNode
@@ -60,6 +56,7 @@ const defaultAccessors = {
   }
 }
 
+
 interface TooltipState {
   x: number
   y: number
@@ -75,7 +72,6 @@ interface HoverState {
     content: React.ReactNode
     nextDate?: Date | null
   }
-  clipEndPosition?: number  // For clipping colored line to end of annotation period
 }
 
 export function VisxLineChart({
@@ -89,16 +85,12 @@ export function VisxLineChart({
   formatTooltipX = (value: Date) => format(value, 'MMM d, yyyy'),
   showGrid = true,
   numTicks = 4,
-  showDecisionMarkers = false,
-  modelDecisions = [],
   additionalAnnotations = {}
 }: VisxLineChartProps) {
   // Ensure minimum of 4 ticks for better readability
   const effectiveNumTicks = Math.max(numTicks, 4)
   const containerRef = useRef<HTMLDivElement>(null)
   const [hoverState, setHoverState] = useState<HoverState | null>(null)
-  const calculationQueueRef = useRef<{ x: number; timestamp: number }[]>([])
-  const isProcessingRef = useRef<boolean>(false)
 
   const [containerWidth, setContainerWidth] = useState(800)
   const isAnnotated = Object.keys(additionalAnnotations).length > 0
@@ -130,39 +122,6 @@ export function VisxLineChart({
     },
     [yAccessor]
   )
-
-
-  // Helper to find which annotation period a date falls into
-  const findAnnotationPeriod = useCallback((date: Date): {
-    startDate: Date
-    endDate: Date | null
-    annotation: typeof additionalAnnotations[string]
-  } | null => {
-    if (Object.keys(additionalAnnotations).length === 0) return null
-
-    const dateTime = date.getTime()
-    const annotationDates = Object.keys(additionalAnnotations).sort()
-
-    // Find the annotation period this date falls into
-    for (let i = 0; i < annotationDates.length; i++) {
-      const startDate = new Date(annotationDates[i])
-      const endDate = i < annotationDates.length - 1 ? new Date(annotationDates[i + 1]) : null
-
-      // Check if date falls within this period
-      const afterStart = dateTime >= startDate.getTime()
-      const beforeEnd = !endDate || dateTime < endDate.getTime()
-
-      if (afterStart && beforeEnd) {
-        return {
-          startDate,
-          endDate,
-          annotation: additionalAnnotations[annotationDates[i]]
-        }
-      }
-    }
-
-    return null
-  }, [additionalAnnotations])
 
   // Update container width when component mounts/resizes
   useEffect(() => {
@@ -201,7 +160,7 @@ export function VisxLineChart({
     if (yDomain) {
       yExtent = yDomain
     } else {
-      // Filter out NaN values and compute extent manually to ensure proper handling of negative values
+      // Filter out NaN values and compute extent manually
       const validYValues = allData.map(safeYAccessor).filter(v => Number.isFinite(v))
       if (validYValues.length === 0) {
         yExtent = [0, 1] // fallback
@@ -210,103 +169,6 @@ export function VisxLineChart({
         const maxY = Math.max(...validYValues)
         yExtent = [minY, maxY]
       }
-    }
-
-    // Simplified tick/domain calculation per 20% rule
-    let actualTickCount = effectiveNumTicks
-    let yTicks: number[] | undefined
-    let yStep: number | undefined
-    if (!yDomain) {
-      const [dataMin, dataMax] = yExtent
-      // Guard for degenerate ranges: handled via interval computation below
-
-      // Nice intervals in ascending order
-      const niceIntervals = [
-        0.001, 0.002, 0.005,
-        0.01, 0.02, 0.05,
-        0.1, 0.2, 0.25, 0.5,
-        1, 2, 5, 10, 20, 50,
-        100, 200, 500, 1000
-      ]
-
-      // Utility: compute tick domain and count for an interval
-      const computeFor = (step: number) => {
-        const maxAbove = Math.max(0, dataMax)
-        const maxBelowAbs = Math.max(0, -Math.min(0, dataMin))
-        const stepsAbove = Math.floor((maxAbove + 0.5 * step) / step)
-        const stepsBelow = Math.floor((maxBelowAbs + 0.5 * step) / step)
-        let lo = -stepsBelow * step
-        let hi = stepsAbove * step
-        if (hi === lo) hi = lo + step
-        const count = Math.floor((hi - lo) / step) + 1
-        return { lo, hi, count }
-      }
-
-      // Aim for 4-9 ticks; scan from SMALLEST interval and stop at the first that fits.
-      const minTicks = 4
-      const maxTicks = 9
-      let chosen = null as null | { lo: number; hi: number; count: number; step: number }
-      for (const ni of niceIntervals) {
-        const r = computeFor(ni)
-        if (r.count >= minTicks && r.count <= maxTicks) {
-          chosen = { ...r, step: ni }
-          break
-        }
-      }
-      // Fallback to last interval if none matched
-      if (!chosen) {
-        const ni = niceIntervals[niceIntervals.length - 1]
-        const r = computeFor(ni)
-        chosen = { ...r, step: ni }
-      }
-
-      yExtent = [chosen.lo, chosen.hi]
-      actualTickCount = chosen.count
-      yStep = chosen.step
-      // Generate explicit tick values to lock step
-      if (Number.isFinite(yExtent[0]) && Number.isFinite(yExtent[1]) && Number.isFinite(yStep)) {
-        const decimals = Math.max(0, (yStep.toString().split('.')[1]?.length || 0))
-        const roundFix = (v: number) => Number(v.toFixed(decimals))
-        const n = Math.max(2, Math.floor((yExtent[1] - yExtent[0]) / (yStep as number)) + 1)
-        const t: number[] = []
-        for (let i = 0; i < n; i++) t.push(roundFix(yExtent[0] + i * (yStep as number)))
-        yTicks = t
-      }
-    } else {
-      // yDomain provided: keep it as-is, but still compute ticks explicitly with a nice interval
-      const [minD, maxD] = yDomain
-      // If domain is invalid, subsequent code will fail naturally
-      const niceIntervals = [
-        0.001, 0.002, 0.005,
-        0.01, 0.02, 0.05,
-        0.1, 0.2, 0.25, 0.5,
-        1, 2, 5, 10, 20, 50,
-        100, 200, 500, 1000
-      ]
-      const minTicks = 4
-      const maxTicks = 9
-      let chosenStep: number | null = null
-      for (const ni of niceIntervals) {
-        // ceil/floor to ensure ticks fall within domain
-        const start = Math.ceil(minD / ni) * ni
-        const end = Math.floor(maxD / ni) * ni
-        const count = start <= end ? Math.floor((end - start) / ni) + 1 : 0
-        if (count >= minTicks && count <= maxTicks) {
-          chosenStep = ni
-          break
-        }
-      }
-      // No explicit fallback/errors
-      // Build ticks within the provided domain bounds
-      const step = chosenStep as number
-      const decimals = Math.max(0, (step.toString().split('.')[1]?.length || 0))
-      const roundFix = (v: number) => Number(v.toFixed(decimals))
-      const start = Math.ceil(minD / step) * step
-      const end = Math.floor(maxD / step) * step
-      const n = Math.floor((end - start) / step) + 1
-      yTicks = Array.from({ length: n }, (_, i) => roundFix(start + i * step))
-      // Preserve the provided domain
-      actualTickCount = yTicks.length
     }
 
     const xScale = scaleTime({
@@ -319,205 +181,55 @@ export function VisxLineChart({
       range: [chartHeight - margin.bottom, margin.top]
     })
 
-    return { xScale, yScale, yDomain: yExtent, actualTickCount, yTicks, yStep }
-  }, [series, safeXAccessor, safeYAccessor, yDomain, xDomain, margin, chartHeight, containerWidth, effectiveNumTicks])
+    return { xScale, yScale, yDomain: yExtent }
+  }, [series, safeXAccessor, safeYAccessor, yDomain, xDomain, margin, chartHeight, containerWidth])
 
-  const processCalculationQueue = useCallback((targetX: number) => {
-    if (!containerRef.current || !scales) return
+  const chartTheme = useMemo(() => {
+    const colors = series.map(s => s.stroke)
+    return buildChartTheme({
+      backgroundColor: 'transparent',
+      colors,
+      tickLength: 4,
+      gridColor: 'hsl(var(--border))',
+      gridColorDark: 'hsl(var(--border))',
+      svgLabelSmall: { fill: 'hsl(var(--muted-foreground))' },
+      svgLabelBig: { fill: 'hsl(var(--muted-foreground))' },
+      gridStyles: { stroke: 'hsl(var(--border))', opacity: 1 }
+    })
+  }, [series])
 
-    const hoveredTime = scales.xScale.invert(targetX)
+  const colorByDataKey = useMemo(() => {
+    const colors = (chartTheme.colors || []) as string[]
+    const map: Record<string, string> = {}
+    series.forEach((s, i) => { map[s.dataKey] = colors[i % colors.length] })
+    return map
+  }, [series, chartTheme])
 
-    // If additionalAnnotations is provided, completely disable standard tooltips
-    if (Object.keys(additionalAnnotations).length > 0) {
-      const period = findAnnotationPeriod(hoveredTime)
+  const findAnnotationPeriod = useCallback((date: Date): {
+    startDate: Date
+    endDate: Date | null
+    annotation: (typeof additionalAnnotations)[string]
+  } | null => {
+    if (!additionalAnnotations || Object.keys(additionalAnnotations).length === 0) return null
 
-      if (period) {
-        // Calculate the middle X position of the period for annotation display
-        const startX = scales.xScale(period.startDate)
-        const endX = period.endDate ? scales.xScale(period.endDate) : containerWidth - margin.right
-        const middleX = (startX + endX) / 2
+    const dateTime = date.getTime()
+    const annotationDates = Object.keys(additionalAnnotations).sort()
 
-        setHoverState({
-          xPosition: middleX,
-          tooltips: [],
-          customAnnotation: {
-            date: period.startDate,
-            content: period.annotation.content,
-            nextDate: period.endDate
-          },
-          clipEndPosition: endX
-        })
-        return
+    for (let i = 0; i < annotationDates.length; i++) {
+      const startDate = new Date(annotationDates[i])
+      const nextDateKey = i < annotationDates.length - 1 ? annotationDates[i + 1] : null
+      const explicitNext = additionalAnnotations[annotationDates[i]].getNextDate?.() || null
+      const endDate = explicitNext ? new Date(explicitNext) : (nextDateKey ? new Date(nextDateKey) : null)
+
+      const afterStart = dateTime >= startDate.getTime()
+      const beforeEnd = !endDate || dateTime < endDate.getTime()
+      if (afterStart && beforeEnd) {
+        return { startDate, endDate, annotation: additionalAnnotations[annotationDates[i]] }
       }
-
-      // No period found - no hover state when additionalAnnotations is provided
-      setHoverState(null)
-      return
     }
 
-    // Standard tooltip logic (only when no additionalAnnotations)
-    const newTooltips: TooltipState[] = []
-
-    series.forEach((line) => {
-      if (!line.data || line.data.length === 0) return
-
-      // Consider only valid data points
-      const validPoints = line.data.filter((p) => {
-        const xd = safeXAccessor(p)
-        const yd = safeYAccessor(p)
-        return xd instanceof Date && !isNaN(xd.getTime()) && Number.isFinite(yd)
-      })
-      if (validPoints.length === 0) return
-
-      // Skip this line if hovered x is outside this series' x-range (discontinuous support)
-      const minX = validPoints.reduce((m, p) => Math.min(m, safeXAccessor(p).getTime()), Infinity)
-      const maxX = validPoints.reduce((m, p) => Math.max(m, safeXAccessor(p).getTime()), -Infinity)
-      const ht = hoveredTime.getTime()
-      if (!(ht >= minX && ht <= maxX)) return
-
-      // Find closest data point by time within this series
-      let closestPoint = validPoints[0]
-      let minDistance = Infinity
-      for (const point of validPoints) {
-        const t = safeXAccessor(point).getTime()
-        const distance = Math.abs(t - ht)
-        if (distance < minDistance) {
-          minDistance = distance
-          closestPoint = point
-        }
-      }
-
-      // Use scales to get exact screen coordinates
-      const xPos = scales.xScale(safeXAccessor(closestPoint))
-      const yPos = scales.yScale(safeYAccessor(closestPoint))
-      if (!Number.isFinite(xPos) || !Number.isFinite(yPos)) return
-
-      newTooltips.push({
-        x: xPos,
-        y: yPos,
-        datum: closestPoint,
-        lineConfig: line
-      })
-    })
-
-    // Filter out duplicate y=0 tooltips before setting state
-    const filteredTooltips: TooltipState[] = []
-    let hasSeenZero = false
-
-    newTooltips.forEach(tooltip => {
-      const yValue = safeYAccessor(tooltip.datum)
-      // Check if the value would display as "0.00" when formatted with .toFixed(2)
-      const displayValue = yValue.toFixed(2)
-      const isDisplayZero = displayValue === '0.00'
-
-      if (isDisplayZero) {
-        if (!hasSeenZero) {
-          filteredTooltips.push(tooltip)
-          hasSeenZero = true
-        }
-        // Skip subsequent tooltips that display as 0.00
-      } else {
-        filteredTooltips.push(tooltip)
-      }
-    })
-
-    // Use the x position from the first tooltip for the vertical line
-    const alignedXPosition = filteredTooltips.length > 0 ? filteredTooltips[0].x : targetX
-
-    setHoverState({
-      xPosition: alignedXPosition,
-      tooltips: filteredTooltips
-    })
-  }, [series, safeXAccessor, safeYAccessor, scales, containerRef, additionalAnnotations, findAnnotationPeriod, containerWidth, margin])
-
-  // Compute marker points: one circle per x-point, except the very first
-  // point of each continuous segment. If clipTime is provided, only include
-  // points with x <= clipTime so markers align with hover clipping.
-  const getMarkerPoints = useCallback(
-    (data: DataPoint[], clipTime?: Date) => {
-      const points: DataPoint[] = []
-      let inSegment = false
-      for (const p of data) {
-        const xd = safeXAccessor(p)
-        const yd = safeYAccessor(p)
-        const valid = xd instanceof Date && !isNaN(xd.getTime()) && Number.isFinite(yd)
-        if (!valid) {
-          inSegment = false
-          continue
-        }
-        // entering a new segment: skip the first point
-        if (!inSegment) {
-          inSegment = true
-          continue
-        }
-        if (clipTime) {
-          if (xd.getTime() <= clipTime.getTime()) points.push(p)
-        } else {
-          points.push(p)
-        }
-      }
-      return points
-    },
-    [safeXAccessor, safeYAccessor]
-  )
-
-  const handlePointerMove = useCallback((params: { event?: React.PointerEvent<Element> | React.FocusEvent<Element, Element>; svgPoint?: { x: number; y: number } }) => {
-    if (!params.event || !containerRef.current || !scales) return
-
-    const containerRect = containerRef.current.getBoundingClientRect()
-    const mouseX = (params.event as React.PointerEvent<Element>).clientX - containerRect.left
-    const now = Date.now()
-
-    // Add to queue
-    calculationQueueRef.current.push({ x: mouseX, timestamp: now })
-
-    // Prune queue if it gets too large (keep only quantiles)
-    const pruneThreshold = 5
-    const quantiles = 4 // Can be adjusted: 4=quartiles, 10=deciles, etc.
-
-    if (calculationQueueRef.current.length > pruneThreshold) {
-      const queue = calculationQueueRef.current
-      const prunedQueue: { x: number; timestamp: number }[] = []
-
-      // Keep quantiles of the queue
-      const step = Math.floor(queue.length / quantiles)
-      for (let i = step - 1; i < queue.length; i += step) {
-        prunedQueue.push(queue[i])
-      }
-
-      // Always keep the last item (most recent)
-      if (prunedQueue[prunedQueue.length - 1] !== queue[queue.length - 1]) {
-        prunedQueue.push(queue[queue.length - 1])
-      }
-
-      calculationQueueRef.current = prunedQueue
-    }
-
-    // Process queue if not already processing
-    if (!isProcessingRef.current && calculationQueueRef.current.length > 0) {
-      isProcessingRef.current = true
-
-      const processNext = () => {
-        if (calculationQueueRef.current.length === 0) {
-          isProcessingRef.current = false
-          return
-        }
-
-        // Take the most recent item from queue
-        const item = calculationQueueRef.current.pop()!
-        processCalculationQueue(item.x)
-
-        // Continue processing if there are more items
-        if (calculationQueueRef.current.length > 0) {
-          setTimeout(processNext, 0) // Use setTimeout to avoid blocking
-        } else {
-          isProcessingRef.current = false
-        }
-      }
-
-      processNext()
-    }
-  }, [processCalculationQueue])
+    return null
+  }, [additionalAnnotations])
 
   // Don't render chart until we have valid dimensions
   if (!scales || containerWidth < 100) {
@@ -533,21 +245,94 @@ export function VisxLineChart({
   return (
     <ChartWrapper
       ref={containerRef}
+      onMouseMove={(e) => {
+        if (!containerRef.current || !scales) return
+        const rect = containerRef.current.getBoundingClientRect()
+        const mouseX = e.clientX - rect.left
+
+        const hoveredTime = scales.xScale.invert(mouseX)
+
+        // If annotation periods are provided, show annotation overlay instead of standard tooltips
+        if (additionalAnnotations && Object.keys(additionalAnnotations).length > 0) {
+          const period = findAnnotationPeriod(hoveredTime)
+          if (period) {
+            const startX = scales.xScale(period.startDate)
+            const endX = period.endDate ? scales.xScale(period.endDate) : (containerWidth - margin.right)
+            const middleX = (startX + endX) / 2
+            setHoverState({
+              xPosition: middleX,
+              tooltips: [],
+              customAnnotation: {
+                date: period.startDate,
+                content: period.annotation.content,
+                nextDate: period.endDate ?? undefined
+              }
+            })
+            return
+          }
+          // No matching period; clear hover when using annotations
+          setHoverState(null)
+          return
+        }
+        const newTooltips: { x: number; y: number; datum: DataPoint; lineConfig: LineSeriesConfig }[] = []
+
+        series.forEach((line) => {
+          if (!line.data || line.data.length === 0) return
+          const validPoints = line.data.filter((p) => {
+            const xd = safeXAccessor(p)
+            const yd = safeYAccessor(p)
+            return xd instanceof Date && !isNaN(xd.getTime()) && Number.isFinite(yd)
+          })
+          if (validPoints.length === 0) return
+
+          let closestPoint = validPoints[0]
+          let minDistance = Infinity
+          for (const point of validPoints) {
+            const t = safeXAccessor(point).getTime()
+            const distance = Math.abs(t - hoveredTime.getTime())
+            if (distance < minDistance) {
+              minDistance = distance
+              closestPoint = point
+            }
+          }
+
+          const xPos = scales.xScale(safeXAccessor(closestPoint))
+          const yPos = scales.yScale(safeYAccessor(closestPoint))
+          if (!Number.isFinite(xPos) || !Number.isFinite(yPos)) return
+
+          newTooltips.push({ x: xPos, y: yPos, datum: closestPoint, lineConfig: line })
+        })
+
+        // Filter duplicate 0.00% tooltips
+        const filtered: typeof newTooltips = []
+        let hasSeenZero = false
+        newTooltips.forEach((t) => {
+          const val = safeYAccessor(t.datum)
+          const isDisplayZero = val.toFixed(2) === '0.00'
+          if (isDisplayZero) {
+            if (!hasSeenZero) {
+              filtered.push(t)
+              hasSeenZero = true
+            }
+          } else {
+            filtered.push(t)
+          }
+        })
+
+        const alignedXPosition = filtered.length > 0 ? filtered[0].x : mouseX
+        setHoverState({ xPosition: alignedXPosition, tooltips: filtered })
+      }}
       onMouseLeave={() => {
-        // Clear queue and state when mouse leaves
-        calculationQueueRef.current = []
-        isProcessingRef.current = false
         setHoverState(null)
       }}
     >
       <XYChart
-        key={`chart-${JSON.stringify(xDomain)}-${JSON.stringify(scales?.yDomain)}`}
         width={containerWidth}
         height={chartHeight}
         margin={margin}
-        xScale={{ type: 'time', domain: xDomain }}
-        yScale={{ type: 'linear', domain: scales?.yDomain }}
-        onPointerMove={handlePointerMove}
+        theme={chartTheme}
+        xScale={{ type: 'time', domain: (scales.xScale as any).domain?.() ?? undefined, nice: false }}
+        yScale={{ type: 'linear', domain: scales.yDomain, nice: false, zero: false }}
       >
         <defs>
           <clipPath id="reveal-clip">
@@ -562,21 +347,15 @@ export function VisxLineChart({
             />
           </clipPath>
 
-          {/* Dynamic hover clip paths for colored lines (horizontal-only clipping) */}
-          {hoverState && series.map((_, index) => {
-            // Use clipEndPosition if available (for annotation periods), otherwise use xPosition
-            const clipX = hoverState.clipEndPosition ?? hoverState.xPosition
-            return (
-              <clipPath key={index} id={`hover-clip-${index}`}>
-                <rect
-                  x={margin.left}
-                  y={0}
-                  width={Math.max(0, clipX - margin.left)}
-                  height={chartHeight}
-                />
-              </clipPath>
-            )
-          })}
+          <clipPath id="chart-bounds-clip">
+            <rect
+              x={margin.left}
+              y={margin.top}
+              width={containerWidth - margin.left - margin.right}
+              height={chartHeight - margin.top - margin.bottom}
+            />
+          </clipPath>
+
           {/* Hashed pattern for annotation period highlighting */}
           <pattern
             id="annotation-highlight"
@@ -601,41 +380,19 @@ export function VisxLineChart({
           </pattern>
         </defs>
 
-        {/* Hashed area highlighting for annotation periods */}
-        {hoverState?.customAnnotation && (
-          <rect
-            x={scales.xScale(hoverState.customAnnotation.date)}
-            y={margin.top}
-            width={hoverState.customAnnotation.nextDate
-              ? scales.xScale(hoverState.customAnnotation.nextDate) - scales.xScale(hoverState.customAnnotation.date)
-              : (containerWidth - margin.right) - scales.xScale(hoverState.customAnnotation.date)
-            }
-            height={chartHeight - margin.top - margin.bottom}
-            fill="url(#annotation-highlight)"
-            pointerEvents="none"
-          />
-        )}
 
-        {/* Horizontal grid lines for each Y tick (locked to our computed ticks if available) */}
+        {/* Grid */}
         {showGrid && (
-          <g>
-            {scales.yTicks!.map((t: number, i: number) => {
-              const y = scales.yScale(t)
-              return (
-                <line
-                  key={`grid-y-${i}`}
-                  x1={margin.left}
-                  x2={containerWidth - margin.right}
-                  y1={y}
-                  y2={y}
-                  stroke="hsl(var(--border))"
-                  strokeLinecap="round"
-                  strokeWidth={1}
-                  opacity={0.5}
-                />
-              )
-            })}
-          </g>
+          <Grid
+            rows={true}
+            columns={false}
+            numTicks={effectiveNumTicks}
+            lineStyle={{
+              stroke: "hsl(var(--border))",
+              strokeWidth: 1,
+              opacity: 0.5
+            }}
+          />
         )}
 
         <Axis
@@ -645,7 +402,7 @@ export function VisxLineChart({
           tickFormat={(d: any) => {
             try {
               const dt = d instanceof Date ? d : new Date(d)
-              return format(dt, 'EEE dd')
+              return format(dt, 'd MMMM')
             } catch {
               return ''
             }
@@ -657,8 +414,7 @@ export function VisxLineChart({
           hideAxisLine={false}
           hideTicks
           orientation="left"
-          numTicks={scales.actualTickCount}
-          tickValues={scales.yTicks}
+          numTicks={effectiveNumTicks}
           tickFormat={(val: any) => {
             const v = typeof val === 'number' ? val : Number(val)
             if (!Number.isFinite(v)) return ''
@@ -667,182 +423,65 @@ export function VisxLineChart({
           tickLabelProps={() => ({ dx: -10 })}
         />
 
-        {/* Month separators and labels (below day ticks) */}
-        {(() => {
-          if (!scales) return null
-          const [d0, d1] = scales.xScale.domain() as [Date, Date]
-          const startDate = d0 instanceof Date ? d0 : new Date(d0)
-          const endDate = d1 instanceof Date ? d1 : new Date(d1)
-
-          // Compute month boundaries within domain (first day of each month)
-          const boundaries: Date[] = []
-          const firstBoundary = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 1)
-          for (let b = firstBoundary; b < endDate; b = new Date(b.getFullYear(), b.getMonth() + 1, 1)) {
-            boundaries.push(new Date(b))
-          }
-
-          // Compute month spans for labeling
-          const spans: { start: Date; end: Date; label: string }[] = []
-          let mStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
-          while (mStart < endDate) {
-            const mEnd = new Date(mStart.getFullYear(), mStart.getMonth() + 1, 1)
-            spans.push({ start: new Date(mStart), end: new Date(mEnd), label: format(mStart, 'MMM') })
-            mStart = mEnd
-          }
-
-          const plotLeft = margin.left
-          const plotRight = containerWidth - margin.right
-          // Position month bar/label below day labels but within SVG bounds
-          const monthBarY = chartHeight - 17
-          const monthLabelY = chartHeight - 3
-
-          return (
-            <g pointerEvents="none">
-              {boundaries.map((bd, i) => {
-                const x = scales.xScale(bd)
-                if (!Number.isFinite(x)) return null
-                return (
-                  <line
-                    key={`month-boundary-${i}`}
-                    x1={x}
-                    x2={x}
-                    y1={margin.top}
-                    y2={chartHeight - margin.bottom}
-                    stroke="hsl(var(--border))"
-                    strokeWidth={1}
-                    opacity={0.5}
-                  />
-                )
-              })}
-              {spans.map((s, i) => {
-                const sx = Math.max(plotLeft, scales.xScale(s.start))
-                const ex = Math.min(plotRight, scales.xScale(s.end))
-                if (!Number.isFinite(sx) || !Number.isFinite(ex)) return null
-                const cx = (sx + ex) / 2
-                return (
-                  <g key={`month-label-${i}`}>
-                    {/* Short bar above month label */}
-                    <line
-                      x1={cx - 10}
-                      x2={cx + 10}
-                      y1={monthBarY}
-                      y2={monthBarY}
-                      stroke="hsl(var(--muted-foreground))"
-                      strokeWidth={2}
-                      opacity={0.8}
-                    />
-                    <text
-                      x={cx}
-                      y={monthLabelY}
-                      textAnchor="middle"
-                      fontSize={12}
-                      fill="hsl(var(--muted-foreground))"
-                    >
-                      {s.label}
-                    </text>
-                  </g>
-                )
-              })}
-            </g>
-          )
-        })()}
-
-        {series.map((line, index) => (
-          <g key={line.dataKey}>
-            {/* Gray background line - shows full line */}
-            <AnimatedLineSeries
-              stroke="currentColor"
-              dataKey={`${line.dataKey}-gray`}
-              data={line.data}
-              xAccessor={safeXAccessor}
-              yAccessor={safeYAccessor}
-              style={{
-                // Clip to chart plot area so nothing shows outside Y limits
-                clipPath: 'url(#reveal-clip)',
-                color: 'hsl(var(--chart-dim-stroke))'
-              }}
-            />
-
-            {/* Colored line clipped to hover position */}
-            <AnimatedLineSeries
-              stroke={line.stroke}
-              dataKey={`${line.dataKey}-colored`}
-              data={line.data}
-              xAccessor={safeXAccessor}
-              yAccessor={safeYAccessor}
-              style={{
-                clipPath: hoverState ? `url(#hover-clip-${index})` : undefined
-              }}
-            />
-
-            {/* Markers for gray background line: one per x-point except segment starts (clip to reveal) */}
-            {(() => {
-              const markerPoints = getMarkerPoints(line.data)
-              return (
-                <g clipPath={'url(#reveal-clip)'} style={{ color: 'hsl(var(--chart-dim-stroke))' }}>
-                  {markerPoints.map((pt, i) => {
-                    const cx = scales.xScale(safeXAccessor(pt))
-                    const cy = scales.yScale(safeYAccessor(pt))
-                    if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null
-                    return (
-                      <circle
-                        key={`${line.dataKey}-gray-marker-${i}`}
-                        cx={cx}
-                        cy={cy}
-                        r={3}
-                        fill={'currentColor'}
-                        pointerEvents="none"
-                      />
-                    )
-                  })}
-                </g>
-              )
-            })()}
-
-            {/* Markers for colored series only: one per x-point except segment starts */}
-            {(() => {
-              const clipTime = hoverState ? scales.xScale.invert(hoverState.xPosition) : undefined
-              const markerPoints = getMarkerPoints(line.data, clipTime)
-              return (
-                <g clipPath={hoverState ? `url(#hover-clip-${index})` : 'url(#reveal-clip)'}>
-                  {markerPoints.map((pt, i) => {
-                    const cx = scales.xScale(safeXAccessor(pt))
-                    const cy = scales.yScale(safeYAccessor(pt))
-                    if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null
-                    return (
-                      <circle
-                        key={`${line.dataKey}-marker-${i}`}
-                        cx={cx}
-                        cy={cy}
-                        r={3}
-                        fill={line.stroke}
-                        pointerEvents="none"
-                      />
-                    )
-                  })}
-                </g>
-              )
-            })()}
-          </g>
-        ))}
-
-        {/* Decision point markers with hover annotations */}
-        {showDecisionMarkers && modelDecisions.length > 0 && (
-          <MarkerAnnotations
-            xScale={scales.xScale}
-            yScale={scales.yScale}
-            cumulativeData={series.length > 0 ? series[0].data.map(d => ({ date: d.date as string, value: d.value as number })) : []}
-            modelDecisions={modelDecisions}
+        {/* Hashed area highlighting for annotation periods when active */}
+        {hoverState?.customAnnotation && (
+          <rect
+            x={scales.xScale(hoverState.customAnnotation.date)}
+            y={margin.top}
+            width={hoverState.customAnnotation.nextDate
+              ? (scales.xScale(hoverState.customAnnotation.nextDate) - scales.xScale(hoverState.customAnnotation.date))
+              : ((containerWidth - margin.right) - scales.xScale(hoverState.customAnnotation.date))}
+            height={chartHeight - margin.top - margin.bottom}
+            fill="url(#annotation-highlight)"
+            pointerEvents="none"
           />
         )}
+
+
+        {series.map((line) => (
+          <g key={line.dataKey} clipPath="url(#chart-bounds-clip)">
+            {/* Smooth spline line */}
+            <AnimatedLineSeries
+              dataKey={line.dataKey}
+              data={line.data}
+              xAccessor={safeXAccessor}
+              yAccessor={safeYAccessor}
+              curve={curveMonotoneX}
+            />
+
+            {/* Circle markers */}
+            <GlyphSeries
+              dataKey={line.dataKey}
+              data={line.data}
+              xAccessor={safeXAccessor}
+              yAccessor={safeYAccessor}
+              size={6}
+            />
+          </g>
+        ))}
+        {/* Decision point markers removed (unused feature) */}
       </XYChart>
 
-      {/* Hover state: single sliding container */}
-      {hoverState && (() => {
-        // Calculate anchoring once for the entire hover container
+      {/* Custom hover overlay with individual positioned tooltips or annotation card */}
+      {hoverState && scales && (() => {
+        const sortedTooltips = [...hoverState.tooltips].sort((a, b) => b.y - a.y)
+        const tooltipHeight = 24
+        const gap = 2
+        let lastBottom = chartHeight - margin.bottom
+
+        const repositionedTooltips = sortedTooltips.map(t => {
+          const originalTop = t.y - tooltipHeight / 2
+          let newTop = Math.min(originalTop, lastBottom - tooltipHeight - gap)
+          newTop = Math.max(margin.top, newTop)
+          lastBottom = newTop
+          return { ...t, adjustedY: newTop + tooltipHeight / 2 }
+        })
+
         const tooltipWidth = 200
         const chartWidth = containerWidth - margin.left - margin.right
         const anchorRight = hoverState.xPosition + tooltipWidth > margin.left + chartWidth
+
+        const hoveredDate = hoverState.customAnnotation ? hoverState.customAnnotation.date : scales.xScale.invert(hoverState.xPosition)
 
         return (
           <div
@@ -855,10 +494,9 @@ export function VisxLineChart({
               transform: anchorRight ? 'translateX(-100%)' : 'translateX(0%)'
             }}
           >
-            {/* Vertical hover lines - start and end of period */}
+            {/* Vertical guide line(s) */}
             {hoverState.customAnnotation ? (
               <>
-                {/* Start line */}
                 <div
                   style={{
                     position: 'absolute',
@@ -869,7 +507,6 @@ export function VisxLineChart({
                     height: chartHeight - margin.top - margin.bottom
                   }}
                 />
-                {/* End line */}
                 {hoverState.customAnnotation.nextDate && (
                   <div
                     style={{
@@ -884,7 +521,6 @@ export function VisxLineChart({
                 )}
               </>
             ) : (
-              /* Standard single vertical line */
               <div
                 style={{
                   position: 'absolute',
@@ -901,9 +537,7 @@ export function VisxLineChart({
             <div
               style={{
                 position: 'absolute',
-                left: hoverState.customAnnotation
-                  ? scales.xScale(hoverState.customAnnotation.date) - hoverState.xPosition
-                  : 0,
+                left: hoverState.customAnnotation ? (scales.xScale(hoverState.customAnnotation.date) - hoverState.xPosition) : 0,
                 top: margin.top - 20,
                 transform: anchorRight ? 'translateX(-100%)' : 'translateX(0%)',
                 color: '#9ca3af',
@@ -912,23 +546,16 @@ export function VisxLineChart({
                 whiteSpace: 'nowrap'
               }}
             >
-              {hoverState.customAnnotation
-                ? formatTooltipX(hoverState.customAnnotation.date)
-                : hoverState.tooltips.length > 0 && formatTooltipX(safeXAccessor(hoverState.tooltips[0].datum))
-              }
+              {formatTooltipX(hoveredDate)}
             </div>
 
-            {/* Custom annotation or standard tooltips */}
             {hoverState.customAnnotation ? (
-              /* Custom annotation display - positioned in middle of hashed area */
               <div
                 style={{
                   position: 'absolute',
-                  left: isMobile
-                    ? (margin.left + ((containerWidth - margin.left - margin.right) / 2)) - hoverState.xPosition
-                    : 0, // Already positioned at the middle X by processCalculationQueue
+                  left: 0,
                   top: isMobile ? chartHeight + 8 : (margin.top + 40),
-                  transform: 'translateX(-50%)', // Center horizontally on the anchor position
+                  transform: 'translateX(-50%)',
                   zIndex: 1001,
                   backgroundColor: 'hsl(var(--popover))',
                   color: 'hsl(var(--foreground))',
@@ -946,74 +573,47 @@ export function VisxLineChart({
                 {hoverState.customAnnotation.content}
               </div>
             ) : (
-              /* Standard tooltips */
-              (() => {
-                // Sort from bottom to top (filtering is now done earlier)
-                const sortedTooltips = [...hoverState.tooltips].sort((a, b) => b.y - a.y)
-
-                // Position tooltips with overlap prevention
-                const tooltipHeight = 24
-                const gap = 2
-                let lastBottom = height
-
-                const repositionedTooltips = sortedTooltips.map(tooltip => {
-                  const originalTop = tooltip.y - tooltipHeight / 2
-                  let newTop = Math.min(originalTop, lastBottom - tooltipHeight - gap)
-                  newTop = Math.max(margin.top, newTop)
-                  lastBottom = newTop
-
-                  return {
-                    ...tooltip,
-                    adjustedY: newTop + tooltipHeight / 2,
-                    // Convert absolute positions to relative positions within container
-                    relativeX: tooltip.x - hoverState.xPosition
-                  }
-                })
-
-                return repositionedTooltips.map((tooltip, index) => (
-                  <div key={`tooltip-${tooltip.lineConfig.dataKey}-${index}`}>
-                    {/* Hover point - positioned relative to container */}
-                    <div
-                      style={{
-                        position: 'absolute',
-                        left: tooltip.relativeX - 5,
-                        top: tooltip.y - 5,
-                        width: '10px',
-                        height: '10px',
-                        borderRadius: '50%',
-                        backgroundColor: tooltip.lineConfig.stroke,
-                        border: '2px solid white',
-                        zIndex: 1000
-                      }}
-                    />
-
-                    {/* Standard tooltip */}
-                    <div
-                      style={{
-                        position: 'absolute',
-                        left: anchorRight ? tooltip.relativeX - 8 : tooltip.relativeX + 8,
-                        top: tooltip.adjustedY,
-                        transform: anchorRight ? 'translate(-100%, -50%)' : 'translateY(-50%)',
-                        zIndex: 1001,
-                        backgroundColor: tooltip.lineConfig.stroke,
-                        color: 'white',
-                        padding: '4px 8px',
-                        borderRadius: '6px',
-                        fontSize: '11px',
-                        fontWeight: '500',
-                        whiteSpace: 'nowrap',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                      }}
-                    >
-                      <strong>{(safeYAccessor(tooltip.datum) * 100).toFixed(1)}%</strong> - {(tooltip.lineConfig.name || tooltip.lineConfig.dataKey).substring(0, 50)}
-                    </div>
+              repositionedTooltips.map((tooltip, index) => (
+                <div key={`tooltip-${tooltip.lineConfig.dataKey}-${index}`}>
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: tooltip.x - hoverState.xPosition - 5,
+                      top: tooltip.y - 5,
+                      width: '10px',
+                      height: '10px',
+                      borderRadius: '50%',
+                      backgroundColor: colorByDataKey[tooltip.lineConfig.dataKey] || tooltip.lineConfig.stroke,
+                      border: '2px solid white',
+                      zIndex: 1000
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: anchorRight ? tooltip.x - hoverState.xPosition - 8 : tooltip.x - hoverState.xPosition + 8,
+                      top: tooltip.adjustedY,
+                      transform: anchorRight ? 'translate(-100%, -50%)' : 'translateY(-50%)',
+                      zIndex: 1001,
+                      backgroundColor: colorByDataKey[tooltip.lineConfig.dataKey] || tooltip.lineConfig.stroke,
+                      color: 'white',
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: '500',
+                      whiteSpace: 'nowrap',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                    }}
+                  >
+                    <strong>{(safeYAccessor(tooltip.datum) * 100).toFixed(1)}%</strong> - {(tooltip.lineConfig.name || tooltip.lineConfig.dataKey).substring(0, 50)}
                   </div>
-                ))
-              })()
+                </div>
+              ))
             )}
           </div>
         )
       })()}
+
       {/* Debug overlay removed to keep code minimal */}
     </ChartWrapper>
   )
