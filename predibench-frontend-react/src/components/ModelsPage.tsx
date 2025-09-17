@@ -23,7 +23,7 @@ interface ModelsPageProps {
 export function ModelsPage({ leaderboard }: ModelsPageProps) {
   const location = useLocation()
   const navigate = useNavigate()
-  const [selectedModelId, setSelectedModelId] = useState<string>(leaderboard[0]?.model_id || '')
+  const [selectedModelId, setSelectedModelId] = useState<string>('')
   const [modelDecisions, setModelDecisions] = useState<ModelInvestmentDecision[]>([])
   // const [loading, setLoading] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -44,6 +44,11 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
 
   const selectedModelData = leaderboard.find(m => m.model_id === selectedModelId)
 
+  // Sort models by ascending Brier score for dropdown ordering and default selection
+  const sortedByBrier = useMemo(() => {
+    return [...leaderboard].sort((a, b) => a.final_brier_score - b.final_brier_score)
+  }, [leaderboard])
+
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search)
     const selectedFromUrl = urlParams.get('selected')
@@ -51,10 +56,10 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
 
     if (decodedSelectedFromUrl && leaderboard.find(m => m.model_id === decodedSelectedFromUrl)) {
       setSelectedModelId(decodedSelectedFromUrl)
-    } else if (!selectedModelId && leaderboard.length > 0) {
-      setSelectedModelId(leaderboard[0].model_id)
+    } else if (!selectedModelId && sortedByBrier.length > 0) {
+      setSelectedModelId(sortedByBrier[0].model_id)
     }
-  }, [leaderboard, selectedModelId, location.search])
+  }, [leaderboard, sortedByBrier, selectedModelId, location.search])
 
   // selectedModel is already the canonical model_id from the leaderboard
 
@@ -178,7 +183,8 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
 
   const cutoffDate = useMemo(() => {
     if (!predictionDates.length) return '0000-01-01'
-    const idx = Math.max(0, Math.min(cutoffIndex, predictionDates.length - 1))
+    const maxIndex = Math.max(0, predictionDates.length - 2)
+    const idx = Math.max(0, Math.min(cutoffIndex, maxIndex))
     return predictionDates[idx]
   }, [predictionDates, cutoffIndex])
 
@@ -250,7 +256,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
               sideOffset={4}
             >
               <Select.Viewport className="p-1 max-h-[70vh] overflow-y-auto">
-                {leaderboard.map((model, index) => (
+                {sortedByBrier.map((model, index) => (
                   <Select.Item
                     key={model.model_id}
                     value={model.model_id}
@@ -268,7 +274,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                         <div>
                           <div className="font-medium">{model.model_name}</div>
                           <div className="text-xs text-muted-foreground mt-1">
-                            Profit: {(model.final_profit * 100).toFixed(1)}% | Brier score: {model.final_brier_score.toFixed(3)}
+                            Brier score: {model.final_brier_score.toFixed(3)} | Profit: {(model.final_profit * 100).toFixed(1)}%
                           </div>
                         </div>
                       </div>
@@ -317,15 +323,15 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                 <PnLTooltip />
               </h3>
               {/* Cutoff Slider (below title, above graph) */}
-              <div className="mb-0 flex items-center justify-center gap-3">
+              <div className="mb-0 flex items-center justify-start gap-3">
                 <label className="text-xs text-muted-foreground leading-none self-center">First decision cutoff date:</label>
                 <input
                   type="range"
                   min={0}
-                  max={Math.max(0, predictionDates.length - 1)}
-                  value={Math.min(cutoffIndex, Math.max(0, predictionDates.length - 1))}
+                  max={Math.max(0, predictionDates.length - 2)}
+                  value={Math.min(cutoffIndex, Math.max(0, predictionDates.length - 2))}
                   onChange={(e) => setCutoffIndex(parseInt(e.target.value))}
-                  className="w-[200px] h-1 accent-primary"
+                  className="w-[100px] h-1 accent-primary"
                 />
                 <div className="text-xs tabular-nums whitespace-nowrap min-w-[9ch] leading-none self-center">
                   {predictionDates.length ? formatDate(new Date(cutoffDate), 'd MMMM') : '—'}
