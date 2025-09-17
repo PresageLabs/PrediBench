@@ -5,7 +5,6 @@ import { encodeSlashes } from '../lib/utils'
 import { CompanyDisplay } from './ui/company-display'
 import { BrierScoreInfoTooltip, PnLTooltip } from './ui/info-tooltip'
 import { ProfitDisplay } from './ui/profit-display'
-import { RedirectButton } from './ui/redirect-button'
 
 type SortKey = 'cumulative_profit' | 'brier_score'
 
@@ -20,7 +19,6 @@ export function LeaderboardTable({
   loading = false,
   initialVisibleModels = 10
 }: LeaderboardTableProps) {
-  const [visibleModels, setVisibleModels] = useState(initialVisibleModels)
   const [sortKey, setSortKey] = useState<SortKey>('brier_score')
   const [leaderboardExpanded, setLeaderboardExpanded] = useState<boolean>(false)
 
