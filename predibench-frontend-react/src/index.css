@@ -60,3 +60,5 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* removed custom slider-theming; revert to default accent-color styling */

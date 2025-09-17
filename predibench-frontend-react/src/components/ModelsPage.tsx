@@ -1,4 +1,5 @@
 import * as Select from '@radix-ui/react-select'
+import { format as formatDate } from 'date-fns'
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -309,30 +310,27 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
               </div >
             </div >
 
-            {/* Cutoff Slider */}
-            <div className="mb-4 max-w-xl">
-              <label className="block text-sm text-muted-foreground mb-2">First decision cutoff date</label>
-              <div className="flex items-center gap-4">
-                <input
-                  type="range"
-                  min={0}
-                  max={Math.max(0, predictionDates.length - 1)}
-                  value={Math.min(cutoffIndex, Math.max(0, predictionDates.length - 1))}
-                  onChange={(e) => setCutoffIndex(parseInt(e.target.value))}
-                  className="w-full"
-                />
-                <div className="text-sm tabular-nums min-w-[7ch] text-right">
-                  {predictionDates.length ? cutoffDate : '—'}
-                </div>
-              </div>
-            </div>
-
             {/* Portfolio Increase Chart */}
             <div className="mb-8">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
                 Portfolio Increase
                 <PnLTooltip />
               </h3>
+              {/* Cutoff Slider (below title, above graph) */}
+              <div className="mb-0 flex items-center justify-center gap-3">
+                <label className="text-xs text-muted-foreground leading-none self-center">First decision cutoff date:</label>
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(0, predictionDates.length - 1)}
+                  value={Math.min(cutoffIndex, Math.max(0, predictionDates.length - 1))}
+                  onChange={(e) => setCutoffIndex(parseInt(e.target.value))}
+                  className="w-[200px] h-1 accent-primary"
+                />
+                <div className="text-xs tabular-nums whitespace-nowrap min-w-[9ch] leading-none self-center">
+                  {predictionDates.length ? formatDate(new Date(cutoffDate), 'd MMMM') : '—'}
+                </div>
+              </div>
               <div className="h-auto sm:h-[500px]">
                 {stitchedSeries.length === 0 ? (
                   <div className="h-full bg-muted/20 rounded-lg flex items-center justify-center">

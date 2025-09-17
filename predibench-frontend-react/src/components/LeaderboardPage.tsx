@@ -1,3 +1,4 @@
+import { format as formatDate } from 'date-fns'
 import { useEffect, useMemo, useState } from 'react'
 import type { LeaderboardEntry } from '../api'
 import { rescalePnlHistoryFromCutoff } from '../utils/stitching'
@@ -72,23 +73,7 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
       {/* Horizontal Separator */}
       <div className="w-full h-px bg-border mb-16"></div>
 
-      {/* Cutoff Slider */}
-      <div className="mb-6 max-w-2xl mx-auto">
-        <label className="block text-sm text-muted-foreground mb-2">First decision cutoff date</label>
-        <div className="flex items-center gap-4">
-          <input
-            type="range"
-            min={0}
-            max={Math.max(0, predictionDates.length - 1)}
-            value={Math.min(cutoffIndex, Math.max(0, predictionDates.length - 1))}
-            onChange={(e) => setCutoffIndex(parseInt(e.target.value))}
-            className="w-full"
-          />
-          <div className="text-sm tabular-nums min-w-[7ch] text-right">
-            {predictionDates.length ? cutoffDate : '—'}
-          </div>
-        </div>
-      </div>
+      {/* Cutoff Slider moved into chart card below title */}
 
       {/* Portfolio Increase Chart */}
       <div className="mb-16">
@@ -97,6 +82,22 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
           <PnLTooltip />
         </h2>
         <div className="bg-card rounded-xl border border-border/30 p-6">
+          {/* Cutoff Slider (below title, above graph) */}
+          <div className="mb-0 flex items-center justify-center gap-3">
+            <label className="text-xs text-muted-foreground leading-none self-center">First decision cutoff date:</label>
+            <input
+              type="range"
+              min={0}
+              max={Math.max(0, predictionDates.length - 1)}
+              value={Math.min(cutoffIndex, Math.max(0, predictionDates.length - 1))}
+              onChange={(e) => setCutoffIndex(parseInt(e.target.value))}
+              className="w-[200px] h-1 accent-primary self-center my-0"
+            />
+            <div className="text-xs tabular-nums whitespace-nowrap min-w-[9ch] leading-none self-center">
+              {predictionDates.length ? formatDate(new Date(cutoffDate), 'd MMMM') : '—'}
+            </div>
+          </div>
+
           <div className="h-[800px]">
             {loading ? (
               <div className="flex items-center justify-center h-full">
