@@ -37,7 +37,8 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
 
   const cutoffDate = useMemo(() => {
     if (!predictionDates.length) return DEFAULT_CUTOFF
-    const idx = Math.max(0, Math.min(cutoffIndex, predictionDates.length - 1))
+    const maxIndex = Math.max(0, predictionDates.length - 2)
+    const idx = Math.max(0, Math.min(cutoffIndex, maxIndex))
     return predictionDates[idx]
   }, [predictionDates, cutoffIndex])
 
@@ -88,10 +89,10 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
             <input
               type="range"
               min={0}
-              max={Math.max(0, predictionDates.length - 1)}
-              value={Math.min(cutoffIndex, Math.max(0, predictionDates.length - 1))}
+              max={Math.max(0, predictionDates.length - 2)}
+              value={Math.min(cutoffIndex, Math.max(0, predictionDates.length - 2))}
               onChange={(e) => setCutoffIndex(parseInt(e.target.value))}
-              className="w-[200px] h-1 accent-primary self-center my-0"
+              className="w-[100px] h-1 accent-primary self-center my-0"
             />
             <div className="text-xs tabular-nums whitespace-nowrap min-w-[9ch] leading-none self-center">
               {predictionDates.length ? formatDate(new Date(cutoffDate), 'd MMMM') : '—'}

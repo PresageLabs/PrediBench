@@ -86,15 +86,12 @@ export function EventDecisionModal({
       setAgentLogsLoading(true)
       try {
         const result = await apiService.getFullResultByModelAndEvent(modelId!, eventDecision.event_id, decisionDate);
-        console.log('Loaded agent logs', result);
         if (cancelled) return
         if (!result) {
           throw new Error(`Full result missing for model=${modelId} event=${eventDecision.event_id} date=${decisionDate}`)
         }
         // For post-cutoff dates, backend returns the proper format (array or object) in full_result_listdict
         setAgentLogs(result.full_result_listdict)
-        // Optional debug for development
-        // console.debug('Loaded agent logs', { modelId, eventId: eventDecision.event_id, decisionDate, logsType: Array.isArray(result.full_result_listdict) ? 'array' : typeof result.full_result_listdict })
       } finally {
         if (!cancelled) setAgentLogsLoading(false)
       }
