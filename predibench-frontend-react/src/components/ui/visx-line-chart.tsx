@@ -189,6 +189,7 @@ export function VisxLineChart({
     return buildChartTheme({
       backgroundColor: 'transparent',
       colors,
+      tickLength: 4,
       gridColor: 'hsl(var(--border))',
       gridColorDark: 'hsl(var(--border))'
     })
