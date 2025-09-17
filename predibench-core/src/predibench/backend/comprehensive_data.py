@@ -335,6 +335,10 @@ def _compute_model_performance(
             )
             assert batch_net_gains_series is not None
 
+            # Skip processing if no data points (empty series)
+            if batch_net_gains_series.empty:
+                continue
+
             current_net_asset_value_compounded = (
                 batch_net_gains_series + 1
             ) * current_compounded_value
@@ -347,12 +351,18 @@ def _compute_model_performance(
             current_compounded_value = current_net_asset_value_compounded.iloc[-1]
             current_cumulative_value = current_net_gains_cumulative.iloc[-1]
 
-        compound_asset_values_series = pd.concat(
-            compound_asset_values, axis=0
-        ).sort_index()
-        cumulative_net_gains_series = pd.concat(
-            cumulative_net_gains, axis=0
-        ).sort_index()
+        # Handle case where all decisions had empty data
+        if not compound_asset_values:
+            # Create empty series with appropriate structure
+            compound_asset_values_series = pd.Series(dtype=float)
+            cumulative_net_gains_series = pd.Series(dtype=float)
+        else:
+            compound_asset_values_series = pd.concat(
+                compound_asset_values, axis=0
+            ).sort_index()
+            cumulative_net_gains_series = pd.concat(
+                cumulative_net_gains, axis=0
+            ).sort_index()
         # Check that duplicate index values are equal
         if compound_asset_values_series.index.has_duplicates:
             assert compound_asset_values_series.groupby(level=0).nunique().max() == 1, (
