@@ -192,6 +192,9 @@ def _compute_model_performance(
         for event_decision in model_decision.event_investment_decisions:
             net_gains_per_market = []
             for market_decision in event_decision.market_investment_decisions:
+                # Skip markets that don't have price data, maybe we should renormalize the portfolio
+                if market_decision.market_id not in prices_df.columns:
+                    continue
                 market_series_all = prices_df[market_decision.market_id].copy()
                 # Fill missing values to allow robust slicing
                 market_prices = market_series_all.bfill().ffill().copy()
