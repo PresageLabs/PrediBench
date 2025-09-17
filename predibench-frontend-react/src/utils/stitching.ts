@@ -5,8 +5,8 @@ function sortByDateAsc<T extends { date: string }>(arr: T[]): T[] {
 }
 
 /**
- * Apply cutoff date rescaling to a pnl_history series from the backend.
- * The backend now provides portfolio values (starting around 1.0) in pnl_history.
+ * Apply cutoff date rescaling to a compound_profit_history series from the backend.
+ * The backend now provides portfolio values (starting around 1.0) in compound_profit_history.
  */
 export function rescalePnlHistoryFromCutoff(
   pnlHistory: TimeseriesPoint[],

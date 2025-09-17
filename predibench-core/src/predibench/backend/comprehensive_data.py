@@ -378,10 +378,10 @@ def _compute_model_performance(
                     model_id
                 ].pnl_per_event_decision.items()
             },
-            pnl_history=DataPoint.list_datapoints_from_series(
+            compound_profit_history=DataPoint.list_datapoints_from_series(
                 compound_asset_values_series
             ),
-            cumulative_net_gains=DataPoint.list_datapoints_from_series(
+            cumulative_profit_history=DataPoint.list_datapoints_from_series(
                 cumulative_net_gains_series
             ),
             final_profit=final_profit,

@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { LeaderboardEntry } from '../api'
+import { rescalePnlHistoryFromCutoff } from '../utils/stitching'
+import { ErrorBoundary } from './ErrorBoundary'
 import { LeaderboardTable } from './LeaderboardTable'
 import { getChartColor } from './ui/chart-colors'
 import { PnLTooltip } from './ui/info-tooltip'
 import { RedirectButton } from './ui/redirect-button'
 import { VisxLineChart } from './ui/visx-line-chart'
-import { rescalePnlHistoryFromCutoff } from '../utils/stitching'
-import { ErrorBoundary } from './ErrorBoundary'
 
 // Fallback: if prediction dates fail to load, show everything
 const DEFAULT_CUTOFF = '0000-01-01'
@@ -42,8 +42,8 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
 
   const stitchedSeries = useMemo(() => {
     return leaderboard.map((model, index) => {
-      // Use the already-computed pnl_history from the leaderboard (backend computed this properly)
-      const pnlHistory = model.pnl_history || []
+      // Use the already-computed compound_profit_history from the leaderboard (backend computed this properly)
+      const pnlHistory = model.compound_profit_history || []
       const rescaled = rescalePnlHistoryFromCutoff(pnlHistory, cutoffDate)
       return {
         dataKey: model.model_id,

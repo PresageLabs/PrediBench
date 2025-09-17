@@ -181,10 +181,10 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     return predictionDates[idx]
   }, [predictionDates, cutoffIndex])
 
-  // Portfolio Increase series using pnl_history from ModelPerformanceBackend
+  // Portfolio Increase series using compound_profit_history from ModelPerformanceBackend
   const stitchedSeries = useMemo(() => {
-    if (!modelPerformance?.pnl_history?.length) return [] as { dataKey: string; data: { date: string; value: number }[]; stroke: string; name?: string }[]
-    const rescaled = rescalePnlHistoryFromCutoff(modelPerformance.pnl_history, cutoffDate)
+    if (!modelPerformance?.compound_profit_history?.length) return [] as { dataKey: string; data: { date: string; value: number }[]; stroke: string; name?: string }[]
+    const rescaled = rescalePnlHistoryFromCutoff(modelPerformance.compound_profit_history, cutoffDate)
     return [{
       dataKey: `model_${selectedModelId}_stitched`,
       data: rescaled.map(p => ({ date: p.date, value: p.value })),
@@ -203,7 +203,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     const sortedDecisions = [...modelDecisions].sort((a, b) => a.target_date.localeCompare(b.target_date))
 
     // Get cumulative data for period profit calculations
-    const cumulativeData = (modelPerformance.pnl_history || []).map(pt => ({ date: pt.date, value: pt.value }))
+    const cumulativeData = (modelPerformance.compound_profit_history || []).map(pt => ({ date: pt.date, value: pt.value }))
 
     sortedDecisions.forEach((decision, index) => {
       const nextDecision = index < sortedDecisions.length - 1 ? sortedDecisions[index + 1] : undefined
