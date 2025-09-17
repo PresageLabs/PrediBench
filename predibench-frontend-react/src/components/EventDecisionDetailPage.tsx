@@ -1,5 +1,5 @@
 import Giscus from '@giscus/react'
-import { ArrowLeft, FileText, Search } from 'lucide-react'
+import { ArrowLeft, ChevronDown, FileText, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import type { EventInvestmentDecision } from '../api'
@@ -36,6 +36,7 @@ export function EventDecisionDetailPage({ }: EventDecisionDetailPageProps) {
   const [pricesLoading, setPricesLoading] = useState<boolean>(false)
   const [agentLogs, setAgentLogs] = useState<unknown[] | unknown | null>(null)
   const [agentLogsLoading, setAgentLogsLoading] = useState<boolean>(false)
+  const [agentLogsExpanded, setAgentLogsExpanded] = useState<boolean>(false)
 
   // Get navigation source from URL params
   const sourceType = searchParams.get('source') || 'event' // 'event' or 'model'
@@ -475,7 +476,25 @@ export function EventDecisionDetailPage({ }: EventDecisionDetailPageProps) {
             {agentLogsLoading ? (
               <div className="text-sm text-muted-foreground">Loading agent logs…</div>
             ) : (
-              <AgentLogsDisplay logs={agentLogs} />
+              <div className="relative">
+                <div
+                  className={`overflow-hidden transition-all duration-300 ${agentLogsExpanded ? 'max-h-none' : 'max-h-[500px]'
+                    }`}
+                >
+                  <AgentLogsDisplay logs={agentLogs} />
+                </div>
+                {!agentLogsExpanded && (
+                  <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-background to-transparent flex items-end justify-center pb-2">
+                    <button
+                      onClick={() => setAgentLogsExpanded(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-background border border-border rounded-lg hover:bg-accent transition-colors text-sm"
+                    >
+                      <span>Show full logs</span>
+                      <ChevronDown size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
