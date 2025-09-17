@@ -1,6 +1,6 @@
 import { curveMonotoneX } from '@visx/curve'
 import { scaleLinear, scaleTime } from '@visx/scale'
-import { AnimatedLineSeries, Axis, GlyphSeries, Grid, XYChart, buildChartTheme } from '@visx/xychart'
+import { AnimatedGlyphSeries, AnimatedGrid, AnimatedLineSeries, Axis, XYChart, buildChartTheme } from '@visx/xychart'
 import { extent } from 'd3-array'
 import { format } from 'date-fns'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -381,9 +381,9 @@ export function VisxLineChart({
         </defs>
 
 
-        {/* Grid */}
+        {/* AnimatedGrid */}
         {showGrid && (
-          <Grid
+          <AnimatedGrid
             rows={true}
             columns={false}
             numTicks={effectiveNumTicks}
@@ -449,8 +449,8 @@ export function VisxLineChart({
               curve={curveMonotoneX}
             />
 
-            {/* Circle markers */}
-            <GlyphSeries
+            {/* Animated circle markers to match line animation */}
+            <AnimatedGlyphSeries
               dataKey={line.dataKey}
               data={line.data}
               xAccessor={safeXAccessor}

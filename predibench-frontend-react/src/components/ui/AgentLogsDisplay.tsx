@@ -107,7 +107,7 @@ const StepMetrics = ({ step }: { step: AgentStep }) => (
 )
 
 const CodeBlock = ({ code }: { code: string }) => (
-  <div className="my-3 bg-gray-900 text-green-400 p-3 rounded-lg font-mono text-sm overflow-x-auto">
+  <div className="my-3 bg-gray-900 text-gray-100 p-3 rounded-lg font-mono text-sm overflow-x-auto">
     <div className="flex items-center mb-2 text-gray-500">
       <div className="flex gap-1 mr-3">
         <div className="w-3 h-3 bg-red-500 rounded-full" />
