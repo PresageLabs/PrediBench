@@ -18,10 +18,11 @@ class InvestmentDecision(BaseModel):
 class Position(BaseModel):
     event_id: str
     market_id: str
-    value: float
     outcome: str
+    shares: float # Should be an int but we keep it float for now to be able to test our current strategies
+    purchase_price: float
     decision_datetime: datetime
-    price_at_decision_datetime: float
+    sell_price: float | None = None
     
 class Portfolio(BaseModel):
     open_positions: list[Position] | None = None
@@ -70,7 +71,4 @@ class Strategy(ABC):
         self._save_portfolio_to_history(self.current_portfolio)
     
     
-    
-        
-    
-    
+
