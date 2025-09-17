@@ -11,6 +11,7 @@ import { EventDecisionModal } from './ui/EventDecisionModal'
 import { EventDecisionThumbnail } from './ui/EventDecisionThumbnail'
 import { BrierScoreInfoTooltip, PnLTooltip } from './ui/info-tooltip'
 // import { ProfitDisplay } from './ui/profit-display'
+import { rescalePnlHistoryFromCutoff } from '../utils/stitching'
 import { VisxLineChart } from './ui/visx-line-chart'
 
 interface ModelsPageProps {
@@ -33,6 +34,8 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
   } | null>(null)
   const [calendarDate, setCalendarDate] = useState(new Date())
   const [modelPerformance, setModelPerformance] = useState<ModelPerformance | null>(null)
+  const [predictionDates, setPredictionDates] = useState<string[]>([])
+  const [cutoffIndex, setCutoffIndex] = useState<number>(0)
 
   // Event details modal state is managed within EventDecisionModal now
 
@@ -163,21 +166,32 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     return () => { cancelled = true }
   }, [selectedModelId])
 
+  // Fetch prediction dates for cutoff slider from modelPerformance
+  useEffect(() => {
+    if (modelPerformance?.trades_dates) {
+      setPredictionDates(modelPerformance.trades_dates.sort((a, b) => a.localeCompare(b)))
+    }
+  }, [modelPerformance])
+
   // Removed event-based series metadata; cumulative series is used instead
 
-  // Portfolio Increase series since the beginning for the selected model
-  const cumulativeSeries = useMemo(() => {
-    if (!modelPerformance) return [] as { dataKey: string; data: { x: string; y: number }[]; stroke: string; name?: string }[]
-    const data = (modelPerformance.pnl_history || []).map(pt => ({ x: pt.date, y: pt.value }))
-    return [
-      {
-        dataKey: `model_${modelPerformance.model_id}_cum`,
-        data,
-        stroke: getChartColor(0),
-        name: 'Portfolio Increase'
-      }
-    ]
-  }, [modelPerformance])
+  const cutoffDate = useMemo(() => {
+    if (!predictionDates.length) return '0000-01-01'
+    const idx = Math.max(0, Math.min(cutoffIndex, predictionDates.length - 1))
+    return predictionDates[idx]
+  }, [predictionDates, cutoffIndex])
+
+  // Portfolio Increase series using compound_profit_history from ModelPerformanceBackend
+  const stitchedSeries = useMemo(() => {
+    if (!modelPerformance?.compound_profit_history?.length) return [] as { dataKey: string; data: { date: string; value: number }[]; stroke: string; name?: string }[]
+    const rescaled = rescalePnlHistoryFromCutoff(modelPerformance.compound_profit_history, cutoffDate)
+    return [{
+      dataKey: `model_${selectedModelId}_stitched`,
+      data: rescaled.map(p => ({ date: p.date, value: p.value })),
+      stroke: getChartColor(0),
+      name: 'Portfolio Increase'
+    }]
+  }, [modelPerformance, cutoffDate, selectedModelId])
 
   // Generate additional annotations for decision points
   const additionalAnnotations = useMemo(() => {
@@ -189,7 +203,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     const sortedDecisions = [...modelDecisions].sort((a, b) => a.target_date.localeCompare(b.target_date))
 
     // Get cumulative data for period profit calculations
-    const cumulativeData = (modelPerformance.pnl_history || []).map(pt => ({ x: pt.date, y: pt.value }))
+    const cumulativeData = (modelPerformance.compound_profit_history || []).map(pt => ({ date: pt.date, value: pt.value }))
 
     sortedDecisions.forEach((decision, index) => {
       const nextDecision = index < sortedDecisions.length - 1 ? sortedDecisions[index + 1] : undefined
@@ -279,7 +293,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                     Final Profit:
                     <PnLTooltip />
                   </div>
-                  <div className="font-medium">{selectedModelData.final_profit.toFixed(1)}</div>
+                  <div className="font-medium">{(selectedModelData.final_profit * 100).toFixed(1)}%</div>
                 </div>
                 <div>
                   <div className="flex items-center text-muted-foreground">
@@ -295,6 +309,24 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
               </div >
             </div >
 
+            {/* Cutoff Slider */}
+            <div className="mb-4 max-w-xl">
+              <label className="block text-sm text-muted-foreground mb-2">First decision cutoff date</label>
+              <div className="flex items-center gap-4">
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(0, predictionDates.length - 1)}
+                  value={Math.min(cutoffIndex, Math.max(0, predictionDates.length - 1))}
+                  onChange={(e) => setCutoffIndex(parseInt(e.target.value))}
+                  className="w-full"
+                />
+                <div className="text-sm tabular-nums min-w-[7ch] text-right">
+                  {predictionDates.length ? cutoffDate : '—'}
+                </div>
+              </div>
+            </div>
+
             {/* Portfolio Increase Chart */}
             <div className="mb-8">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
@@ -302,7 +334,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                 <PnLTooltip />
               </h3>
               <div className="h-auto sm:h-[500px]">
-                {cumulativeSeries.length === 0 ? (
+                {stitchedSeries.length === 0 ? (
                   <div className="h-full bg-muted/20 rounded-lg flex items-center justify-center">
                     <div className="text-sm text-muted-foreground">No event profit data available.</div>
                   </div>
@@ -310,7 +342,24 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                   <VisxLineChart
                     height={500}
                     margin={{ left: 60, top: 35, bottom: 38, right: 27 }}
-                    series={cumulativeSeries}
+                    series={stitchedSeries}
+                    xDomain={(() => {
+                      const allDates = stitchedSeries.flatMap(s => s.data.map(p => new Date(p.date)))
+                      if (allDates.length === 0) return undefined
+                      const minDate = new Date(cutoffDate)
+                      const maxDate = new Date(Math.max(...allDates.map(d => d.getTime())))
+                      return [minDate, maxDate]
+                    })()}
+                    yDomain={(() => {
+                      const values = stitchedSeries.flatMap(s => s.data.map(p => p.value))
+                      if (values.length === 0) return [0, 1]
+                      const min = Math.min(...values)
+                      const max = Math.max(...values)
+                      if (!isFinite(min) || !isFinite(max)) return [0, 1]
+                      const range = max - min
+                      const padding = Math.max(range * 0.25, 0.02)
+                      return [min - padding, max + padding]
+                    })()}
                     additionalAnnotations={additionalAnnotations}
                   />
                 )}

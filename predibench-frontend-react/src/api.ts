@@ -7,7 +7,9 @@ export interface LeaderboardEntry {
   trades_count: number
   lastUpdated: string
   trend: 'up' | 'down' | 'stable'
-  pnl_history: { date: string; value: number }[]
+  compound_profit_history: { date: string; value: number }[]
+  cumulative_profit_history: { date: string; value: number }[]
+  trades_dates: string[]
   final_brier_score: number
 }
 
@@ -73,6 +75,9 @@ export interface ModelInvestmentDecision {
   target_date: string
   decision_datetime: string
   event_investment_decisions: EventInvestmentDecision[]
+  // Backend-computed cumulative net gains for the whole model between this decision and the next
+  // Values are net gains relative to 1.0 starting portfolio for the decision period
+  net_gains_until_next_decision: TimeseriesPoint[]
 }
 
 export interface EventInvestmentDecision {
@@ -82,7 +87,7 @@ export interface EventInvestmentDecision {
   market_investment_decisions: MarketInvestmentDecision[]
   unallocated_capital: number
   // Backend-computed cumulative PnL time series for this event since the decision date
-  pnl_since_decision?: TimeseriesPoint[]
+  net_gains_until_next_decision: TimeseriesPoint[]
 }
 
 export interface MarketInvestmentDecision {
@@ -90,9 +95,9 @@ export interface MarketInvestmentDecision {
   decision: SingleInvestmentDecision
   market_question: string | null
   // Backend-computed gains for this market since the decision date (optional)
-  gains_since_decision?: number | null
+  net_gains_at_decision_end: number | null
   // Backend-computed pair: [current_price, estimated_odds] (optional)
-  brier_score_pair_current?: [number, number] | null
+  brier_score_pair_current: [number, number] | null
 }
 
 export interface SingleInvestmentDecision {
@@ -112,7 +117,7 @@ export interface ModelPerformance {
   brier_scores: TimeseriesPoint[]
   event_brier_scores: EventBrierScore[]
   market_brier_scores: MarketBrierScore[]
-  pnl_history: TimeseriesPoint[]
+  compound_profit_history: TimeseriesPoint[]
   pnl_per_event_decision: { [eventId: string]: EventPnlBackend }
 }
 

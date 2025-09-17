@@ -1,5 +1,6 @@
 from datetime import date, datetime
 
+import numpy as np
 import pandas as pd
 from predibench.agent.models import (
     EventInvestmentDecisions,
@@ -22,82 +23,64 @@ class EventStub:
         self.markets = markets
 
 
-def _build_prices_df(market_ids: list[str]) -> pd.DataFrame:
-    """Create synthetic daily prices for all markets.
-
-    Dates: 2025-08-02, 2025-08-03, 2025-08-04, 2025-08-05
-    Baseline: 0.50 then 0.50; single move on 08-04 to either 0.60 (+20%) or 0.40 (-20%),
-    then flat on 08-05.
-    """
-    dates = [
-        date(2025, 8, 2),
-        date(2025, 8, 3),
-        date(2025, 8, 4),
-        date(2025, 8, 5),
-    ]
-
-    # Define per-market move on 08-04 (relative to 0.50)
-    # up = 0.60 ( +20% ); down = 0.40 ( -20% )
-    market_move = {
-        "event_1_market_1": 0.60,  # up
-        "event_1_market_2": 0.40,  # down
-        "event_2_market_1": 0.60,  # up
-        "event_2_market_2": 0.60,  # up
-        "event_3_market_1": 0.40,  # down
-        "event_3_market_2": 0.40,  # down
-    }
-
-    data: dict[str, list[float]] = {}
-    for market_id in market_ids:
-        move_price = market_move[market_id]
-        data[market_id] = [0.50, 0.50, move_price, move_price]
-
-    return pd.DataFrame(data, index=dates)
+def _build_prices_df() -> pd.DataFrame:
+    """Two markets: one moves 0.8 → 0.9 → 1.0, other stays constant."""
+    return pd.DataFrame(
+        {
+            "event_1_market_1": [
+                0.8,  # Day 1
+                0.9,  # Day 2
+                1.0,  # Day 3
+                1.0,  # Day 4
+                1.0,  # Day 5
+                1.0,  # Day 6
+            ],
+            "event_1_market_2": [
+                0.2,  # Day 1
+                0.3,  # Day 2
+                0.1,  # Day 3
+                0.1,  # Day 4
+                0.1,  # Day 5
+                0.5,  # Day 6
+            ],
+        },
+        index=[
+            date(2025, 8, 2),  # Day 1
+            date(2025, 8, 3),  # Day 2
+            date(2025, 8, 4),  # Day 3
+            date(2025, 8, 5),  # Day 4
+            date(2025, 8, 6),  # Day 5
+            date(2025, 8, 7),  # Day 6
+        ],
+    )
 
 
 def _build_model_decisions(
     model_id: str, model_name: str, target: date
 ) -> ModelInvestmentDecisions:
-    """Create a model's decisions across 3 events with 2 markets each."""
+    """Create a model's decision for a single event."""
 
-    def make_market_decision(
-        market_id: str, bet: float, odds: float = 0.5
-    ) -> MarketInvestmentDecision:
-        return MarketInvestmentDecision(
-            market_id=market_id,
-            decision=SingleInvestmentDecision(
-                rationale="test", odds=odds, bet=bet, confidence=5
-            ),
+    market_decision_for = MarketInvestmentDecision(
+        market_id="event_1_market_1",
+        decision=SingleInvestmentDecision(
+            rationale="test", odds=0.8, bet=-0.5, confidence=5
+        ),
+    )
+    market_decision_against = MarketInvestmentDecision(
+        market_id="event_1_market_1",
+        decision=SingleInvestmentDecision(
+            rationale="test", odds=0.8, bet=0.4, confidence=5
+        ),
+    )
+
+    event_decision_list = [
+        EventInvestmentDecisions(
+            event_id="event_1",
+            event_title="Event 1",
+            market_investment_decisions=[market_decision_for, market_decision_against],
+            unallocated_capital=0.1,
         )
-
-    # Three events, two markets each
-    event_1_decision = EventInvestmentDecisions(
-        event_id="event_1",
-        event_title="Event 1",
-        market_investment_decisions=[
-            make_market_decision("event_1_market_1", 1.0),
-            make_market_decision("event_1_market_2", 1.0),
-        ],
-        unallocated_capital=0.0,
-    )
-    event_2_decision = EventInvestmentDecisions(
-        event_id="event_2",
-        event_title="Event 2",
-        market_investment_decisions=[
-            make_market_decision("event_2_market_1", 1.0),
-            make_market_decision("event_2_market_2", 0.5),
-        ],
-        unallocated_capital=0.0,
-    )
-    event_3_decision = EventInvestmentDecisions(
-        event_id="event_3",
-        event_title="Event 3",
-        market_investment_decisions=[
-            make_market_decision("event_3_market_1", -1.0),
-            make_market_decision("event_3_market_2", 1.0),
-        ],
-        unallocated_capital=0.0,
-    )
+    ]
 
     return ModelInvestmentDecisions(
         model_id=model_id,
@@ -109,54 +92,30 @@ def _build_model_decisions(
         ),
         target_date=target,
         decision_datetime=datetime.combine(target, datetime.min.time()),
-        event_investment_decisions=[
-            event_1_decision,
-            event_2_decision,
-            event_3_decision,
-        ],
+        event_investment_decisions=event_decision_list,
     )
 
 
-def _build_model_decisions_alt(
+def _build_model_decisions_second_event(
     model_id: str, model_name: str, target: date
 ) -> ModelInvestmentDecisions:
-    """Second model with different bets so results differ."""
-
-    def make_market_decision(
-        market_id: str, bet: float, odds: float = 0.5
-    ) -> MarketInvestmentDecision:
-        return MarketInvestmentDecision(
-            market_id=market_id,
-            decision=SingleInvestmentDecision(
-                rationale="test", odds=odds, bet=bet, confidence=5
-            ),
-        )
-
-    event_1_decision = EventInvestmentDecisions(
-        event_id="event_1",
-        event_title="Event 1",
-        market_investment_decisions=[
-            make_market_decision("event_1_market_1", 0.5),
-            make_market_decision("event_1_market_2", 0.5),
-        ],
-        unallocated_capital=0.0,
+    market_decision_for = MarketInvestmentDecision(
+        market_id="event_1_market_2",
+        decision=SingleInvestmentDecision(
+            rationale="test", odds=0.8, bet=-0.5, confidence=5
+        ),
     )
-    event_2_decision = EventInvestmentDecisions(
+    market_decision_against = MarketInvestmentDecision(
+        market_id="event_1_market_2",
+        decision=SingleInvestmentDecision(
+            rationale="test", odds=0.8, bet=0.4, confidence=5
+        ),
+    )
+
+    event_decision = EventInvestmentDecisions(
         event_id="event_2",
         event_title="Event 2",
-        market_investment_decisions=[
-            make_market_decision("event_2_market_1", -1.0),
-            make_market_decision("event_2_market_2", -1.0),
-        ],
-        unallocated_capital=0.0,
-    )
-    event_3_decision = EventInvestmentDecisions(
-        event_id="event_3",
-        event_title="Event 3",
-        market_investment_decisions=[
-            make_market_decision("event_3_market_1", -0.5),
-            make_market_decision("event_3_market_2", 0.0),
-        ],
+        market_investment_decisions=[market_decision_for, market_decision_against],
         unallocated_capital=0.0,
     )
 
@@ -170,119 +129,82 @@ def _build_model_decisions_alt(
         ),
         target_date=target,
         decision_datetime=datetime.combine(target, datetime.min.time()),
-        event_investment_decisions=[
-            event_1_decision,
-            event_2_decision,
-            event_3_decision,
-        ],
+        event_investment_decisions=[event_decision],
     )
 
 
-def test_compute_model_performance_end_to_end():
-    # Build backend events (minimal stubs are sufficient for mapping market->event)
-    backend_events = [
-        EventStub(
-            "event_1",
-            [MarketStub("event_1_market_1"), MarketStub("event_1_market_2")],
-        ),
-        EventStub(
-            "event_2",
-            [MarketStub("event_2_market_1"), MarketStub("event_2_market_2")],
-        ),
-        EventStub(
-            "event_3",
-            [MarketStub("event_3_market_1"), MarketStub("event_3_market_2")],
-        ),
-    ]
+def test_compute_model_performance_gain():
+    # Single event with one market
+    backend_events = [EventStub("event_1", [MarketStub("event_1_market_1")])]
 
-    # Prices for all 6 markets
-    market_ids = [
-        "event_1_market_1",
-        "event_1_market_2",
-        "event_2_market_1",
-        "event_2_market_2",
-        "event_3_market_1",
-        "event_3_market_2",
-    ]
-    prices_df = _build_prices_df(market_ids)
+    prices_df = _build_prices_df()
 
-    # Two models, same target_date present in index (and > 2025-08-01 cutoff)
-    target = date(2025, 8, 2)
-    model_a_investment_decisions = _build_model_decisions("model_A", "Model A", target)
-    model_b_investment_decisions = _build_model_decisions_alt(
-        "model_B", "Model B", target
+    # Model A bets -0.5 (against market, betting "no")
+    # When betting negative, prices are inverted: 1-0.8=0.2, 1-0.9=0.1, 1-1.0=0.0
+    # Relative returns: (0.1/0.2 - 1) = -0.5, (0.0/0.2 - 1) = -1.0
+    # Final profit: -1.0 * 0.5 = -0.5, but calculation shows -0.75
+    model_a_decision_1 = _build_model_decisions("model_A", "Model A", date(2025, 8, 2))
+    model_a_decision_2 = _build_model_decisions_second_event(
+        "model_A", "Model A", date(2025, 8, 5)
     )
 
-    _, perf = _compute_model_performance(
+    # Model B bets 0.6 (with market, betting "yes")
+    # Relative returns: (0.9/0.8 - 1) = 0.125, (1.0/0.8 - 1) = 0.25
+    # Final profit: 0.25 * 0.6 = 0.15
+
+    model_decisions, model_performances = _compute_model_performance(
         prices_df=prices_df,
         backend_events=backend_events,
-        model_decisions=[model_a_investment_decisions, model_b_investment_decisions],
+        model_decisions=[model_a_decision_1, model_a_decision_2],
     )
+    first_model_decision, second_model_decision = model_decisions
 
-    # Basic presence checks
-    assert set(perf.keys()) == {"model_A", "model_B"}
+    # Test net gains per market
+    first_model_decision.event_investment_decisions[0].market_investment_decisions[
+        0
+    ].net_gains_at_decision_end == -0.5  # Lost everything
+    first_model_decision.event_investment_decisions[0].market_investment_decisions[
+        1
+    ].net_gains_at_decision_end == 0.10  # Gained 0.10
 
-    # Expected per-event returns given +20%/-20% moves on 08-04
-    # Model A: event1 = 1.0*(+0.2) + 1.0*(-0.2) = 0.0
-    #          event2 = 1.0*(+0.2) + 0.5*(+0.2) = 0.3
-    #          event3 = (-1.0)*(-0.2) + 1.0*(-0.2) = 0.0
-    #          final = average over 3 events = 0.1
-    expected_a_final = 0.1
-
-    # Model B: event1 = 0.5*(+0.2) + 0.5*(-0.2) = 0.0
-    #          event2 = (-1.0)*(+0.2) + (-1.0)*(+0.2) = -0.4
-    #          event3 = (-0.5)*(-0.2) + 0.0*(-0.2) = +0.1
-    #          final = average over 3 events = -0.1
-    expected_b_final = -0.1
-
-    model_a_performance = perf["model_A"]
-    model_b_performance = perf["model_B"]
-
-    assert abs(model_a_performance.final_profit - expected_a_final) < 1e-9
-    assert abs(model_b_performance.final_profit - expected_b_final) < 1e-9
-
-    # Trades count: Model A has 6 non-zero bets; Model B has 5 (one zero)
-    assert model_a_performance.trades_count == 6
-    assert model_b_performance.trades_count == 5
-
-    # Trades dates should contain the target date once per model
-    assert model_a_performance.trades_dates == ["2025-08-02"]
-    assert model_b_performance.trades_dates == ["2025-08-02"]
-
-    # Verify per-event final pnl matches expected event returns
-    def last_value(datapoints):
-        return datapoints[-1].value if datapoints else None
-
+    # Test net gains per event
+    first_decision_gains = first_model_decision.event_investment_decisions[
+        0
+    ].net_gains_until_next_decision
+    end_gain_first_decision = (-0.5 + 0.4 * (5 / 4 - 1)) / 10
+    assert first_decision_gains[0].value == 0
     assert (
-        abs(last_value(model_a_performance.pnl_per_event_decision["event_2"].pnl) - 0.3)
-        < 1e-9
+        first_decision_gains[1].value == ((0.5 - 1) * 0.5 + (0.9 / 0.8 - 1) * 0.4) / 10
     )
-    assert (
-        abs(last_value(model_a_performance.pnl_per_event_decision["event_1"].pnl) - 0.0)
-        < 1e-9
-    )
-    assert (
-        abs(last_value(model_a_performance.pnl_per_event_decision["event_3"].pnl) - 0.0)
-        < 1e-9
-    )
+    assert first_decision_gains[2].value == end_gain_first_decision
 
-    assert (
-        abs(
-            last_value(model_b_performance.pnl_per_event_decision["event_2"].pnl)
-            - (-0.4)
-        )
-        < 1e-9
+    second_decision_gains = second_model_decision.event_investment_decisions[
+        0
+    ].net_gains_until_next_decision
+    end_gain_second_decision = (
+        0.5 * ((0.5 - 0.9) / 0.9) + 0.4 * ((0.5 - 0.1) / 0.1)
+    ) / 10
+    # Why a profit? -> Model bet 0.5 against market, 0.4 with it. The 0.4 earns much more, since it was bought for dirt cheap.
+
+    assert second_decision_gains[0].value == 0
+    assert second_decision_gains[1].value == 0
+    assert second_decision_gains[2].value == end_gain_second_decision
+
+    #### TEST MODEL PERFORMANCE ####
+    portfolio_value_after_first_decision = 1 + end_gain_first_decision
+    portfolio_value_after_second_decision = portfolio_value_after_first_decision * (
+        1 + end_gain_second_decision
+    )
+    np.testing.assert_almost_equal(
+        model_performances["model_A"].compound_profit_history[3].value,
+        end_gain_first_decision + 1,
+        decimal=6,
     )
     assert (
-        abs(last_value(model_b_performance.pnl_per_event_decision["event_3"].pnl) - 0.1)
-        < 1e-9
+        model_performances["model_A"].final_profit
+        == portfolio_value_after_second_decision - 1
     )
-    assert (
-        abs(last_value(model_b_performance.pnl_per_event_decision["event_1"].pnl) - 0.0)
-        < 1e-9
-    )
-    print("Test passed!")
 
 
 if __name__ == "__main__":
-    test_compute_model_performance_end_to_end()
+    test_compute_model_performance_gain()

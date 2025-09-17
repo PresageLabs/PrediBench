@@ -8,7 +8,7 @@ interface DecisionAnnotationProps {
   nextDecision?: ModelInvestmentDecision
   allDecisions: ModelInvestmentDecision[]
   /** Cumulative PnL data to calculate period profit */
-  cumulativeData: { x: string; y: number }[]
+  cumulativeData: { date: string; value: number }[]
   /** Callback when an event is clicked */
   onEventClick?: (eventDecision: any, decisionDate: string, decisionDatetime: string) => void
 }
@@ -78,13 +78,13 @@ export function DecisionAnnotation({ decision, nextDecision, cumulativeData, onE
   const periodProfitChange = useMemo(() => {
     if (!cumulativeData || cumulativeData.length === 0) return 0
 
-    const startPoint = cumulativeData.find(point => point.x === decision.target_date)
+    const startPoint = cumulativeData.find(point => point.date === decision.target_date)
     const endPoint = nextDecision
-      ? cumulativeData.find(point => point.x === nextDecision.target_date)
+      ? cumulativeData.find(point => point.date === nextDecision.target_date)
       : cumulativeData[cumulativeData.length - 1] // Use last point if no next decision
 
     if (startPoint && endPoint) {
-      return endPoint.y - startPoint.y
+      return endPoint.value - startPoint.value
     }
 
     return 0
@@ -162,9 +162,9 @@ export function DecisionAnnotation({ decision, nextDecision, cumulativeData, onE
                     onMouseEnter={(e) => { e.currentTarget.style.color = 'hsl(var(--primary))' }}
                     onMouseLeave={(e) => { e.currentTarget.style.color = 'inherit' }}
                     onClick={() => handleEventClick(driver.eventId)}
-                   >
-                     {driver.eventTitle}
-                   </div>
+                  >
+                    {driver.eventTitle}
+                  </div>
                   <div style={{ textAlign: 'right', fontWeight: '600', fontSize: '12px' }}>
                     <ProfitDisplay value={driver.returnAmount} />
                   </div>

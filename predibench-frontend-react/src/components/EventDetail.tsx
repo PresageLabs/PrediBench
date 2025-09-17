@@ -266,8 +266,8 @@ export function EventDetail({ event }: EventDetailProps) {
                   series={event?.markets?.map((market, index) => ({
                     dataKey: `market_${market.id}`,
                     data: (marketPricesData[market.id] || []).map(point => ({
-                      x: point.date,
-                      y: point.price
+                      date: point.date,
+                      value: point.price
                     })),
                     stroke: getChartColor(index),
                     name: market.question.length > 30 ? market.question.substring(0, 27) + '...' : market.question

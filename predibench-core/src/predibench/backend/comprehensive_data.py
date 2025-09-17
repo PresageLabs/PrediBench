@@ -142,54 +142,111 @@ def _compute_model_performance(
     prices_df = prices_df[prices_df.index > cutoff]
     prices_df = prices_df.sort_index()
 
+    trade_dates_per_model: dict[str, set[date]] = {
+        model_id: set() for model_id, _ in all_model_ids
+    }
     for model_decision in model_decisions:
         # NOTE: is it really necessary to deduplicate "multiple decisions for the same market on the same date" : does it really happen?
         for event_decision in model_decision.event_investment_decisions:
-            pnl_for_event = []
+            trade_dates_per_model[model_decision.model_id].add(
+                model_decision.target_date
+            )
+    ordered_trade_dates_per_model = {
+        model_id: sorted(list(trade_dates))
+        for model_id, trade_dates in trade_dates_per_model.items()
+    }
 
+    # Get per-event performance
+    for model_decision in model_decisions:
+        # NOTE: is it really necessary to deduplicate "multiple decisions for the same market on the same date" : does it really happen?
+        decision_date = model_decision.target_date
+        index_decision_date = ordered_trade_dates_per_model[
+            model_decision.model_id
+        ].index(decision_date)
+        next_decision_date = (
+            ordered_trade_dates_per_model[model_decision.model_id][
+                index_decision_date + 1
+            ]
+            if (
+                index_decision_date
+                < len(ordered_trade_dates_per_model[model_decision.model_id]) - 1
+            )
+            else None
+        )
+        # Collect per-event series to aggregate at the model-decision level
+        per_event_series_for_decision: list[pd.Series] = []
+        for event_decision in model_decision.event_investment_decisions:
+            net_gains_per_market = []
             for market_decision in event_decision.market_investment_decisions:
-                if (
-                    model_decision.target_date
-                    not in prices_df[market_decision.market_id].dropna().index
-                ):
-                    # NOTE: market decision should not be done after when the market is not open yet/closed
-                    continue
-
-                market_prices = prices_df[market_decision.market_id].ffill().copy()
+                market_series_all = prices_df[market_decision.market_id].copy()
+                # Fill missing values to allow robust slicing
+                market_prices = market_series_all.bfill().ffill().copy()
                 latest_price = float(market_prices.ffill().iloc[-1])
+                import math
+
+                if math.isnan(latest_price):
+                    continue
                 market_decision.brier_score_pair_current = (
                     latest_price,
                     market_decision.decision.odds,
                 )
                 if market_decision.decision.bet == 0:
                     continue
+                assert (
+                    min(market_prices.fillna(0)) >= 0
+                    and max(market_prices.fillna(0)) <= 1
+                ), "Market prices must be between 0 and 1, got: " + str(market_prices)
 
                 if market_decision.decision.bet < 0:
                     market_prices = 1 - market_prices
 
+                import numpy as np
+
                 market_prices = market_prices.bfill().ffill()
 
-                returns_since_decision = market_prices.pct_change(periods=1).shift(
-                    1
-                ).fillna(0) * abs(market_decision.decision.bet)
+                # Find first available price on/after the decision date
+                if decision_date not in market_prices.index:
+                    continue
+                price_at_decision = market_prices.loc[decision_date]
 
-                # Zero out returns before the decision date (STRICT IS IMPORTANT)
-                returns_since_decision[
-                    returns_since_decision.index <= model_decision.target_date
-                ] = 0
+                if float(price_at_decision) == 0 or np.isnan(price_at_decision):
+                    # Avoid division by zero; skip this market
+                    continue
+
+                # Cut market prices between dates using resolved start index
+                if next_decision_date is not None:
+                    market_prices = market_prices.loc[decision_date:next_decision_date]
+                else:
+                    market_prices = market_prices.loc[decision_date:]
+                assert not market_prices.empty, "Sliced market prices are empty"
+
+                net_gains_until_next_decision = (
+                    (market_prices / float(price_at_decision) - 1)
+                    * abs(market_decision.decision.bet)
+                ).fillna(0)
+                assert np.min(net_gains_until_next_decision) >= -abs(
+                    market_decision.decision.bet
+                ), (
+                    "Cannot lose more than the bet, got: "
+                    + str(net_gains_until_next_decision)
+                    + f"for bet {market_decision.decision.bet}"
+                )
 
                 # Preserve market_id as column name, make name unique by adding the target date
-                returns_since_decision.name = (
+                net_gains_until_next_decision.name = (
                     market_decision.market_id
                     + "_"
                     + model_decision.target_date.strftime("%Y-%m-%d")
                 )
 
-                pnl = returns_since_decision.cumsum().ffill()
-                pnl_for_event.append(pnl)
+                net_gains_per_market.append(net_gains_until_next_decision)
 
                 # Gain, brier score, trade count
-                market_decision.gains_since_decision = pnl.iloc[-1]
+                net_gains_end_value = net_gains_until_next_decision.iloc[-1]
+                assert not math.isnan(net_gains_end_value), (
+                    f"net_gains_at_decision_end is NaN for market {market_decision.market_id}"
+                )
+                market_decision.net_gains_at_decision_end = net_gains_end_value
 
                 if market_decision.decision.bet != 0:
                     model_decision_additional_info[
@@ -199,42 +256,104 @@ def _compute_model_performance(
                     market_decision.market_id
                 ] = (latest_price, market_decision.decision.odds)
 
-            if len(pnl_for_event) > 0:
-                pnl_for_event_df = pd.concat(pnl_for_event, axis=1)
+            # Aggregate market gains to get the event gain
+            if len(net_gains_per_market) > 0:
+                net_gains_for_event_df = pd.concat(net_gains_per_market, axis=1)
             else:
-                pnl_for_event_df = pd.DataFrame(index=prices_df.index)
+                net_gains_for_event_df = pd.DataFrame(index=prices_df.index)
 
-            # Add expensed_capital column: 0 before target_date,expensed_capital after
-            sum_pnl_for_event_df = pnl_for_event_df.sum(axis=1)
+            sum_net_gains_for_event_df = net_gains_for_event_df.sum(axis=1) / 10
+            # Keep this per-event series to compute the model-level aggregate
+            assert sum_net_gains_for_event_df.index.is_monotonic_increasing, (
+                "Index is not sorted"
+            )
+            if not sum_net_gains_for_event_df.empty:
+                per_event_series_for_decision.append(sum_net_gains_for_event_df)
 
             model_decision_additional_info[model_decision.model_id].trades_dates.add(
                 model_decision.target_date.strftime("%Y-%m-%d")
             )
             model_decision_additional_info[
                 model_decision.model_id
-            ].pnl_per_event_decision[event_decision.event_id] = sum_pnl_for_event_df
+            ].pnl_per_event_decision[
+                event_decision.event_id
+            ] = sum_net_gains_for_event_df
 
-            event_decision.pnl_since_decision = DataPoint.list_datapoints_from_series(
-                sum_pnl_for_event_df,
+            event_decision.net_gains_until_next_decision = (
+                DataPoint.list_datapoints_from_series(
+                    sum_net_gains_for_event_df,
+                )
             )
 
-    # Get each model's daily performance
+        # After processing all events for this decision, compute the aggregated
+        # portfolio growth across all events (already divided by 10 per event).
+        aggregated_series = pd.concat(per_event_series_for_decision, axis=1).sum(axis=1)
+        aggregated_series = aggregated_series.reindex(
+            prices_df.loc[decision_date:next_decision_date].index
+        )  # NOTE: concatenation often breaks index ordering
+        model_decision.net_gains_until_next_decision = (
+            DataPoint.list_datapoints_from_series(aggregated_series)
+        )
+
+    # Get each model's daily performance (per decision batch)
     model_performances: dict[str, ModelPerformanceBackend] = {}
     for model_id, model_name in all_model_ids:
-        all_pnl = pd.concat(
-            model_decision_additional_info[model_id].pnl_per_event_decision,
-            axis=1,
-        ).ffill()
-        sums = all_pnl.sum(axis=1)
-        # counts = np.maximum(
-        #     all_pnl.count(axis=1), 2
-        # )  # Avoid division by zero, at least 3 to warm up
-        # print(counts)
-        # assert (
-        #     counts.iloc[0] + 5 < counts.iloc[-1]
-        # )  # The count should be higher towards the end.
-        normalized_pnl = (sums).ffill()
-        final_profit = float(normalized_pnl.iloc[-1])
+        # Map decision date -> ModelInvestmentDecisions for this model
+        decisions_for_model = [d for d in model_decisions if d.model_id == model_id]
+        decisions_for_model.sort(key=lambda d: d.target_date)
+        decisions_by_date: dict[date, ModelInvestmentDecisions] = {
+            d.target_date: d for d in decisions_for_model
+        }
+
+        # Build portfolio value over time by compounding decision returns
+        current_compounded_value: float = 1.0
+        current_cumulative_value: float = 1.0
+        compound_asset_values: list[pd.Series] = []
+        cumulative_net_gains: list[pd.Series] = []
+
+        for decision_date in sorted(decisions_by_date.keys()):
+            decision = decisions_by_date[decision_date]
+            batch_net_gains_series = DataPoint.series_from_list_datapoints(
+                decision.net_gains_until_next_decision
+            )
+            assert batch_net_gains_series is not None
+
+            current_net_asset_value_compounded = (
+                batch_net_gains_series + 1
+            ) * current_compounded_value
+            current_net_gains_cumulative = (
+                batch_net_gains_series + current_cumulative_value
+            )
+
+            cumulative_net_gains.append(current_net_gains_cumulative)
+            compound_asset_values.append(current_net_asset_value_compounded)
+            current_compounded_value = current_net_asset_value_compounded.iloc[-1]
+            current_cumulative_value = current_net_gains_cumulative.iloc[-1]
+
+        compound_asset_values_series = pd.concat(
+            compound_asset_values, axis=0
+        ).sort_index()
+        cumulative_net_gains_series = pd.concat(
+            cumulative_net_gains, axis=0
+        ).sort_index()
+        # Check that duplicate index values are equal
+        if compound_asset_values_series.index.has_duplicates:
+            assert compound_asset_values_series.groupby(level=0).nunique().max() == 1, (
+                "Duplicate index values differ"
+            )
+            assert cumulative_net_gains_series.groupby(level=0).nunique().max() == 1, (
+                "Duplicate index values differ"
+            )
+        # Deduplicate by keeping only the first occurrence
+        compound_asset_values_series = compound_asset_values_series[
+            ~compound_asset_values_series.index.duplicated(keep="first")
+        ]
+        cumulative_net_gains_series = cumulative_net_gains_series[
+            ~cumulative_net_gains_series.index.duplicated(keep="first")
+        ]
+        compound_net_gains_series = compound_asset_values_series - 1.0
+
+        final_profit = compound_net_gains_series.iloc[-1]
 
         brier_scores = model_decision_additional_info[model_id].brier_scores.values()
         final_brier_score = (
@@ -259,7 +378,12 @@ def _compute_model_performance(
                     model_id
                 ].pnl_per_event_decision.items()
             },
-            pnl_history=DataPoint.list_datapoints_from_series(normalized_pnl),
+            compound_profit_history=DataPoint.list_datapoints_from_series(
+                compound_asset_values_series
+            ),
+            cumulative_profit_history=DataPoint.list_datapoints_from_series(
+                cumulative_net_gains_series
+            ),
             final_profit=final_profit,
             final_brier_score=final_brier_score,
         )

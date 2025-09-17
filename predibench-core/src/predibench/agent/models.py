@@ -18,10 +18,33 @@ class DataPoint(BaseModel):
     @staticmethod
     def list_datapoints_from_series(series: pd.Series) -> list["DataPoint"]:
         series = series.sort_index()  # Ensure dates are sorted before conversion
-        return [
+
+        # Assert that the series is properly sorted
+        index_list = list(series.index)
+        for i in range(1, len(index_list)):
+            assert index_list[i] >= index_list[i - 1], (
+                f"Series not sorted at index {i}: {index_list[i - 1]} -> {index_list[i]}"
+            )
+
+        result = [
             DataPoint(date=str(date), value=float(value))
             for date, value in series.items()
         ]
+
+        # Assert that the resulting DataPoints are sorted by date string
+        for i in range(1, len(result)):
+            assert result[i].date >= result[i - 1].date, (
+                f"DataPoint not sorted at index {i}: {result[i - 1].date} -> {result[i].date}"
+            )
+
+        return result
+
+    @staticmethod
+    def series_from_list_datapoints(list: list["DataPoint"]) -> pd.Series:
+        return pd.Series(
+            [data_point.value for data_point in list],
+            index=[data_point.date for data_point in list],
+        )
 
 
 class SingleInvestmentDecision(BaseModel):
@@ -59,7 +82,7 @@ class MarketInvestmentDecision(BaseModel):
         validation_alias=AliasChoices("decision", "model_decision"),
     )
     market_question: str | None = None
-    gains_since_decision: float | None = None
+    net_gains_at_decision_end: float | None = None
     brier_score_pair_current: tuple[float, float] | None = (
         None  # tuple of (price current, estimated odds)
     )
@@ -79,9 +102,9 @@ class EventInvestmentDecisions(BaseModel):
     timing: Timing | None = None
     sources_google: list[str] | None = None
     sources_visit_webpage: list[str] | None = None
-    pnl_since_decision: list[DataPoint] | None = None
+    net_gains_until_next_decision: list[DataPoint] | None = None
 
-    def normalize_gains(self) -> None:
+    def normalize_investments(self) -> None:
         """Normalize the bet amounts so that total allocated capital + unallocated capital = 1.0"""
         total_allocated = sum(
             abs(decision.decision.bet) for decision in self.market_investment_decisions
@@ -95,6 +118,7 @@ class EventInvestmentDecisions(BaseModel):
             # Normalize all bet amounts
             for decision in self.market_investment_decisions:
                 decision.decision.bet *= normalization_factor
+            print(f"Normalized investments for event {self.event_id}")
 
             # Normalize unallocated capital
             self.unallocated_capital *= normalization_factor
@@ -134,6 +158,9 @@ class ModelInvestmentDecisions(BaseModel):
     target_date: date
     decision_datetime: datetime
     event_investment_decisions: list[EventInvestmentDecisions]
+    # Aggregated portfolio growth (sum of per-event series already divided by 10)
+    # starting at 0 on the first date >= decision, until the next decision
+    net_gains_until_next_decision: list[DataPoint] | None = None
 
     def _save_model_result(self) -> None:
         """Save model result to file."""
