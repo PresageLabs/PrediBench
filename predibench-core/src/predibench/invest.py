@@ -48,14 +48,7 @@ def run_investments_for_specific_date(
         logger.info(f"Loading events from cache: {cache_file_path}")
         selected_events = load_events_from_file(cache_file_path)
         if len(selected_events) < max_n_events:
-            logger.info(f"Selected {len(selected_events)} events from cache, but expected {max_n_events}")
-            selected_events = choose_events(
-                target_date=target_date,
-                time_until_ending=time_until_ending,
-                n_events=max_n_events,
-                filter_crypto_events=filter_crypto_events,
-                save_path=cache_file_path,
-            )
+            raise ValueError(f"Selected {len(selected_events)} events from cache, but expected {max_n_events}")
     else:
         logger.info("Fetching events from API")
         selected_events = choose_events(

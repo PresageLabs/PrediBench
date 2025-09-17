@@ -396,7 +396,7 @@ def _should_retry(exception: Exception) -> bool:
     retry=retry_if_exception(_should_retry),
     before_sleep=before_sleep_log(logger, logging.ERROR),
     after=after_log(logger, logging.ERROR),
-    reraise=False,
+    reraise=True,
 )
 def run_smolagents(
     model_info: ModelInfo,
@@ -485,7 +485,7 @@ def _save_research_result_to_cache(
 
 @retry(
     stop=stop_after_attempt(2),
-    reraise=False,
+    reraise=True,
 )
 def structure_final_answer(
     research_output: str,
