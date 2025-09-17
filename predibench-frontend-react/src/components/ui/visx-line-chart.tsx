@@ -191,7 +191,10 @@ export function VisxLineChart({
       colors,
       tickLength: 4,
       gridColor: 'hsl(var(--border))',
-      gridColorDark: 'hsl(var(--border))'
+      gridColorDark: 'hsl(var(--border))',
+      svgLabelSmall: { fill: 'hsl(var(--muted-foreground))' },
+      svgLabelBig: { fill: 'hsl(var(--muted-foreground))' },
+      gridStyles: { stroke: 'hsl(var(--border))', opacity: 1 }
     })
   }, [series])
 
@@ -612,7 +615,7 @@ export function VisxLineChart({
       })()}
 
       {/* Debug overlay removed to keep code minimal */}
-      </ChartWrapper>
+    </ChartWrapper>
   )
 }
 
