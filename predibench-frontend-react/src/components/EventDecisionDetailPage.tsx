@@ -243,7 +243,7 @@ export function EventDecisionDetailPage({ }: EventDecisionDetailPageProps) {
           className="mb-6 flex items-center gap-2 text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft size={16} />
-          Back to {sourceType === 'model' ? `${modelName || modelId}` : `Event ${eventTitle || eventId}`}
+          Back to {sourceType === 'model' ? `model: ${modelName || modelId}` : `event: ${eventTitle || eventId}`}
         </button>
         <div className="text-center">
           <h2 className="text-xl font-bold text-red-600 mb-2">Error Loading Event Decision</h2>
@@ -262,7 +262,7 @@ export function EventDecisionDetailPage({ }: EventDecisionDetailPageProps) {
           className="mb-4 flex items-center gap-2 text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft size={16} />
-          Back to {sourceType === 'model' ? `${modelName || modelId}` : `Event ${eventTitle || eventId}`}
+          Back to {sourceType === 'model' ? `model: ${modelName || modelId}` : `event: ${eventTitle || eventId}`}
         </button>
 
         <h1 className="text-2xl font-bold">
@@ -415,9 +415,11 @@ export function EventDecisionDetailPage({ }: EventDecisionDetailPageProps) {
                 <div>
                   <div className="flex items-center gap-2 mb-3">
                     <Search size={16} className="text-blue-700 dark:text-blue-300" />
-                    <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Sources seen in Google Search</span>
+                    <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                      {eventDecision.sources_google.length} sources seen in Google search
+                    </span>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 ml-6">
                     {eventDecision.sources_google.map((source, index) => {
                       const displayText = source.replace(/^https?:\/\/(www\.)?/, '')
                       return (
@@ -426,7 +428,7 @@ export function EventDecisionDetailPage({ }: EventDecisionDetailPageProps) {
                           href={source}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="block text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline bg-gray-50 dark:bg-gray-800 p-2 rounded font-mono break-all"
+                          className="block text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline bg-gray-50 dark:bg-gray-800 p-2 rounded font-mono break-all"
                         >
                           {displayText}
                         </a>
@@ -440,9 +442,11 @@ export function EventDecisionDetailPage({ }: EventDecisionDetailPageProps) {
                 <div>
                   <div className="flex items-center gap-2 mb-3">
                     <FileText size={16} className="text-green-700 dark:text-green-300" />
-                    <span className="text-sm font-medium text-green-700 dark:text-green-300">Webpages Visited</span>
+                    <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                      {eventDecision.sources_visit_webpage.length} webpages visited
+                    </span>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 ml-6">
                     {eventDecision.sources_visit_webpage.map((source, index) => {
                       const displayText = source.replace(/^https?:\/\/(www\.)?/, '')
                       return (
@@ -451,7 +455,7 @@ export function EventDecisionDetailPage({ }: EventDecisionDetailPageProps) {
                           href={source}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="block text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline bg-gray-50 dark:bg-gray-800 p-2 rounded font-mono break-all"
+                          className="block text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline bg-gray-50 dark:bg-gray-800 p-2 rounded font-mono break-all"
                         >
                           {displayText}
                         </a>

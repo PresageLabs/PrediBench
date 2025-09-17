@@ -1,3 +1,4 @@
+import Giscus from '@giscus/react'
 import * as Select from '@radix-ui/react-select'
 import { format as formatDate } from 'date-fns'
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -5,6 +6,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { LeaderboardEntry, ModelInvestmentDecision, ModelPerformance } from '../api'
 import { apiService } from '../api'
+import { useTheme } from '../contexts/ThemeContext'
 import { decodeSlashes, encodeSlashes } from '../lib/utils'
 import { getChartColor } from './ui/chart-colors'
 import { DecisionAnnotation } from './ui/DecisionAnnotation'
@@ -22,6 +24,7 @@ interface ModelsPageProps {
 export function ModelsPage({ leaderboard }: ModelsPageProps) {
   const location = useLocation()
   const navigate = useNavigate()
+  const { theme } = useTheme()
   const [selectedModelId, setSelectedModelId] = useState<string>('')
   const [modelDecisions, setModelDecisions] = useState<ModelInvestmentDecision[]>([])
   // const [loading, setLoading] = useState(false)
@@ -479,6 +482,29 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
         </div >
       )
       }
+
+      {/* Model Discussion - only show when a model is selected */}
+      {selectedModelId && selectedModelData && (
+        <div className="mt-12">
+          <h3 className="text-xl font-semibold mb-6">Leave feedback for {selectedModelData.model_name}</h3>
+          <Giscus
+            id="model-comments"
+            repo="clairvoyance-tech/predibench"
+            repoId="R_kgDOPTwANQ"
+            category="Ideas"
+            categoryId="DIC_kwDOPTwANc4Cvk2C"
+            mapping="specific"
+            term={`Model: ${selectedModelData.model_name}`}
+            strict="0"
+            reactionsEnabled="0"
+            emitMetadata="0"
+            inputPosition="top"
+            theme={theme === 'dark' ? 'dark_tritanopia' : 'light_tritanopia'}
+            lang="en"
+            loading="lazy"
+          />
+        </div>
+      )}
 
     </div >
   )
