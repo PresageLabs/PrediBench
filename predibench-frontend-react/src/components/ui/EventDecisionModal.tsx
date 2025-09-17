@@ -333,7 +333,7 @@ export function EventDecisionModal({
                   yDomain={[0, 1]}
                   series={Object.entries(popupPrices).map(([marketId, points], index) => ({
                     dataKey: `market_${marketId}`,
-                    data: points.map(p => ({ x: p.date, y: p.price })),
+                    data: points.map(p => ({ date: p.date, value: p.price })),
                     stroke: getChartColor(index),
                     name: (popupMarketNames[marketId] || `Market ${marketId}`).substring(0, 30)
                   }))}
