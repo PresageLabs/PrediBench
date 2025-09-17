@@ -1,11 +1,11 @@
 import { ExternalLink } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { Event, LeaderboardEntry, ModelInvestmentDecision } from '../api'
 import { apiService } from '../api'
 import { useAnalytics } from '../hooks/useAnalytics'
-import { formatVolume } from '../lib/utils'
+import { formatVolume, encodeSlashes } from '../lib/utils'
 import { getChartColor } from './ui/chart-colors'
-import { EventDecisionModal } from './ui/EventDecisionModal'
 import { EventDecisionThumbnail } from './ui/EventDecisionThumbnail'
 import { VisxLineChart } from './ui/visx-line-chart'
 
@@ -32,19 +32,13 @@ interface MarketInvestmentDecision {
 }
 
 export function EventDetail({ event }: EventDetailProps) {
+  const navigate = useNavigate()
   const [marketPricesData, setMarketPricesData] = useState<{ [marketId: string]: PriceData[] }>({})
   const { trackEvent, trackUserAction } = useAnalytics()
   const [loading, setLoading] = useState(false)
   const [latestDecisionDate, setLatestDecisionDate] = useState<string | null>(null)
   const [modelIdToName, setModelIdToName] = useState<Record<string, string>>({})
   const [eventModelDecisions, setEventModelDecisions] = useState<ModelInvestmentDecision[]>([])
-  const [showEventPopup, setShowEventPopup] = useState(false)
-  const [selectedEvent, setSelectedEvent] = useState<{
-    eventDecision: any;
-    decisionDate: string;
-    decisionDatetime: string;
-    modelId: string;
-  } | null>(null)
 
   // Function to convert URLs in text to clickable links
   const linkify = (text: string | null | undefined) => {
@@ -317,13 +311,18 @@ export function EventDetail({ event }: EventDetailProps) {
                     topBet={topBet}
                     decisionsCount={ed.market_investment_decisions.length}
                     onClick={() => {
-                      setSelectedEvent({
-                        eventDecision: ed,
-                        decisionDate: md.target_date,
+                      const searchParams = new URLSearchParams({
+                        source: 'event',
                         decisionDatetime: md.decision_datetime,
-                        modelId
+                        modelName: modelIdToName[modelId] || modelId,
+                        eventTitle: event.title,
+                        decisionDatesForEvent: eventModelDecisions
+                          .filter(emd => emd.event_investment_decisions.some(eid => eid.event_id === event.id))
+                          .map(emd => emd.target_date)
+                          .sort()
+                          .join(',')
                       })
-                      setShowEventPopup(true)
+                      navigate(`/decision/${encodeSlashes(modelId)}/${event.id}/${md.target_date}?${searchParams.toString()}`)
                     }}
                   />
                 )
@@ -331,22 +330,6 @@ export function EventDetail({ event }: EventDetailProps) {
             </div>
           )}
         </div>
-        {showEventPopup && selectedEvent && (
-          <EventDecisionModal
-            isOpen={showEventPopup}
-            onClose={() => setShowEventPopup(false)}
-            eventDecision={selectedEvent.eventDecision}
-            decisionDate={selectedEvent.decisionDate}
-            decisionDatetime={selectedEvent.decisionDatetime}
-            modelName={modelIdToName[selectedEvent.modelId] || selectedEvent.modelId}
-            modelId={selectedEvent.modelId}
-            eventTitle={event.title}
-            decisionDatesForEvent={eventModelDecisions
-              .filter(d => d.model_id === selectedEvent.modelId && d.event_investment_decisions.some(ed => ed.event_id === event.id))
-              .map(d => d.target_date)
-              .sort((a, b) => a.localeCompare(b))}
-          />
-        )}
       </div>
     </div>
   )

@@ -1,4 +1,4 @@
-import { X } from 'lucide-react'
+import { FileText, Search, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { EventInvestmentDecision } from '../../api'
 import { apiService } from '../../api'
@@ -338,6 +338,64 @@ export function EventDecisionModal({
               )}
             </div>
           </div>
+
+          {/* Sources used (only for decisions after cutoff date) */}
+          {isDecisionAfterCutoff && (eventDecision.sources_google?.length || eventDecision.sources_visit_webpage?.length) && (
+            <div className="mb-8">
+              <h4 className="font-medium mb-4">Sources used:</h4>
+              <div className="space-y-4">
+                {eventDecision.sources_google && eventDecision.sources_google.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Search size={16} className="text-blue-700 dark:text-blue-300" />
+                      <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Sources seen in Google Search</span>
+                    </div>
+                    <div className="space-y-2">
+                      {eventDecision.sources_google.map((source, index) => {
+                        const displayText = source.replace(/^https?:\/\/(www\.)?/, '')
+                        return (
+                          <a
+                            key={index}
+                            href={source}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline bg-gray-50 dark:bg-gray-800 p-2 rounded font-mono break-all"
+                          >
+                            {displayText}
+                          </a>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {eventDecision.sources_visit_webpage && eventDecision.sources_visit_webpage.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <FileText size={16} className="text-green-700 dark:text-green-300" />
+                      <span className="text-sm font-medium text-green-700 dark:text-green-300">Webpages Visited</span>
+                    </div>
+                    <div className="space-y-2">
+                      {eventDecision.sources_visit_webpage.map((source, index) => {
+                        const displayText = source.replace(/^https?:\/\/(www\.)?/, '')
+                        return (
+                          <a
+                            key={index}
+                            href={source}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline bg-gray-50 dark:bg-gray-800 p-2 rounded font-mono break-all"
+                          >
+                            {displayText}
+                          </a>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Agent full logs (only for decisions after cutoff date) */}
           {isDecisionAfterCutoff && (

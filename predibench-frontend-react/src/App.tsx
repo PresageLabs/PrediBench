@@ -3,6 +3,7 @@ import { Route, BrowserRouter as Router, Routes, useLocation } from 'react-route
 import type { Event, LeaderboardEntry } from './api'
 import { apiService } from './api'
 import { EventDetail } from './components/EventDetail'
+import { EventDecisionDetailPage } from './components/EventDecisionDetailPage'
 import { EventsPage } from './components/EventsPage'
 import { HomePage } from './components/HomePage'
 import { Layout } from './components/Layout'
@@ -72,6 +73,7 @@ function AppContent() {
     if (location.pathname === '/events') return 'events'
     if (location.pathname === '/models') return 'models'
     if (location.pathname.startsWith('/events/')) return 'events'
+    if (location.pathname.startsWith('/decision/')) return 'decision'
     return 'home'
   }
 
@@ -112,6 +114,10 @@ function AppContent() {
           element={
             <EventDetailWrapper events={events} leaderboard={leaderboard} />
           }
+        />
+        <Route
+          path="/decision/:modelId/:eventId/:decisionDate"
+          element={<EventDecisionDetailPage />}
         />
       </Routes>
     </Layout>

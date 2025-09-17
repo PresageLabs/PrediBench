@@ -8,7 +8,6 @@ import { apiService } from '../api'
 import { decodeSlashes, encodeSlashes } from '../lib/utils'
 import { getChartColor } from './ui/chart-colors'
 import { DecisionAnnotation } from './ui/DecisionAnnotation'
-import { EventDecisionModal } from './ui/EventDecisionModal'
 import { EventDecisionThumbnail } from './ui/EventDecisionThumbnail'
 import { BrierScoreInfoTooltip, PnLTooltip } from './ui/info-tooltip'
 // import { ProfitDisplay } from './ui/profit-display'
@@ -27,12 +26,6 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
   const [modelDecisions, setModelDecisions] = useState<ModelInvestmentDecision[]>([])
   // const [loading, setLoading] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  const [showEventPopup, setShowEventPopup] = useState(false)
-  const [selectedEvent, setSelectedEvent] = useState<{
-    eventDecision: any;
-    decisionDate: string;
-    decisionDatetime: string;
-  } | null>(null)
   const [calendarDate, setCalendarDate] = useState(new Date())
   const [modelPerformance, setModelPerformance] = useState<ModelPerformance | null>(null)
   const [predictionDates, setPredictionDates] = useState<string[]>([])
@@ -94,8 +87,18 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
   }
 
   const handleEventClick = (eventDecision: any, decisionDate: string, decisionDatetime: string) => {
-    setSelectedEvent({ eventDecision, decisionDate, decisionDatetime })
-    setShowEventPopup(true)
+    const searchParams = new URLSearchParams({
+      source: 'model',
+      decisionDatetime: decisionDatetime,
+      modelName: selectedModelData?.model_name || selectedModelId,
+      eventTitle: eventDecision.event_title,
+      decisionDatesForEvent: modelDecisions
+        .filter(md => md.event_investment_decisions.some(ed => ed.event_id === eventDecision.event_id))
+        .map(md => md.target_date)
+        .sort()
+        .join(',')
+    })
+    navigate(`/decision/${encodeSlashes(selectedModelId)}/${eventDecision.event_id}/${decisionDate}?${searchParams.toString()}`)
   }
 
   // EventDecisionModal computes prices/returns internally
@@ -477,23 +480,6 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
       )
       }
 
-      {/* Event Details Popup - unified modal */}
-      {showEventPopup && selectedEvent && (
-        <EventDecisionModal
-          isOpen={showEventPopup}
-          onClose={() => setShowEventPopup(false)}
-          eventDecision={selectedEvent.eventDecision}
-          decisionDate={selectedEvent.decisionDate}
-          decisionDatetime={selectedEvent.decisionDatetime}
-          modelName={selectedModelData?.model_name}
-          modelId={selectedModelData?.model_id}
-          eventTitle={selectedEvent.eventDecision?.event_title}
-          decisionDatesForEvent={modelDecisions
-            .filter(d => d.event_investment_decisions.some(ed => ed.event_id === selectedEvent.eventDecision.event_id))
-            .map(d => d.target_date)
-            .sort((a, b) => a.localeCompare(b))}
-        />
-      )}
     </div >
   )
 }
