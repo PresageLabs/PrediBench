@@ -58,7 +58,9 @@ def _to_date_index(df: pd.DataFrame) -> pd.DataFrame:
     return df2
 
 
-def get_data_for_backend() -> BackendData:
+def get_data_for_backend(
+    recompute_all_bets: bool = False,
+) -> BackendData:
     """
     Pre-compute all data needed for backend API endpoints.
 
@@ -82,8 +84,20 @@ def get_data_for_backend() -> BackendData:
     # Step 1.5: Convert Polymarket Event models to backend Event models
     backend_events = [EventBackend.from_event(e) for e in events]
 
-    # Step 2: Compute ModelPerformanceBackend for each model
+    # Step 2: Optionally recompute bets using Kelly at decision time, then
+    # compute ModelPerformanceBackend for each model
     logger.info("Computing model performance data (per day + per event)...")
+    # When recomputing, apply Kelly using the original market price series
+    # at the model's decision date; only bets are rescaled, unallocated stays.
+    if recompute_all_bets:
+        for model_decision in model_decisions:
+            decision_date = model_decision.target_date
+            for event_decision in model_decision.event_investment_decisions:
+                event_decision.normalize_investments(
+                    apply_kelly_criterion_at_date=decision_date,
+                    market_prices=market_prices,
+                )
+
     model_decisions, performance_per_model = _compute_model_performance(
         prices_df=prices_df,
         backend_events=backend_events,
@@ -391,6 +405,7 @@ def _compute_model_performance(
     return model_decisions, model_performances
 
 
+
 def load_full_result_from_bucket(
     model_id: str, event_id: str, target_date: str
 ) -> FullModelResult | None:
@@ -434,13 +449,13 @@ def load_full_result_from_bucket(
                     if "model_input_messages" in result_data:
                         del result_data["model_input_messages"]
 
-                return FullModelResult(
-                    model_id=model_id,
-                    event_id=event_id,
-                    target_date=str(target_date),
-                    agent_type=None,  # Default for old files
-                    full_result_listdict=result_data,
-                )
+            return FullModelResult(
+                model_id=model_id,
+                event_id=event_id,
+                target_date=str(target_date),
+                agent_type=None,  # Default for old files
+                full_result_listdict=result_data,
+            )
         except (json.JSONDecodeError, KeyError, TypeError):
             # If parsing fails, return None
             return None
