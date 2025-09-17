@@ -11,7 +11,7 @@ import { EventDecisionModal } from './ui/EventDecisionModal'
 import { EventDecisionThumbnail } from './ui/EventDecisionThumbnail'
 import { BrierScoreInfoTooltip, PnLTooltip } from './ui/info-tooltip'
 // import { ProfitDisplay } from './ui/profit-display'
-import { calculatePortfolioFromDecisions } from '../utils/stitching'
+import { rescalePnlHistoryFromCutoff } from '../utils/stitching'
 import { VisxLineChart } from './ui/visx-line-chart'
 
 interface ModelsPageProps {
@@ -166,14 +166,12 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     return () => { cancelled = true }
   }, [selectedModelId])
 
-  // Fetch prediction dates once for cutoff slider
+  // Fetch prediction dates for cutoff slider from modelPerformance
   useEffect(() => {
-    let cancelled = false
-    apiService.getPredictionDates()
-      .then(dates => { if (!cancelled) setPredictionDates(dates.sort((a, b) => a.localeCompare(b))) })
-      .catch(() => setPredictionDates([]))
-    return () => { cancelled = true }
-  }, [])
+    if (modelPerformance?.trades_dates) {
+      setPredictionDates(modelPerformance.trades_dates.sort((a, b) => a.localeCompare(b)))
+    }
+  }, [modelPerformance])
 
   // Removed event-based series metadata; cumulative series is used instead
 
@@ -183,17 +181,17 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     return predictionDates[idx]
   }, [predictionDates, cutoffIndex])
 
-  // Portfolio Increase series using stitched decisions after cutoff
+  // Portfolio Increase series using pnl_history from ModelPerformanceBackend
   const stitchedSeries = useMemo(() => {
-    if (!modelDecisions.length) return [] as { dataKey: string; data: { date: string; value: number }[]; stroke: string; name?: string }[]
-    const stitched = calculatePortfolioFromDecisions(modelDecisions, cutoffDate)
+    if (!modelPerformance?.pnl_history?.length) return [] as { dataKey: string; data: { date: string; value: number }[]; stroke: string; name?: string }[]
+    const rescaled = rescalePnlHistoryFromCutoff(modelPerformance.pnl_history, cutoffDate)
     return [{
       dataKey: `model_${selectedModelId}_stitched`,
-      data: stitched.map(p => ({ date: p.date, value: p.value })),
+      data: rescaled.map(p => ({ date: p.date, value: p.value })),
       stroke: getChartColor(0),
       name: 'Portfolio Increase'
     }]
-  }, [modelDecisions, cutoffDate, selectedModelId])
+  }, [modelPerformance, cutoffDate, selectedModelId])
 
   // Generate additional annotations for decision points
   const additionalAnnotations = useMemo(() => {

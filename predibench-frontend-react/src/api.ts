@@ -8,6 +8,8 @@ export interface LeaderboardEntry {
   lastUpdated: string
   trend: 'up' | 'down' | 'stable'
   pnl_history: { date: string; value: number }[]
+  cumulative_net_gains: { date: string; value: number }[]
+  trades_dates: string[]
   final_brier_score: number
 }
 
@@ -75,7 +77,7 @@ export interface ModelInvestmentDecision {
   event_investment_decisions: EventInvestmentDecision[]
   // Backend-computed cumulative net gains for the whole model between this decision and the next
   // Values are net gains relative to 1.0 starting portfolio for the decision period
-  net_gains_until_next_decision?: TimeseriesPoint[]
+  net_gains_until_next_decision: TimeseriesPoint[]
 }
 
 export interface EventInvestmentDecision {
@@ -85,7 +87,7 @@ export interface EventInvestmentDecision {
   market_investment_decisions: MarketInvestmentDecision[]
   unallocated_capital: number
   // Backend-computed cumulative PnL time series for this event since the decision date
-  net_gains_until_next_decision?: TimeseriesPoint[]
+  net_gains_until_next_decision: TimeseriesPoint[]
 }
 
 export interface MarketInvestmentDecision {
@@ -93,9 +95,9 @@ export interface MarketInvestmentDecision {
   decision: SingleInvestmentDecision
   market_question: string | null
   // Backend-computed gains for this market since the decision date (optional)
-  net_gains_at_decision_end?: number | null
+  net_gains_at_decision_end: number | null
   // Backend-computed pair: [current_price, estimated_odds] (optional)
-  brier_score_pair_current?: [number, number] | null
+  brier_score_pair_current: [number, number] | null
 }
 
 export interface SingleInvestmentDecision {

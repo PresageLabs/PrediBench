@@ -541,10 +541,11 @@ export function VisxLineChart({
       }}
     >
       <XYChart
+        key={`chart-${JSON.stringify(xDomain)}-${JSON.stringify(scales?.yDomain)}`}
         width={containerWidth}
         height={chartHeight}
         margin={margin}
-        xScale={{ type: 'time' }}
+        xScale={{ type: 'time', domain: xDomain }}
         yScale={{ type: 'linear', domain: scales?.yDomain }}
         onPointerMove={handlePointerMove}
       >

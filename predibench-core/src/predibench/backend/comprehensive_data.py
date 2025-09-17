@@ -305,61 +305,55 @@ def _compute_model_performance(
             d.target_date: d for d in decisions_for_model
         }
 
-        # Build portfolio value over time by compounding batch returns
-        portfolio_values: dict[date, float] = {}
-        current_value: float = 1.0
+        # Build portfolio value over time by compounding decision returns
+        current_compounded_value: float = 1.0
+        current_cumulative_value: float = 1.0
+        compound_asset_values: list[pd.Series] = []
+        cumulative_net_gains: list[pd.Series] = []
 
-        for batch_date in sorted(decisions_by_date.keys()):
-            decision = decisions_by_date[batch_date]
-            event_series_list: list[pd.Series] = []
-
-            # Use the backend-computed per-event series for this exact decision date
-            for event_decision in decision.event_investment_decisions:
-                series_points = event_decision.net_gains_until_next_decision or []
-                if len(series_points) == 0:
-                    continue
-                try:
-                    s = pd.Series(
-                        data=[p.value for p in series_points],
-                        index=[string_to_date(p.date) for p in series_points],
-                        dtype=float,
-                    )
-                    # Ensure strictly increasing index order
-                    s = s.sort_index()
-                    event_series_list.append(s)
-                except Exception as e:
-                    # If conversion failed for any reason, skip this event series
-                    logger.warning(
-                        f"Failed to parse event series for model {model_id} on {batch_date}: {e}"
-                    )
-
-            if len(event_series_list) == 0:
-                # No active events in this batch; portfolio stays flat on batch_date
-                portfolio_values[batch_date] = current_value
-                continue
-
-            # Sum per-event net gains to get batch cumulative return (relative to batch start)
-            batch_net_gains = pd.concat(event_series_list, axis=1).sum(axis=1)
-            batch_net_gains = batch_net_gains.sort_index()
-
-            # Convert to portfolio value within the batch and record
-            for time, net_gain in batch_net_gains.items():
-                v = current_value * (1.0 + float(net_gain))
-                portfolio_values[time] = v
-
-            # Move to next batch with compounded value at end of window
-            current_value = current_value * (1.0 + float(batch_net_gains.iloc[-1]))
-
-        if len(portfolio_values) > 0:
-            portfolio_series = pd.Series(portfolio_values).sort_index()
-            net_profit = (portfolio_series - 1.0).ffill()
-            final_profit = float(net_profit.iloc[-1])
-            assert not math.isnan(final_profit), (
-                f"final_profit is NaN for model {model_id}"
+        for decision_date in sorted(decisions_by_date.keys()):
+            decision = decisions_by_date[decision_date]
+            batch_net_gains_series = DataPoint.series_from_list_datapoints(
+                decision.net_gains_until_next_decision
             )
-        else:
-            net_profit = pd.Series(dtype=float)
-            final_profit = 0.0
+            assert batch_net_gains_series is not None
+
+            current_net_asset_value_compounded = (
+                batch_net_gains_series + 1
+            ) * current_compounded_value
+            current_net_gains_cumulative = (
+                batch_net_gains_series + current_cumulative_value
+            )
+
+            cumulative_net_gains.append(current_net_gains_cumulative)
+            compound_asset_values.append(current_net_asset_value_compounded)
+            current_compounded_value = current_net_asset_value_compounded.iloc[-1]
+            current_cumulative_value = current_net_gains_cumulative.iloc[-1]
+
+        compound_asset_values_series = pd.concat(
+            compound_asset_values, axis=0
+        ).sort_index()
+        cumulative_net_gains_series = pd.concat(
+            cumulative_net_gains, axis=0
+        ).sort_index()
+        # Check that duplicate index values are equal
+        if compound_asset_values_series.index.has_duplicates:
+            assert compound_asset_values_series.groupby(level=0).nunique().max() == 1, (
+                "Duplicate index values differ"
+            )
+            assert cumulative_net_gains_series.groupby(level=0).nunique().max() == 1, (
+                "Duplicate index values differ"
+            )
+        # Deduplicate by keeping only the first occurrence
+        compound_asset_values_series = compound_asset_values_series[
+            ~compound_asset_values_series.index.duplicated(keep="first")
+        ]
+        cumulative_net_gains_series = cumulative_net_gains_series[
+            ~cumulative_net_gains_series.index.duplicated(keep="first")
+        ]
+        compound_net_gains_series = compound_asset_values_series - 1.0
+
+        final_profit = compound_net_gains_series.iloc[-1]
 
         brier_scores = model_decision_additional_info[model_id].brier_scores.values()
         final_brier_score = (
@@ -384,7 +378,12 @@ def _compute_model_performance(
                     model_id
                 ].pnl_per_event_decision.items()
             },
-            pnl_history=DataPoint.list_datapoints_from_series(net_profit.sort_index()),
+            pnl_history=DataPoint.list_datapoints_from_series(
+                compound_asset_values_series
+            ),
+            cumulative_net_gains=DataPoint.list_datapoints_from_series(
+                cumulative_net_gains_series
+            ),
             final_profit=final_profit,
             final_brier_score=final_brier_score,
         )

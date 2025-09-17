@@ -12,9 +12,11 @@ class LeaderboardEntryBackend(BaseModel):
     model_name: str
     final_profit: float
     trades_count: int
+    trades_dates: list[str]
     lastUpdated: str
     trend: Literal["up", "down", "stable"]
     pnl_history: list[DataPoint]
+    cumulative_net_gains: list[DataPoint]
     final_brier_score: float
 
 
@@ -76,6 +78,7 @@ class ModelPerformanceBackend(BaseModel):
     trades_count: int
     trades_dates: list[str]
     pnl_history: list[DataPoint]
+    cumulative_net_gains: list[DataPoint]
     pnl_per_event_decision: dict[str, EventDecisionPnlBackend]
     final_profit: float
     final_brier_score: float

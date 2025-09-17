@@ -50,6 +50,8 @@ def get_leaderboard(
             lastUpdated=date_to_string(datetime.now()),
             trend=trend,
             pnl_history=performance.pnl_history,
+            cumulative_net_gains=performance.cumulative_net_gains,
+            trades_dates=performance.trades_dates,
             final_profit=performance.final_profit,
             final_brier_score=performance.final_brier_score,
         )

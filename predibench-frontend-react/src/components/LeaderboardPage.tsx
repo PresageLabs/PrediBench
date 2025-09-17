@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { LeaderboardEntry, ModelInvestmentDecision } from '../api'
-import { apiService } from '../api'
+import type { LeaderboardEntry } from '../api'
 import { LeaderboardTable } from './LeaderboardTable'
 import { getChartColor } from './ui/chart-colors'
 import { PnLTooltip } from './ui/info-tooltip'
 import { RedirectButton } from './ui/redirect-button'
 import { VisxLineChart } from './ui/visx-line-chart'
-import { calculatePortfolioFromDecisions } from '../utils/stitching'
+import { rescalePnlHistoryFromCutoff } from '../utils/stitching'
 import { ErrorBoundary } from './ErrorBoundary'
 
 // Fallback: if prediction dates fail to load, show everything
@@ -19,19 +18,21 @@ interface LeaderboardPageProps {
 
 export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPageProps) {
   const [predictionDates, setPredictionDates] = useState<string[]>([])
-  const [allDecisions, setAllDecisions] = useState<ModelInvestmentDecision[] | null>(null)
   const [cutoffIndex, setCutoffIndex] = useState<number>(0)
 
   useEffect(() => {
     let cancelled = false
-    apiService.getPredictionDates()
-      .then(dates => { if (!cancelled) setPredictionDates(dates.sort((a, b) => a.localeCompare(b))) })
-      .catch(() => setPredictionDates([]))
-    apiService.getModelResults()
-      .then(res => { if (!cancelled) setAllDecisions(res) })
-      .catch(() => setAllDecisions([]))
+    // Extract unique trade dates from all models
+    const allDates = new Set<string>()
+    for (const model of leaderboard) {
+      for (const tradeDate of model.trades_dates || []) {
+        allDates.add(tradeDate)
+      }
+    }
+    const sortedDates = Array.from(allDates).sort((a, b) => a.localeCompare(b))
+    if (!cancelled) setPredictionDates(sortedDates)
     return () => { cancelled = true }
-  }, [])
+  }, [leaderboard])
 
   const cutoffDate = useMemo(() => {
     if (!predictionDates.length) return DEFAULT_CUTOFF
@@ -40,24 +41,18 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
   }, [predictionDates, cutoffIndex])
 
   const stitchedSeries = useMemo(() => {
-    if (!allDecisions) return []
-
-    const byModel: Record<string, ModelInvestmentDecision[]> = {}
-    for (const d of allDecisions) {
-      (byModel[d.model_id] ||= []).push(d)
-    }
-
     return leaderboard.map((model, index) => {
-      const decisions = byModel[model.model_id] || []
-      const stitched = calculatePortfolioFromDecisions(decisions, cutoffDate)
+      // Use the already-computed pnl_history from the leaderboard (backend computed this properly)
+      const pnlHistory = model.pnl_history || []
+      const rescaled = rescalePnlHistoryFromCutoff(pnlHistory, cutoffDate)
       return {
         dataKey: model.model_id,
-        data: stitched.map(p => ({ date: p.date, value: p.value })),
+        data: rescaled.map(p => ({ date: p.date, value: p.value })),
         stroke: getChartColor(index),
         name: model.model_name,
       }
     })
-  }, [allDecisions, leaderboard, cutoffDate])
+  }, [leaderboard, cutoffDate])
 
   return (
     <div className="container mx-auto px-4 py-8">
