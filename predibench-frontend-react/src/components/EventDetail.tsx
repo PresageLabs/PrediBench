@@ -27,7 +27,7 @@ interface MarketInvestmentDecision {
   market_id: string
   model_name: string
   bet: number
-  odds: number
+  estimated_probability: number
   rationale: string
 }
 
@@ -125,7 +125,7 @@ export function EventDetail({ event }: EventDetailProps) {
                 market_id: marketDecision.market_id,
                 model_name: modelResult.model_id, // keep id here; we map to pretty name for display
                 bet: marketDecision.decision.bet,
-                odds: marketDecision.decision.odds,
+                estimated_probability: marketDecision.decision.estimated_probability,
                 rationale: marketDecision.decision.rationale
               })
             })

@@ -47,8 +47,8 @@ logger = get_logger(__name__)
 
 BET_DESCRIPTION = """1. market_id (str): The market ID
 2. rationale (str): Explanation for your decision and why you think this market is mispriced (or correctly priced if skipping). Write at least a few sentences. If you take a strong bet, make sure to highlight the facts you know/value that the market doesn't.
-3. odds (float, 0 to 1): The odds you think the market will settle at (your true probability estimate)
-4. confidence (int, 0 to 10): Your confidence in the odds and your bet. Should be between 0 (absolute uncertainty, you shouldn't bet if you're not confident) and 10 (absolute certainty, then you can bet high).
+3. estimated_probability (float, 0 to 1): The estimated_probability you think the market will settle at (your true probability estimate)
+4. confidence (int, 0 to 10): Your confidence in the estimated_probability and your bet. Should be between 0 (absolute uncertainty, you shouldn't bet if you're not confident) and 10 (absolute certainty, then you can bet high).
 5. bet (float, -1 to 1): The amount in dollars that you bet on this market (can be negative if you want to buy the opposite of the market)"""
 
 
@@ -283,8 +283,8 @@ def parse_market_decisions_and_unallocated(
         assert "rationale" in decision_dict, (
             "A key 'rationale' is required for each market decision"
         )
-        assert "odds" in decision_dict, (
-            "A key 'odds' is required for each market decision"
+        assert "estimated_probability" in decision_dict, (
+            "A key 'estimated_probability' is required for each market decision"
         )
         assert "bet" in decision_dict, (
             "A key 'bet' is required for each market decision"
@@ -305,8 +305,8 @@ def parse_market_decisions_and_unallocated(
         assert -1.0 <= decision_dict["bet"] <= 1.0, (
             f"Your bet must be between -1.0 and 1.0, got {decision_dict['bet']} for market {decision_dict['market_id']}"
         )
-        assert 0.0 <= decision_dict["odds"] <= 1.0, (
-            f"Your estimated odds must be between 0.0 and 1.0, got {decision_dict['odds']} for market {decision_dict['market_id']}"
+        assert 0.0 <= decision_dict["estimated_probability"] <= 1.0, (
+            f"Your estimated estimated_probability must be between 0.0 and 1.0, got {decision_dict['estimated_probability']} for market {decision_dict['market_id']}"
         )
         try:
             assert int(decision_dict["confidence"]) == float(
@@ -321,7 +321,7 @@ def parse_market_decisions_and_unallocated(
 
         decision = SingleInvestmentDecision(
             rationale=decision_dict["rationale"],
-            odds=decision_dict["odds"],
+            estimated_probability=decision_dict["estimated_probability"],
             bet=decision_dict["bet"],
             confidence=decision_dict["confidence"],
         )
@@ -358,8 +358,8 @@ def final_answer(
         market_decisions (list[dict]): List of market decisions. Each dict should contain:
             1. market_id (str): The market ID
             2. rationale (str): Explanation for your decision and why you think this market is mispriced (or correctly priced if skipping). Write at least a few sentences. If you take a strong bet, make sure to highlight the facts you know/value that the market doesn't.
-            3. odds (float, 0 to 1): The odds you think the market will settle at (your true probability estimate)
-            4. confidence (int, 0 to 10): Your confidence in the odds and your bet. Should be between 0 (absolute uncertainty, you shouldn't bet if you're not confident) and 10 (absolute certainty, then you can bet high).
+            3. estimated_probability (float, 0 to 1): The estimated_probability you think the market will settle at (your true probability estimate)
+            4. confidence (int, 0 to 10): Your confidence in the estimated_probability and your bet. Should be between 0 (absolute uncertainty, you shouldn't bet if you're not confident) and 10 (absolute certainty, then you can bet high).
             5. bet (float, -1 to 1): The amount in dollars that you bet on this market (can be negative if you want to buy the opposite of the market)
         unallocated_capital (float): Fraction of capital not allocated to any bet (0.0 to 1.0)
     """
@@ -409,11 +409,6 @@ def run_smolagents(
     model_client = model_info.client
     assert model_client is not None, "Model client is not set"
 
-    prompt = f"""{question}
-        
-Use the final_answer tool to validate your output before providing the final answer.
-The final_answer tool must contain the arguments rationale and decision.
-"""
     if cutoff_date is not None:
         assert cutoff_date < date.today()
 
@@ -442,7 +437,7 @@ The final_answer tool must contain the arguments rationale and decision.
             return_full_result=True,
         )
 
-    full_result = agent.run(prompt)
+    full_result = agent.run(question)
     return CompleteMarketInvestmentDecisions(
         market_investment_decisions=full_result.output[0],
         unallocated_capital=full_result.output[1],

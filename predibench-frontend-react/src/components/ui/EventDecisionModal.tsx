@@ -230,7 +230,7 @@ export function EventDecisionModal({
                   <tr className="border-b border-border text-muted-foreground">
                     <th className="text-left py-2 px-3">Market</th>
                     <th className="text-center py-2 px-3">Bet ($)</th>
-                    <th className="text-center py-2 px-3">Estimated odds</th>
+                    <th className="text-center py-2 px-3">Estimated estimated_probability</th>
                     <th className="text-center py-2 px-3">Confidence level</th>
                     <th className="text-center py-2 px-3">Current returns</th>
                   </tr>
@@ -251,7 +251,7 @@ export function EventDecisionModal({
                           </span>
                         )}
                       </td>
-                      <td className="py-2 px-3 text-center">{(md.decision.odds * 100).toFixed(1)}%</td>
+                      <td className="py-2 px-3 text-center">{(md.decision.estimated_probability * 100).toFixed(1)}%</td>
                       <td className="py-2 px-3 text-center">{md.decision.confidence}/10</td>
                       <td className="py-2 px-3 text-center">
                         {realizedReturns[md.market_id] !== undefined ? (

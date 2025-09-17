@@ -202,7 +202,7 @@ def _compute_model_performance(
                     continue
                 market_decision.brier_score_pair_current = (
                     latest_price,
-                    market_decision.decision.odds,
+                    market_decision.decision.estimated_probability,
                 )
                 if market_decision.decision.bet == 0:
                     continue
@@ -268,7 +268,7 @@ def _compute_model_performance(
                     ].trade_count += 1
                 model_decision_additional_info[model_decision.model_id].brier_scores[
                     market_decision.market_id
-                ] = (latest_price, market_decision.decision.odds)
+                ] = (latest_price, market_decision.decision.estimated_probability)
 
             # Aggregate market gains to get the event gain
             if len(net_gains_per_market) > 0:
@@ -403,7 +403,6 @@ def _compute_model_performance(
         )
 
     return model_decisions, model_performances
-
 
 
 def load_full_result_from_bucket(

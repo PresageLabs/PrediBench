@@ -34,7 +34,7 @@ def calculate_brier_scores(
     Calculate Brier scores for model predictions.
 
     Args:
-        decisions_df: DataFrame with model predictions/odds, with columns as markets and index as dates
+        decisions_df: DataFrame with model predictions/estimated_probability, with columns as markets and index as dates
         prices_df: DataFrame with market prices, with columns as markets and index as dates
 
     Returns:
@@ -59,7 +59,7 @@ def calculate_brier_scores(
         # Get the outcome (final market price, should be close to 0 or 1)
         outcome = final_prices[market_id]
 
-        # Get model predictions (odds) for this market over time
+        # Get model predictions (estimated_probability) for this market over time
         predictions = decisions_df[market_id]
 
         # Calculate Brier score: (prediction - outcome)^2
