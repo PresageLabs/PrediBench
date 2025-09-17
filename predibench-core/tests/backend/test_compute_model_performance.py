@@ -196,8 +196,8 @@ def test_compute_model_performance_gain():
         1 + end_gain_second_decision
     )
     np.testing.assert_almost_equal(
-        model_performances["model_A"].pnl_history[3].value,
-        end_gain_first_decision,
+        model_performances["model_A"].compound_profit_history[3].value,
+        end_gain_first_decision + 1,
         decimal=6,
     )
     assert (
