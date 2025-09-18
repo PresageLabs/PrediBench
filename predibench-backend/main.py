@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from predibench.agent.models import ModelInvestmentDecisions
 from predibench.backend.comprehensive_data import (
     get_data_for_backend,
-    load_full_result_from_bucket,
+    load_event_decision_details_from_bucket,
 )
 from predibench.backend.data_model import (
     BackendData,
@@ -245,12 +245,14 @@ def get_all_events_endpoint():
     return load_backend_cache().events
 
 
-@app.get("/api/full_results/by_model_and_event", response_model=FullModelResult | None)
-def get_full_result_by_model_and_event_endpoint(
+@app.get(
+    "/api/decision_details/by_model_and_event", response_model=FullModelResult | None
+)
+def get_decision_details_by_model_and_event_endpoint(
     model_id: str, event_id: str, target_date: str
 ):
-    """Get full result for a specific model and event"""
-    return load_full_result_from_bucket(model_id, event_id, target_date)
+    """Get decision details for a specific model and event"""
+    return load_event_decision_details_from_bucket(model_id, event_id, target_date)
 
 
 if __name__ == "__main__":

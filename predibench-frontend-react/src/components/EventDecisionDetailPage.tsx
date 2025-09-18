@@ -118,7 +118,7 @@ export function EventDecisionDetailPage({ }: EventDecisionDetailPageProps) {
       setAgentLogs(null)
       setAgentLogsLoading(true)
       try {
-        const result = await apiService.getFullResultByModelAndEvent(
+        const result = await apiService.getFullDecisionByModelAndEvent(
           decodeURIComponent(modelId),
           eventId,
           decisionDate
