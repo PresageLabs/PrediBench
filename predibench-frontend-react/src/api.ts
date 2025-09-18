@@ -7,13 +7,6 @@ export interface DecisionReturns {
   all_time_return: number
 }
 
-export interface DecisionBrier {
-  one_day_brier: number
-  two_day_brier: number
-  seven_day_brier: number
-  all_time_brier: number
-}
-
 export interface DecisionSharpe {
   one_day_sharpe: number
   two_day_sharpe: number
@@ -34,7 +27,6 @@ export interface LeaderboardEntry {
   final_brier_score: number
   average_returns: DecisionReturns
   sharpe: DecisionSharpe
-  brier: DecisionBrier
 }
 
 export interface TimeseriesPoint {

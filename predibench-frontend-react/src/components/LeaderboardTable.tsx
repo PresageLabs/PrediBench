@@ -1,6 +1,6 @@
 import { ArrowDown, ChevronDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import type { DecisionBrier, DecisionReturns, DecisionSharpe, LeaderboardEntry } from '../api'
+import type { DecisionReturns, DecisionSharpe, LeaderboardEntry } from '../api'
 import { encodeSlashes } from '../lib/utils'
 import { CompanyDisplay } from './ui/company-display'
 import { BrierScoreInfoTooltip, PnLTooltip } from './ui/info-tooltip'
@@ -44,16 +44,6 @@ export function LeaderboardTable({
     }
   }
 
-  const getBrierForHorizon = (brier: DecisionBrier, horizon: TimeHorizon): number => {
-    switch (horizon) {
-      case 'one_day': return brier.one_day_brier
-      case 'two_day': return brier.two_day_brier
-      case 'seven_day': return brier.seven_day_brier
-      case 'all_time': return brier.all_time_brier
-    }
-  }
-
-
   const sortedLeaderboard = useMemo(() => {
     return [...leaderboard].sort((a, b) => {
       switch (sortKey) {
@@ -73,8 +63,8 @@ export function LeaderboardTable({
 
         case 'brier_score': {
           // Calculate display scores for Brier using time horizon (rounded to 3 decimal places)
-          const aBrierDisplay = parseFloat(getBrierForHorizon(a.brier, timeHorizon).toFixed(3))
-          const bBrierDisplay = parseFloat(getBrierForHorizon(b.brier, timeHorizon).toFixed(3))
+          const aBrierDisplay = parseFloat((a.final_brier_score, timeHorizon).toFixed(3))
+          const bBrierDisplay = parseFloat((b.final_brier_score, timeHorizon).toFixed(3))
 
           // Primary sort by Brier display score (lower first - ascending)
           if (aBrierDisplay !== bBrierDisplay) {
@@ -328,7 +318,7 @@ export function LeaderboardTable({
                         </td>
                         <td className="py-4 px-4 text-center font-medium">
                           <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
-                            {getBrierForHorizon(model.brier, timeHorizon).toFixed(3)}
+                            {model.final_brier_score.toFixed(3)}
                           </a>
                         </td>
                         <td className="py-4 px-4 text-center font-medium">

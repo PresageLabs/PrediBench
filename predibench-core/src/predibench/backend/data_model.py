@@ -2,35 +2,14 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-<<<<<<< HEAD
-from predibench.agent.models import DataPoint, ModelInvestmentDecisions, DecisionReturns
-=======
-from predibench.agent.models import ModelInvestmentDecisions
-from predibench.common_models import DataPoint
->>>>>>> main
+from predibench.agent.models import (
+    DataPoint,
+    DecisionReturns,
+    DecisionSharpe,
+    ModelInvestmentDecisions,
+)
 from predibench.polymarket_api import Event, Market
 from pydantic import BaseModel
-
-
-class DecisionReturns(BaseModel):
-    one_day_return: float
-    two_day_return: float
-    seven_day_return: float
-    all_time_return: float
-
-
-class DecisionBrier(BaseModel):
-    one_day_brier: float
-    two_day_brier: float
-    seven_day_brier: float
-    all_time_brier: float
-
-
-class DecisionSharpe(BaseModel):
-    one_day_sharpe: float
-    two_day_sharpe: float
-    seven_day_sharpe: float
-    all_time_sharpe: float
 
 
 class LeaderboardEntryBackend(BaseModel):
@@ -44,11 +23,7 @@ class LeaderboardEntryBackend(BaseModel):
     compound_profit_history: list[DataPoint]
     cumulative_profit_history: list[DataPoint]
     average_returns: DecisionReturns
-<<<<<<< HEAD
-=======
     sharpe: DecisionSharpe
-    brier: DecisionBrier
->>>>>>> main
     final_brier_score: float
 
 
@@ -113,11 +88,7 @@ class ModelPerformanceBackend(BaseModel):
     cumulative_profit_history: list[DataPoint]
     pnl_per_event_decision: dict[str, EventDecisionPnlBackend]
     average_returns: DecisionReturns
-<<<<<<< HEAD
-=======
     sharpe: DecisionSharpe
-    brier: DecisionBrier
->>>>>>> main
     final_profit: float
     final_brier_score: float
 

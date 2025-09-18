@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 from predibench.agent.models import ModelInvestmentDecisions
 from predibench.backend.data_model import (
-    DecisionBrier,
     DecisionReturns,
     DecisionSharpe,
     EventDecisionPnlBackend,
@@ -26,7 +25,7 @@ class ModelSummaryInfo:
         self.trades_dates = set()
         self.trade_count = 0
         self.pnl_per_event_decision = {}
-        self.brier_scores = {}
+        self.brier_score_pairs = []
 
 
 def compute_performance_per_decision(
@@ -217,85 +216,13 @@ def compute_performance_per_decision(
                         market_decision.decision.bet
                     )
 
-                def get_brier_score_at_horizon(
-                    decision_date: date, horizon_days: int
-                ) -> float:
-                    """Get Brier score at a specific time horizon (in days) using full price series"""
-                    target_date = decision_date + timedelta(days=horizon_days)
-
-                    # Get prices from decision date onwards (not limited to next decision)
-                    full_market_prices = prices_df[market_decision.market_id].copy()
-                    full_market_prices = full_market_prices.bfill().ffill()
-
-                    # Get price at decision date
-                    if decision_date not in full_market_prices.index:
-                        return 0.0
-                    price_at_decision = full_market_prices.loc[decision_date]
-
-                    if float(price_at_decision) == 0 or np.isnan(price_at_decision):
-                        return 0.0
-
-                    # Find the price at target date or the closest date after
-                    future_prices = full_market_prices.loc[
-                        full_market_prices.index >= target_date
-                    ]
-                    if future_prices.empty:
-                        # If no future prices, use the last available price
-                        price_at_horizon = full_market_prices.iloc[-1]
-                    else:
-                        price_at_horizon = future_prices.iloc[0]
-
-                    # Determine the actual outcome (1 if price increased or stayed same, 0 if decreased)
-                    # For binary prediction markets, we typically use the final resolved value
-                    # Here we'll use whether the price is >= 0.5 as the binary outcome
-                    actual_outcome = 1.0 if float(price_at_horizon) >= 0.5 else 0.0
-
-                    # For short positions, flip the prediction
-                    predicted_probability = (
-                        market_decision.decision.estimated_probability
-                    )
-                    if market_decision.decision.bet < 0:
-                        predicted_probability = 1.0 - predicted_probability
-
-                    # Calculate Brier score: (predicted_probability - actual_outcome)^2
-                    brier_score = (predicted_probability - actual_outcome) ** 2
-                    return float(brier_score)
-
-                def get_all_time_brier_score(decision_date: date) -> float:
-                    """Get Brier score from decision date to the last available price"""
-                    # Get prices from decision date onwards
-                    full_market_prices = prices_df[market_decision.market_id].copy()
-
-                    # Remove NaN values to get the real last price
-                    full_market_prices = full_market_prices.dropna()
-
-                    if full_market_prices.empty:
-                        return 0.0
-
-                    # Get price at decision date
-                    if decision_date not in full_market_prices.index:
-                        return 0.0
-                    price_at_decision = full_market_prices.loc[decision_date]
-
-                    if float(price_at_decision) == 0 or np.isnan(price_at_decision):
-                        return 0.0
-
-                    # Get the last real price (not forward-filled)
-                    price_at_end = full_market_prices.iloc[-1]
-
-                    # Determine the actual outcome
-                    actual_outcome = 1.0 if float(price_at_end) >= 0.5 else 0.0
-
-                    # For short positions, flip the prediction
-                    predicted_probability = (
-                        market_decision.decision.estimated_probability
-                    )
-                    if market_decision.decision.bet < 0:
-                        predicted_probability = 1.0 - predicted_probability
-
-                    # Calculate Brier score
-                    brier_score = (predicted_probability - actual_outcome) ** 2
-                    return float(brier_score)
+                market_decision.brier_score_pair_current = (
+                    prices_df[market_decision.market_id].iloc[-1],
+                    market_decision.decision.estimated_probability,
+                )
+                summary_info_per_model[
+                    model_decision.model_id
+                ].brier_score_pairs.append(market_decision.brier_score_pair_current)
 
                 # Store time horizon returns for this market decision
                 market_decision.returns = DecisionReturns(
@@ -305,19 +232,8 @@ def compute_performance_per_decision(
                     all_time_return=get_all_time_return(decision_date),
                 )
 
-                # Store time horizon Brier scores for this market decision
-                market_decision.brier = DecisionBrier(
-                    one_day_brier=get_brier_score_at_horizon(decision_date, 1),
-                    two_day_brier=get_brier_score_at_horizon(decision_date, 2),
-                    seven_day_brier=get_brier_score_at_horizon(decision_date, 7),
-                    all_time_brier=get_all_time_brier_score(decision_date),
-                )
-
                 if market_decision.decision.bet != 0:
                     summary_info_per_model[model_decision.model_id].trade_count += 1
-                summary_info_per_model[model_decision.model_id].brier_scores[
-                    market_decision.market_id
-                ] = (latest_price, market_decision.decision.estimated_probability)
 
             # Aggregate market gains to get the event gain
             if len(net_gains_per_market) > 0:
@@ -474,13 +390,6 @@ def compute_performance_per_model(
 
         final_profit = compound_net_gains_series.iloc[-1]
 
-        brier_scores = summary_info_per_model[model_id].brier_scores.values()
-        final_brier_score = (
-            sum([(a - b) ** 2 for a, b in brier_scores]) / len(brier_scores)
-            if len(brier_scores) > 0
-            else 1.0
-        )
-
         # Calculate average returns across all event decisions for this model
         all_event_returns = []
         for decision in decisions_for_model:
@@ -553,35 +462,6 @@ def compute_performance_per_model(
             all_time_sharpe=calculate_sharpe_from_returns(all_time_returns),
         )
 
-        # Collect all Brier scores for each time horizon across all market decisions for this model
-        one_day_briers = []
-        two_day_briers = []
-        seven_day_briers = []
-        all_time_briers = []
-
-        for decision in decisions_for_model:
-            for event_decision in decision.event_investment_decisions:
-                for market_decision in event_decision.market_investment_decisions:
-                    if market_decision.brier is not None:
-                        one_day_briers.append(market_decision.brier.one_day_brier)
-                        two_day_briers.append(market_decision.brier.two_day_brier)
-                        seven_day_briers.append(market_decision.brier.seven_day_brier)
-                        all_time_briers.append(market_decision.brier.all_time_brier)
-
-        # Calculate Brier scores using expectation (mean) of squared errors
-        def calculate_mean_brier(brier_list: list[float]) -> float:
-            """Calculate mean Brier score from a list of individual Brier scores"""
-            if len(brier_list) == 0:
-                return 1.0  # Worst possible Brier score if no data
-            return float(np.mean(brier_list))
-
-        brier = DecisionBrier(
-            one_day_brier=calculate_mean_brier(one_day_briers),
-            two_day_brier=calculate_mean_brier(two_day_briers),
-            seven_day_brier=calculate_mean_brier(seven_day_briers),
-            all_time_brier=calculate_mean_brier(all_time_briers),
-        )
-
         model_performances[model_id] = ModelPerformanceBackend(
             model_id=model_id,
             model_name=model_name,
@@ -606,9 +486,15 @@ def compute_performance_per_model(
             ),
             average_returns=average_returns,
             sharpe=sharpe,
-            brier=brier,
             final_profit=final_profit,
-            final_brier_score=final_brier_score,
+            final_brier_score=np.mean(
+                [
+                    (brier_score_pair[0] - brier_score_pair[1]) ** 2
+                    for brier_score_pair in summary_info_per_model[
+                        model_id
+                    ].brier_score_pairs
+                ]
+            ),
         )
     return model_performances
 
