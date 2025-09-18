@@ -1,5 +1,5 @@
 from predibench.backend.comprehensive_data import (
-    _compute_model_performance,
+    _compute_profits,
     _to_date_index,
 )
 from predibench.backend.data_loader import (
@@ -7,9 +7,8 @@ from predibench.backend.data_loader import (
     load_market_prices,
     load_saved_events,
 )
-from predibench.backend.data_model import EventBackend
 from predibench.backend.leaderboard import get_leaderboard
-from predibench.backend.pnl import get_historical_returns
+from predibench.backend.pnl import get_market_prices_dataframe
 
 
 def test_get_leaderboard():
@@ -18,16 +17,14 @@ def test_get_leaderboard():
     model_decisions = load_investment_choices_from_google()
     saved_events = load_saved_events()
     market_prices = load_market_prices(saved_events)
-    prices_df = get_historical_returns(market_prices)
+    prices_df = get_market_prices_dataframe(market_prices)
 
     assert len(market_prices) > 80
 
     # Build backend events and compute performance first, then leaderboard
-    backend_events = [EventBackend.from_event(e) for e in saved_events]
     prices_df = _to_date_index(prices_df)
-    model_decisions, performance_per_model = _compute_model_performance(
+    model_decisions, performance_per_model = _compute_profits(
         prices_df=prices_df,
-        backend_events=backend_events,
         model_decisions=model_decisions,
     )
     result = get_leaderboard(list(performance_per_model.values()))

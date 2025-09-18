@@ -88,6 +88,8 @@ export interface EventInvestmentDecision {
   unallocated_capital: number
   // Backend-computed cumulative PnL time series for this event since the decision date
   net_gains_until_next_decision: TimeseriesPoint[]
+  sources_google: string[] | null
+  sources_visit_webpage: string[] | null
 }
 
 export interface MarketInvestmentDecision {

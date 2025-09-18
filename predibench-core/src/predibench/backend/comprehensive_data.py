@@ -26,7 +26,7 @@ from predibench.backend.data_model import (
 )
 from predibench.backend.events import get_non_duplicated_events
 from predibench.backend.leaderboard import get_leaderboard
-from predibench.backend.pnl import get_historical_returns
+from predibench.backend.pnl import get_market_prices_dataframe
 from predibench.logger_config import get_logger
 from predibench.storage_utils import file_exists_in_storage, read_from_storage
 from predibench.utils import string_to_date
@@ -59,24 +59,45 @@ def _to_date_index(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_data_for_backend(
-    recompute_all_bets: bool = False,
+    recompute_bets_with_kelly_criterion: bool = False,
+    ignored_providers: list[str] | None = None,
 ) -> BackendData:
     """
     Pre-compute all data needed for backend API endpoints.
 
     This function loads all data sources only once and computes everything needed
     for maximum performance at runtime.
+
+    Args:
+        recompute_bets_with_kelly_criterion: Whether to recompute all bets using Kelly criterion
+        ignored_providers: List of provider names to ignore (case-insensitive)
     """
     logger.info("Starting comprehensive backend data computation...")
 
     # Step 1: Load all base data sources (load once, use everywhere)
     logger.info("Loading base data sources...")
     model_decisions = load_investment_choices_from_google()  # Load once
+
+    # Filter out models from ignored providers
+    if ignored_providers:
+        ignored_providers_lower = [provider.lower() for provider in ignored_providers]
+        original_count = len(model_decisions)
+        model_decisions = [
+            decision
+            for decision in model_decisions
+            if decision.model_info.inference_provider.lower()
+            not in ignored_providers_lower
+        ]
+        filtered_count = len(model_decisions)
+        logger.info(
+            f"Filtered {original_count - filtered_count} model decisions from ignored providers: {ignored_providers}"
+        )
+        logger.info(f"Remaining model decisions: {filtered_count}")
     _saved_events = load_saved_events()  # Load once
     events = get_non_duplicated_events(_saved_events)
     logger.info("Loading market prices...")
     market_prices = load_market_prices(events)  # Load once
-    prices_df = get_historical_returns(market_prices)  # Load once
+    prices_df = get_market_prices_dataframe(market_prices)  # Load once
     prices_df = prices_df.sort_index()
     # prices_df = prices_df.resample("D").last()  # Do this BEFORE _to_date_index
     prices_df = _to_date_index(prices_df)
@@ -89,19 +110,11 @@ def get_data_for_backend(
     logger.info("Computing model performance data (per day + per event)...")
     # When recomputing, apply Kelly using the original market price series
     # at the model's decision date; only bets are rescaled, unallocated stays.
-    if recompute_all_bets:
-        for model_decision in model_decisions:
-            decision_date = model_decision.target_date
-            for event_decision in model_decision.event_investment_decisions:
-                event_decision.normalize_investments(
-                    apply_kelly_criterion_at_date=decision_date,
-                    market_prices=market_prices,
-                )
 
-    model_decisions, performance_per_model = _compute_model_performance(
+    enriched_model_decisions, performance_per_model = _compute_profits(
         prices_df=prices_df,
-        backend_events=backend_events,
         model_decisions=model_decisions,
+        recompute_bets_with_kelly_criterion=recompute_bets_with_kelly_criterion,
     )
 
     # Step 3: Compute leaderboard from performance
@@ -114,7 +127,7 @@ def get_data_for_backend(
         leaderboard=leaderboard,
         events=backend_events,
         performance_per_model=performance_per_model,
-        model_decisions=model_decisions,
+        model_decisions=enriched_model_decisions,
     )
 
 
@@ -126,38 +139,17 @@ class ModelSummaryInfo:
         self.brier_scores = {}
 
 
-def _compute_model_performance(
-    prices_df: pd.DataFrame,
-    backend_events: list[EventBackend],
+def compute_performance_per_decision(
+    all_model_ids_names: set[tuple[str, str]],
     model_decisions: list[ModelInvestmentDecisions],
-) -> tuple[list[ModelInvestmentDecisions], dict[str, ModelPerformanceBackend]]:
-    """Compute performance data (cumulative profit and brier score) for each model.
-
-    Produces per-model cumulative PnL (overall/event/market) and Brier scores
-    (overall/event/market) as time series, along with summary metrics.
-    """
-    # Map market -> event for aggregations
-    market_to_event: dict[str, str] = {}
-    for event in backend_events:
-        for market in event.markets:
-            market_to_event[market.id] = event.id
-
-    all_model_ids: set[tuple[str, str]] = {
-        (decision.model_id, decision.model_info.model_pretty_name)
-        for decision in model_decisions
+    prices_df: pd.DataFrame,
+) -> tuple[list[ModelInvestmentDecisions], dict[str, ModelSummaryInfo]]:
+    summary_info_per_model: dict[str, ModelSummaryInfo] = {
+        model_id: ModelSummaryInfo() for model_id, _ in all_model_ids_names
     }
-
-    model_decision_additional_info: dict[str, ModelSummaryInfo] = {
-        model_id: ModelSummaryInfo() for model_id, _ in all_model_ids
-    }
-    cutoff = date(2025, 8, 1)
-
-    # Filter rows strictly after August 1
-    prices_df = prices_df[prices_df.index > cutoff]
-    prices_df = prices_df.sort_index()
-
+    # Get per-event performance
     trade_dates_per_model: dict[str, set[date]] = {
-        model_id: set() for model_id, _ in all_model_ids
+        model_id: set() for model_id, _ in all_model_ids_names
     }
     for model_decision in model_decisions:
         # NOTE: is it really necessary to deduplicate "multiple decisions for the same market on the same date" : does it really happen?
@@ -169,8 +161,6 @@ def _compute_model_performance(
         model_id: sorted(list(trade_dates))
         for model_id, trade_dates in trade_dates_per_model.items()
     }
-
-    # Get per-event performance
     for model_decision in model_decisions:
         # NOTE: is it really necessary to deduplicate "multiple decisions for the same market on the same date" : does it really happen?
         decision_date = model_decision.target_date
@@ -192,6 +182,9 @@ def _compute_model_performance(
         for event_decision in model_decision.event_investment_decisions:
             net_gains_per_market = []
             for market_decision in event_decision.market_investment_decisions:
+                # Skip markets that don't have price data, maybe we should renormalize the portfolio
+                if market_decision.market_id not in prices_df.columns:
+                    continue
                 market_series_all = prices_df[market_decision.market_id].copy()
                 # Fill missing values to allow robust slicing
                 market_prices = market_series_all.bfill().ffill().copy()
@@ -263,10 +256,8 @@ def _compute_model_performance(
                 market_decision.net_gains_at_decision_end = net_gains_end_value
 
                 if market_decision.decision.bet != 0:
-                    model_decision_additional_info[
-                        model_decision.model_id
-                    ].trade_count += 1
-                model_decision_additional_info[model_decision.model_id].brier_scores[
+                    summary_info_per_model[model_decision.model_id].trade_count += 1
+                summary_info_per_model[model_decision.model_id].brier_scores[
                     market_decision.market_id
                 ] = (latest_price, market_decision.decision.estimated_probability)
 
@@ -284,12 +275,10 @@ def _compute_model_performance(
             if not sum_net_gains_for_event_df.empty:
                 per_event_series_for_decision.append(sum_net_gains_for_event_df)
 
-            model_decision_additional_info[model_decision.model_id].trades_dates.add(
+            summary_info_per_model[model_decision.model_id].trades_dates.add(
                 model_decision.target_date.strftime("%Y-%m-%d")
             )
-            model_decision_additional_info[
-                model_decision.model_id
-            ].pnl_per_event_decision[
+            summary_info_per_model[model_decision.model_id].pnl_per_event_decision[
                 event_decision.event_id
             ] = sum_net_gains_for_event_df
 
@@ -309,9 +298,16 @@ def _compute_model_performance(
             DataPoint.list_datapoints_from_series(aggregated_series)
         )
 
-    # Get each model's daily performance (per decision batch)
+    return model_decisions, summary_info_per_model
+
+
+def compute_performance_per_model(
+    all_model_ids_names: set[tuple[str, str]],
+    model_decisions: list[ModelInvestmentDecisions],
+    summary_info_per_model: dict[str, ModelSummaryInfo],
+) -> dict[str, ModelPerformanceBackend]:
     model_performances: dict[str, ModelPerformanceBackend] = {}
-    for model_id, model_name in all_model_ids:
+    for model_id, model_name in all_model_ids_names:
         # Map decision date -> ModelInvestmentDecisions for this model
         decisions_for_model = [d for d in model_decisions if d.model_id == model_id]
         decisions_for_model.sort(key=lambda d: d.target_date)
@@ -332,6 +328,10 @@ def _compute_model_performance(
             )
             assert batch_net_gains_series is not None
 
+            # Skip processing if no data points (empty series)
+            if batch_net_gains_series.empty:
+                continue
+
             current_net_asset_value_compounded = (
                 batch_net_gains_series + 1
             ) * current_compounded_value
@@ -344,12 +344,18 @@ def _compute_model_performance(
             current_compounded_value = current_net_asset_value_compounded.iloc[-1]
             current_cumulative_value = current_net_gains_cumulative.iloc[-1]
 
-        compound_asset_values_series = pd.concat(
-            compound_asset_values, axis=0
-        ).sort_index()
-        cumulative_net_gains_series = pd.concat(
-            cumulative_net_gains, axis=0
-        ).sort_index()
+        # Handle case where all decisions had empty data
+        if not compound_asset_values:
+            # Create empty series with appropriate structure
+            compound_asset_values_series = pd.Series(dtype=float)
+            cumulative_net_gains_series = pd.Series(dtype=float)
+        else:
+            compound_asset_values_series = pd.concat(
+                compound_asset_values, axis=0
+            ).sort_index()
+            cumulative_net_gains_series = pd.concat(
+                cumulative_net_gains, axis=0
+            ).sort_index()
         # Check that duplicate index values are equal
         if compound_asset_values_series.index.has_duplicates:
             assert compound_asset_values_series.groupby(level=0).nunique().max() == 1, (
@@ -369,7 +375,7 @@ def _compute_model_performance(
 
         final_profit = compound_net_gains_series.iloc[-1]
 
-        brier_scores = model_decision_additional_info[model_id].brier_scores.values()
+        brier_scores = summary_info_per_model[model_id].brier_scores.values()
         final_brier_score = (
             sum([(a - b) ** 2 for a, b in brier_scores]) / len(brier_scores)
             if len(brier_scores) > 0
@@ -379,16 +385,16 @@ def _compute_model_performance(
         model_performances[model_id] = ModelPerformanceBackend(
             model_id=model_id,
             model_name=model_name,
-            trades_count=model_decision_additional_info[model_id].trade_count,
+            trades_count=summary_info_per_model[model_id].trade_count,
             trades_dates=sorted(
-                list(model_decision_additional_info[model_id].trades_dates),
+                list(summary_info_per_model[model_id].trades_dates),
             ),
             pnl_per_event_decision={
                 event_id: EventDecisionPnlBackend(
                     event_id=event_id,
                     pnl=DataPoint.list_datapoints_from_series(pnl),
                 )
-                for event_id, pnl in model_decision_additional_info[
+                for event_id, pnl in summary_info_per_model[
                     model_id
                 ].pnl_per_event_decision.items()
             },
@@ -401,8 +407,59 @@ def _compute_model_performance(
             final_profit=final_profit,
             final_brier_score=final_brier_score,
         )
+    return model_performances
 
-    return model_decisions, model_performances
+
+def recompute_bets_with_kelly_criterion_for_model_decisions(
+    model_decisions: list[ModelInvestmentDecisions],
+    prices_df: pd.DataFrame,
+) -> None:
+    for model_decision in model_decisions:
+        decision_date = model_decision.target_date
+        for event_decision in model_decision.event_investment_decisions:
+            event_decision.normalize_investments(
+                apply_kelly_criterion_at_date=decision_date,
+                market_prices=prices_df,
+            )
+
+
+def _compute_profits(
+    prices_df: pd.DataFrame,
+    model_decisions: list[ModelInvestmentDecisions],
+    recompute_bets_with_kelly_criterion: bool = False,
+) -> tuple[list[ModelInvestmentDecisions], dict[str, ModelPerformanceBackend]]:
+    """Compute performance data (cumulative profit and brier score) per model decision and per model
+
+    Produces per-model cumulative PnL (overall/event/market) and Brier scores
+    (overall/event/market) as time series, along with summary metrics.
+    """
+    if recompute_bets_with_kelly_criterion:
+        recompute_bets_with_kelly_criterion_for_model_decisions(
+            model_decisions, prices_df
+        )
+
+    all_model_ids_names: set[tuple[str, str]] = {
+        (decision.model_id, decision.model_info.model_pretty_name)
+        for decision in model_decisions
+    }
+
+    # Filter rows strictly after August 1
+    cutoff = date(2025, 8, 1)
+    prices_df = prices_df[prices_df.index > cutoff]
+    prices_df = prices_df.sort_index()
+
+    enriched_model_decisions, summary_info_per_model = compute_performance_per_decision(
+        all_model_ids_names=all_model_ids_names,
+        model_decisions=model_decisions,
+        prices_df=prices_df,
+    )
+
+    model_performances = compute_performance_per_model(
+        all_model_ids_names=all_model_ids_names,
+        model_decisions=enriched_model_decisions,
+        summary_info_per_model=summary_info_per_model,
+    )
+    return enriched_model_decisions, model_performances
 
 
 def load_full_result_from_bucket(

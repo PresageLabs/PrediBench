@@ -89,12 +89,10 @@ def compute_pnl_series_per_model(
     return portfolio_cumulative_pnl, market_cumulative_pnls
 
 
-def get_historical_returns(
+def get_market_prices_dataframe(
     market_prices: dict[str, pd.Series],
 ) -> pd.DataFrame:
-    """Get historical prices directly from timeseries data. Columns are market ids
-
-    Creates a unified DataFrame with all markets, handling cases where markets
+    """Creates a unified DataFrame with all markets, handling cases where markets
     have different start/end dates by using a unified date index.
 
     Args:
