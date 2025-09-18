@@ -1,13 +1,13 @@
 import { ArrowDown, ChevronDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import type { LeaderboardEntry } from '../api'
+import type { DecisionBrier, DecisionReturns, DecisionSharpe, LeaderboardEntry } from '../api'
 import { encodeSlashes } from '../lib/utils'
 import { CompanyDisplay } from './ui/company-display'
 import { BrierScoreInfoTooltip, PnLTooltip } from './ui/info-tooltip'
 import { ProfitDisplay } from './ui/profit-display'
 
-type SortKey = 'cumulative_profit' | 'brier_score' | 'average_returns'
-type ReturnHorizon = 'one_day' | 'two_day' | 'seven_day' | 'all_time'
+type SortKey = 'cumulative_profit' | 'brier_score' | 'average_returns' | 'sharpe'
+type TimeHorizon = 'one_day' | 'two_day' | 'seven_day' | 'all_time'
 
 interface LeaderboardTableProps {
   leaderboard: LeaderboardEntry[]
@@ -22,21 +22,34 @@ export function LeaderboardTable({
 }: LeaderboardTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('brier_score')
   const [leaderboardExpanded, setLeaderboardExpanded] = useState<boolean>(false)
-  const [returnHorizon, setReturnHorizon] = useState<ReturnHorizon>('one_day')
+  const [showAverageReturns, setShowAverageReturns] = useState<boolean>(false)
+  const [showSharpe, setShowSharpe] = useState<boolean>(false)
+  const [timeHorizon, setTimeHorizon] = useState<TimeHorizon>('seven_day')
 
-  // Helper function to get return value for a specific horizon
-  const getReturnValue = (entry: LeaderboardEntry, horizon: ReturnHorizon): number => {
+  const getReturnForHorizon = (returns: DecisionReturns, horizon: TimeHorizon): number => {
     switch (horizon) {
-      case 'one_day':
-        return entry.average_returns.one_day_return
-      case 'two_day':
-        return entry.average_returns.two_day_return
-      case 'seven_day':
-        return entry.average_returns.seven_day_return
-      case 'all_time':
-        return entry.average_returns.all_time_return
-      default:
-        return 0
+      case 'one_day': return returns.one_day_return
+      case 'two_day': return returns.two_day_return
+      case 'seven_day': return returns.seven_day_return
+      case 'all_time': return returns.all_time_return
+    }
+  }
+
+  const getSharpeForHorizon = (sharpe: DecisionSharpe, horizon: TimeHorizon): number => {
+    switch (horizon) {
+      case 'one_day': return sharpe.one_day_sharpe
+      case 'two_day': return sharpe.two_day_sharpe
+      case 'seven_day': return sharpe.seven_day_sharpe
+      case 'all_time': return sharpe.all_time_sharpe
+    }
+  }
+
+  const getBrierForHorizon = (brier: DecisionBrier, horizon: TimeHorizon): number => {
+    switch (horizon) {
+      case 'one_day': return brier.one_day_brier
+      case 'two_day': return brier.two_day_brier
+      case 'seven_day': return brier.seven_day_brier
+      case 'all_time': return brier.all_time_brier
     }
   }
 
@@ -59,9 +72,9 @@ export function LeaderboardTable({
         }
 
         case 'brier_score': {
-          // Calculate display scores for Brier (rounded to 3 decimal places)
-          const aBrierDisplay = parseFloat(a.final_brier_score.toFixed(3))
-          const bBrierDisplay = parseFloat(b.final_brier_score.toFixed(3))
+          // Calculate display scores for Brier using time horizon (rounded to 3 decimal places)
+          const aBrierDisplay = parseFloat(getBrierForHorizon(a.brier, timeHorizon).toFixed(3))
+          const bBrierDisplay = parseFloat(getBrierForHorizon(b.brier, timeHorizon).toFixed(3))
 
           // Primary sort by Brier display score (lower first - ascending)
           if (aBrierDisplay !== bBrierDisplay) {
@@ -73,16 +86,28 @@ export function LeaderboardTable({
         }
 
         case 'average_returns': {
-          // Get return values for the current horizon
-          const aReturn = getReturnValue(a, returnHorizon)
-          const bReturn = getReturnValue(b, returnHorizon)
+          const aReturn = getReturnForHorizon(a.average_returns, timeHorizon)
+          const bReturn = getReturnForHorizon(b.average_returns, timeHorizon)
 
-          // Sort by return value (higher first - descending)
+          // Primary sort by returns (higher first - descending)
           if (bReturn !== aReturn) {
             return bReturn - aReturn
           }
 
-          // Tie-breaker: use Brier score (lower is better)
+          // Tie-breaker: use Brier score
+          return a.final_brier_score - b.final_brier_score
+        }
+
+        case 'sharpe': {
+          const aSharpe = getSharpeForHorizon(a.sharpe, timeHorizon)
+          const bSharpe = getSharpeForHorizon(b.sharpe, timeHorizon)
+
+          // Primary sort by Sharpe (higher first - descending)
+          if (bSharpe !== aSharpe) {
+            return bSharpe - aSharpe
+          }
+
+          // Tie-breaker: use Brier score
           return a.final_brier_score - b.final_brier_score
         }
 
@@ -90,7 +115,7 @@ export function LeaderboardTable({
           return 0
       }
     })
-  }, [leaderboard, sortKey, returnHorizon])
+  }, [leaderboard, sortKey, timeHorizon])
 
 
   const handleSort = (key: SortKey) => {
@@ -107,6 +132,25 @@ export function LeaderboardTable({
     }
   }, [leaderboard])
 
+  // Ranges for Avg Returns and Sharpe (used for consistent coloring)
+  const returnsRange = useMemo(() => {
+    if (leaderboard.length === 0) return { min: 0, max: 0 }
+    const vals = leaderboard.map(model => getReturnForHorizon(model.average_returns, timeHorizon))
+    return {
+      min: Math.min(...vals),
+      max: Math.max(...vals)
+    }
+  }, [leaderboard, timeHorizon])
+
+  const sharpeRange = useMemo(() => {
+    if (leaderboard.length === 0) return { min: 0, max: 0 }
+    const vals = leaderboard.map(model => getSharpeForHorizon(model.sharpe, timeHorizon))
+    return {
+      min: Math.min(...vals),
+      max: Math.max(...vals)
+    }
+  }, [leaderboard, timeHorizon])
+
 
   return (
     <div>
@@ -120,19 +164,63 @@ export function LeaderboardTable({
         </div>
       )}
 
+      {/* Column Toggle Controls */}
+      {!loading && leaderboard.length > 0 && (
+        <div className="flex flex-col sm:flex-row gap-4 mb-6 p-4 bg-card rounded-lg border border-border/30">
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium text-muted-foreground">Show Columns:</span>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showAverageReturns}
+                onChange={(e) => setShowAverageReturns(e.target.checked)}
+                className="rounded"
+              />
+              <span className="text-sm">Average Returns</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showSharpe}
+                onChange={(e) => setShowSharpe(e.target.checked)}
+                className="rounded"
+              />
+              <span className="text-sm">Sharpe Ratio</span>
+            </label>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-muted-foreground">Time Horizon:</span>
+            <select
+              value={timeHorizon}
+              onChange={(e) => setTimeHorizon(e.target.value as TimeHorizon)}
+              className="text-sm border border-border rounded px-2 py-1 bg-background"
+            >
+              <option value="one_day">1 Day</option>
+              <option value="two_day">2 Days</option>
+              <option value="seven_day">7 Days</option>
+              <option value="all_time">All Time</option>
+            </select>
+            <span className="text-xs text-muted-foreground">
+              (affects Brier Score{showAverageReturns ? ', Average Returns' : ''}{showSharpe ? ', Sharpe Ratio' : ''})
+            </span>
+          </div>
+        </div>
+      )}
+
       <div className="relative">
         <div
           className={`overflow-hidden transition-all duration-300 ${leaderboardExpanded ? 'max-h-none' : 'max-h-[500px]'
             }`}
         >
-          <div className="bg-card rounded-xl border border-border/30 overflow-hidden max-w-3xl mx-auto">
+          <div className="bg-card rounded-xl border border-border/30 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full table-fixed">
+              <table className="w-full table-auto">
                 <thead className="bg-muted/30">
                   <tr>
-                    <th className="text-center py-4 px-3 font-semibold w-12"></th>
-                    <th className="text-left py-4 px-4 font-semibold w-28">Model Name</th>
-                    <th className="text-center py-3 px-4 font-semibold w-24">
+                    <th className="text-center py-4 px-3 font-semibold"></th>
+                    <th className="text-left py-4 px-4 font-semibold">Model Name</th>
+                    <th className="text-center py-3 px-4 font-semibold">
                       <div className="flex items-center justify-center space-x-1 w-full">
                         <button
                           onClick={() => handleSort('brier_score')}
@@ -145,7 +233,7 @@ export function LeaderboardTable({
                         <BrierScoreInfoTooltip />
                       </div>
                     </th>
-                    <th className="text-center py-3 px-4 font-semibold w-24">
+                    <th className="text-center py-3 px-4 font-semibold">
                       <div className="flex items-center justify-center space-x-1 w-full">
                         <button
                           onClick={() => handleSort('cumulative_profit')}
@@ -157,27 +245,32 @@ export function LeaderboardTable({
                         <PnLTooltip />
                       </div>
                     </th>
-                    <th className="text-center py-3 px-4 font-semibold w-32">
-                      <div className="flex flex-col items-center space-y-1 w-full">
-                        <button
-                          onClick={() => handleSort('average_returns')}
-                          className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
-                        >
-                          <ArrowDown className={`h-4 w-4 ${sortKey === 'average_returns' ? 'text-primary' : 'opacity-40'}`} />
-                          <span>Average Returns</span>
-                        </button>
-                        <select
-                          value={returnHorizon}
-                          onChange={(e) => setReturnHorizon(e.target.value as ReturnHorizon)}
-                          className="text-xs bg-background border border-border rounded px-1 py-0.5"
-                        >
-                          <option value="one_day">1 Day</option>
-                          <option value="two_day">2 Days</option>
-                          <option value="seven_day">7 Days</option>
-                          <option value="all_time">All Time</option>
-                        </select>
-                      </div>
-                    </th>
+                    {showAverageReturns && (
+                      <th className="text-center py-3 px-4 font-semibold">
+                        <div className="flex items-center justify-center space-x-1 w-full">
+                          <button
+                            onClick={() => handleSort('average_returns')}
+                            className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
+                          >
+                            <ArrowDown className={`h-4 w-4 ${sortKey === 'average_returns' ? 'text-primary' : 'opacity-40'}`} />
+                            <span>Avg Returns</span>
+                          </button>
+                        </div>
+                      </th>
+                    )}
+                    {showSharpe && (
+                      <th className="text-center py-3 px-4 font-semibold">
+                        <div className="flex items-center justify-center space-x-1 w-full">
+                          <button
+                            onClick={() => handleSort('sharpe')}
+                            className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
+                          >
+                            <ArrowDown className={`h-4 w-4 ${sortKey === 'sharpe' ? 'text-primary' : 'opacity-40'}`} />
+                            <span>Sharpe</span>
+                          </button>
+                        </div>
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -197,9 +290,16 @@ export function LeaderboardTable({
                         <td className="py-4 px-4 text-center">
                           <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
                         </td>
-                        <td className="py-4 px-4 text-center">
-                          <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
-                        </td>
+                        {showAverageReturns && (
+                          <td className="py-4 px-4 text-center">
+                            <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
+                          </td>
+                        )}
+                        {showSharpe && (
+                          <td className="py-4 px-4 text-center">
+                            <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
+                          </td>
+                        )}
                       </tr>
                     ))
                   ) : (
@@ -228,7 +328,7 @@ export function LeaderboardTable({
                         </td>
                         <td className="py-4 px-4 text-center font-medium">
                           <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
-                            {model.final_brier_score ? model.final_brier_score.toFixed(3) : 'N/A'}
+                            {getBrierForHorizon(model.brier, timeHorizon).toFixed(3)}
                           </a>
                         </td>
                         <td className="py-4 px-4 text-center font-medium">
@@ -241,16 +341,30 @@ export function LeaderboardTable({
                             />
                           </a>
                         </td>
-                        <td className="py-4 px-4 text-center font-medium">
-                          <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
-                            <ProfitDisplay
-                              value={getReturnValue(model, returnHorizon)}
-                              minValue={Math.min(...leaderboard.map(m => getReturnValue(m, returnHorizon)))}
-                              maxValue={Math.max(...leaderboard.map(m => getReturnValue(m, returnHorizon)))}
-                              formatValue={(v) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`}
-                            />
-                          </a>
-                        </td>
+                        {showAverageReturns && (
+                          <td className="py-4 px-4 text-center font-medium">
+                            <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
+                              <ProfitDisplay
+                                value={getReturnForHorizon(model.average_returns, timeHorizon)}
+                                minValue={returnsRange.min}
+                                maxValue={returnsRange.max}
+                                formatValue={(v) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(2)}%`}
+                              />
+                            </a>
+                          </td>
+                        )}
+                        {showSharpe && (
+                          <td className="py-4 px-4 text-center font-medium">
+                            <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
+                              <ProfitDisplay
+                                value={getSharpeForHorizon(model.sharpe, timeHorizon)}
+                                minValue={sharpeRange.min}
+                                maxValue={sharpeRange.max}
+                                formatValue={(v) => `${v >= 0 ? '+' : ''}${v.toFixed(3)}`}
+                              />
+                            </a>
+                          </td>
+                        )}
                       </tr>
                     ))
                   )}

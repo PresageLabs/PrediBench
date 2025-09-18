@@ -1,6 +1,6 @@
 from predibench.backend.compute_profits import _compute_profits
-from predibench.backend.data_loader import _to_date_index
 from predibench.backend.data_loader import (
+    _to_date_index,
     load_investment_choices_from_google,
     load_market_prices,
     load_saved_events,
