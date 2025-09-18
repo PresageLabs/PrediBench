@@ -10,7 +10,7 @@ import json
 from datetime import datetime
 
 import typer
-from predibench.backend.comprehensive_data import get_data_for_backend
+from predibench.backend.data_loader import get_data_for_backend
 from predibench.common import DATA_PATH
 from predibench.storage_utils import write_to_storage
 
@@ -21,7 +21,7 @@ app = typer.Typer(help="Generate precomputed backend cache data")
 def main(
     recompute_bets_with_kelly_criterion: bool = typer.Option(
         False,
-        "--recompute-all-bets",
+        "--recompute-bets-with-kelly-criterion",
         help=(
             "Recompute each market bet from model-estimated odds vs market price using Kelly sizing"
         ),
@@ -37,7 +37,7 @@ def main(
     typer.echo(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     if recompute_bets_with_kelly_criterion:
-        typer.echo("RECOMPUTING ALL BETS")
+        typer.echo("RECOMPUTING BETS WITH KELLY CRITERION")
 
     # Compute all backend data
     typer.echo("\n1. Computing comprehensive backend data...")

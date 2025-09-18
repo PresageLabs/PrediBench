@@ -12,7 +12,7 @@ from apscheduler.triggers.cron import (
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from predibench.agent.models import ModelInvestmentDecisions
-from predibench.backend.comprehensive_data import (
+from predibench.backend.data_loader import (
     get_data_for_backend,
     load_event_decision_details_from_bucket,
 )

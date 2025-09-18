@@ -1,5 +1,26 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
 
+export interface DecisionReturns {
+  one_day_return: number
+  two_day_return: number
+  seven_day_return: number
+  all_time_return: number
+}
+
+export interface DecisionBrier {
+  one_day_brier: number
+  two_day_brier: number
+  seven_day_brier: number
+  all_time_brier: number
+}
+
+export interface DecisionSharpe {
+  one_day_sharpe: number
+  two_day_sharpe: number
+  seven_day_sharpe: number
+  all_time_sharpe: number
+}
+
 export interface LeaderboardEntry {
   model_id: string
   model_name: string
@@ -11,6 +32,9 @@ export interface LeaderboardEntry {
   cumulative_profit_history: { date: string; value: number }[]
   trades_dates: string[]
   final_brier_score: number
+  average_returns: DecisionReturns
+  sharpe: DecisionSharpe
+  brier: DecisionBrier
 }
 
 export interface TimeseriesPoint {
