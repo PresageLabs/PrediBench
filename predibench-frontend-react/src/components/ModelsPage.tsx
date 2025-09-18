@@ -42,7 +42,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
 
   // Sort models by ascending Brier score for dropdown ordering and default selection
   const sortedByBrier = useMemo(() => {
-    return [...leaderboard].sort((a, b) => a.brier.all_time_brier - b.brier.all_time_brier)
+    return [...leaderboard].sort((a, b) => a.final_brier_score - b.final_brier_score)
   }, [leaderboard])
 
   useEffect(() => {
@@ -280,7 +280,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                         <div>
                           <div className="font-medium">{model.model_name}</div>
                           <div className="text-xs text-muted-foreground mt-1">
-                            Brier score: {model.brier.all_time_brier.toFixed(3)} | Profit: {(model.final_profit * 100).toFixed(1)}%
+                            Brier score: {model.final_brier_score.toFixed(3)} | Profit: {(model.final_profit * 100).toFixed(1)}%
                           </div>
                         </div>
                       </div>
@@ -313,7 +313,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                     Brier score:
                     <BrierScoreInfoTooltip />
                   </div>
-                  <div className="font-medium">{selectedModelData.brier.all_time_brier.toFixed(3)}</div>
+                  <div className="font-medium">{selectedModelData.final_brier_score.toFixed(3)}</div>
                 </div >
                 <div>
                   <span className="text-muted-foreground">Bets taken:</span>

@@ -247,24 +247,28 @@ def compute_performance_per_decision(
                         market_decision.returns.one_day_return
                         * abs(market_decision.decision.bet)
                         for market_decision in markets_with_returns
+                        if market_decision.returns is not None
                     )
                     / total_bet,
                     two_day_return=sum(
                         market_decision.returns.two_day_return
                         * abs(market_decision.decision.bet)
                         for market_decision in markets_with_returns
+                        if market_decision.returns is not None
                     )
                     / total_bet,
                     seven_day_return=sum(
                         market_decision.returns.seven_day_return
                         * abs(market_decision.decision.bet)
                         for market_decision in markets_with_returns
+                        if market_decision.returns is not None
                     )
                     / total_bet,
                     all_time_return=sum(
                         market_decision.returns.all_time_return
                         * abs(market_decision.decision.bet)
                         for market_decision in markets_with_returns
+                        if market_decision.returns is not None
                     )
                     / total_bet,
                 )

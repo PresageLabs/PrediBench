@@ -63,8 +63,8 @@ export function LeaderboardTable({
 
         case 'brier_score': {
           // Calculate display scores for Brier using time horizon (rounded to 3 decimal places)
-          const aBrierDisplay = parseFloat((a.final_brier_score, timeHorizon).toFixed(3))
-          const bBrierDisplay = parseFloat((b.final_brier_score, timeHorizon).toFixed(3))
+          const aBrierDisplay = parseFloat((a.final_brier_score).toFixed(3))
+          const bBrierDisplay = parseFloat((b.final_brier_score).toFixed(3))
 
           // Primary sort by Brier display score (lower first - ascending)
           if (aBrierDisplay !== bBrierDisplay) {
