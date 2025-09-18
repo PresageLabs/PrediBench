@@ -152,32 +152,23 @@ def compute_performance_per_decision(
                     """Get return at a specific time horizon (in days) using full price series"""
                     target_date = decision_date + timedelta(days=horizon_days)
 
-                    # Get prices from decision date onwards (not limited to next decision)
-                    full_market_prices = prices_df[market_decision.market_id].copy()
-                    full_market_prices = full_market_prices.bfill().ffill()
-
                     # Get price at decision date
-                    if decision_date not in full_market_prices.index:
+                    if decision_date not in market_prices.index:
                         return 0.0
-                    price_at_decision = full_market_prices.loc[decision_date]
+                    price_at_decision = market_prices.loc[decision_date]
 
                     if float(price_at_decision) == 0 or np.isnan(price_at_decision):
                         return 0.0
 
                     # Find the price at target date or the closest date after
-                    future_prices = full_market_prices.loc[
-                        full_market_prices.index >= target_date
+                    future_prices = market_prices.loc[
+                        market_prices.index >= target_date
                     ]
                     if future_prices.empty:
                         # If no future prices, use the last available price
-                        price_at_horizon = full_market_prices.iloc[-1]
+                        price_at_horizon = market_prices.iloc[-1]
                     else:
                         price_at_horizon = future_prices.iloc[0]
-
-                    # Apply short position transformation if needed
-                    if market_decision.decision.bet < 0:
-                        price_at_decision = 1 - price_at_decision
-                        price_at_horizon = 1 - price_at_horizon
 
                     # Calculate return
                     return (price_at_horizon / float(price_at_decision) - 1) * abs(
@@ -186,43 +177,19 @@ def compute_performance_per_decision(
 
                 def get_all_time_return(decision_date: date) -> float:
                     """Get return from decision date to the last available price"""
-                    # Get prices from decision date onwards
-                    full_market_prices = prices_df[market_decision.market_id].copy()
-
-                    # Remove NaN values to get the real last price
-                    full_market_prices = full_market_prices.dropna()
-
-                    if full_market_prices.empty:
-                        return 0.0
-
-                    # Get price at decision date
-                    if decision_date not in full_market_prices.index:
-                        return 0.0
-                    price_at_decision = full_market_prices.loc[decision_date]
-
-                    if float(price_at_decision) == 0 or np.isnan(price_at_decision):
-                        return 0.0
-
-                    # Get the last real price (not forward-filled)
-                    price_at_end = full_market_prices.iloc[-1]
-
-                    # Apply short position transformation if needed
-                    if market_decision.decision.bet < 0:
-                        price_at_decision = 1 - price_at_decision
-                        price_at_end = 1 - price_at_end
-
-                    # Calculate return
-                    return (price_at_end / float(price_at_decision) - 1) * abs(
-                        market_decision.decision.bet
-                    )
+                    return (
+                        latest_price / max(0.0001, float(price_at_decision)) - 1
+                    ) * abs(market_decision.decision.bet)
 
                 market_decision.brier_score_pair_current = (
-                    prices_df[market_decision.market_id].iloc[-1],
+                    latest_price,
                     market_decision.decision.estimated_probability,
                 )
                 summary_info_per_model[
                     model_decision.model_id
-                ].brier_score_pairs.append(market_decision.brier_score_pair_current)
+                ].brier_score_pairs.append(
+                    market_decision.brier_score_pair_current,
+                )
 
                 # Store time horizon returns for this market decision
                 market_decision.returns = DecisionReturns(
@@ -264,34 +231,40 @@ def compute_performance_per_decision(
 
             # Aggregate returns at event level from market decisions
             markets_with_returns = [
-                m
-                for m in event_decision.market_investment_decisions
-                if m.returns is not None and m.decision.bet != 0
+                market_decision
+                for market in event_decision.market_investment_decisions
+                if market.returns is not None and market.decision.bet != 0
             ]
 
-            # Calculate weighted average returns based on absolute bet size
-            total_bet = sum(abs(m.decision.bet) for m in markets_with_returns)
+            total_bet = sum(
+                abs(market_decision.decision.bet)
+                for market_decision in markets_with_returns
+            )
 
             if total_bet > 0:
                 event_decision.returns = DecisionReturns(
                     one_day_return=sum(
-                        m.returns.one_day_return * abs(m.decision.bet)
-                        for m in markets_with_returns
+                        market_decision.returns.one_day_return
+                        * abs(market_decision.decision.bet)
+                        for market_decision in markets_with_returns
                     )
                     / total_bet,
                     two_day_return=sum(
-                        m.returns.two_day_return * abs(m.decision.bet)
-                        for m in markets_with_returns
+                        market_decision.returns.two_day_return
+                        * abs(market_decision.decision.bet)
+                        for market_decision in markets_with_returns
                     )
                     / total_bet,
                     seven_day_return=sum(
-                        m.returns.seven_day_return * abs(m.decision.bet)
-                        for m in markets_with_returns
+                        market_decision.returns.seven_day_return
+                        * abs(market_decision.decision.bet)
+                        for market_decision in markets_with_returns
                     )
                     / total_bet,
                     all_time_return=sum(
-                        m.returns.all_time_return * abs(m.decision.bet)
-                        for m in markets_with_returns
+                        market_decision.returns.all_time_return
+                        * abs(market_decision.decision.bet)
+                        for market_decision in markets_with_returns
                     )
                     / total_bet,
                 )
