@@ -24,7 +24,7 @@ export function Footer() {
           </nav>
 
           <div className="flex items-center space-x-4 text-sm text-gray-500">
-            <a href="/">© 2025 PrediBench.</a>
+            <a href="/">© 2025 Clairvoyance AI</a>
             <div className="flex items-center space-x-3">
               <a
                 aria-label="github link"
