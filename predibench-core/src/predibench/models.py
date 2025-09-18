@@ -155,7 +155,7 @@ MODELS_BY_PROVIDER = {
         ),
         ModelInfo(
             model_id="most_likely_volume_proportional",
-            model_pretty_name="Bet on most likely outcome",
+            model_pretty_name="Market baseline",
             inference_provider="baseline",
             company_pretty_name="Baseline",
         ),
