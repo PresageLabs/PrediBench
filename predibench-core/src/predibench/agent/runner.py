@@ -95,15 +95,15 @@ def _create_most_likely_outcome_decisions(
     nb_markets = len(market_data)
     amount_per_market = per_event_allocation / nb_markets
 
-    # For each market, invest +amount if price > 50%, -amount if price < 50%
+    # For each market, invest +amount if price >= 50%, -amount if price < 50%
     for market_info in market_data.values():
         current_price = market_info.current_price
 
         if current_price is not None:
-            if current_price > 0.5:
+            if current_price >= 0.5:
                 amount = amount_per_market
                 rationale = (
-                    f"Price {current_price:.2f} > 50%, betting positive {amount:.3f}"
+                    f"Price {current_price:.2f} >= 50%, betting positive {amount:.3f}"
                 )
             else:
                 amount = -amount_per_market
@@ -171,12 +171,12 @@ def _create_volume_proportional_decisions(
             current_price = market_info.current_price
 
             if current_price is not None:
-                if current_price < 0.5:
-                    amount = per_event_allocation  # Positive bet when price < 50%
-                    rationale = f"Highest volume market (volume: {market_volumes[market_id]:.0f}), price {current_price:.2f} < 50% (positive bet)"
+                if current_price >= 0.5:
+                    amount = per_event_allocation  # Positive bet when price >= 50%
+                    rationale = f"Highest volume market (volume: {market_volumes[market_id]:.0f}), price {current_price:.2f} >= 50% (positive bet)"
                 else:
-                    amount = -per_event_allocation  # Negative bet when price >= 50%
-                    rationale = f"Highest volume market (volume: {market_volumes[market_id]:.0f}), price {current_price:.2f} >= 50% (negative bet)"
+                    amount = -per_event_allocation  # Negative bet when price < 50%
+                    rationale = f"Highest volume market (volume: {market_volumes[market_id]:.0f}), price {current_price:.2f} < 50% (negative bet)"
             else:
                 amount = 0.0
                 rationale = f"Highest volume market (volume: {market_volumes[market_id]:.0f}), no price data available"

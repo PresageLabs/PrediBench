@@ -43,6 +43,7 @@ def main(
             max_n_events=max_events,
             models=BACKWARD_MODE_MODELS,  # Run one model at a time
             target_date=target_date,
+            force_rewrite=True,
         )
 
     logger.info("All analyses completed")
