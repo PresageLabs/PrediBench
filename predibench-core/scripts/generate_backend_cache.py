@@ -26,6 +26,11 @@ def main(
             "Recompute each market bet from model-estimated odds vs market price using Kelly sizing"
         ),
     ),
+    ignored_providers: list[str] = typer.Option(
+        [],
+        "--ignored-providers",
+        help="List of provider names to ignore when generating cache (e.g., 'openai', 'anthropic')",
+    ),
 ):
     """Compute and persist backend cache data for the API."""
     typer.echo("=== Backend Cache Generation ===")
@@ -36,7 +41,12 @@ def main(
 
     # Compute all backend data
     typer.echo("\n1. Computing comprehensive backend data...")
-    backend_data = get_data_for_backend(recompute_all_bets=recompute_all_bets)
+    if ignored_providers:
+        typer.echo(f"Ignoring providers: {', '.join(ignored_providers)}")
+    backend_data = get_data_for_backend(
+        recompute_all_bets=recompute_all_bets,
+        ignored_providers=ignored_providers,
+    )
 
     # Convert to JSON-serializable format
     typer.echo("\n2. Converting to JSON format...")

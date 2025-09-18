@@ -60,18 +60,35 @@ def _to_date_index(df: pd.DataFrame) -> pd.DataFrame:
 
 def get_data_for_backend(
     recompute_all_bets: bool = False,
+    ignored_providers: list[str] | None = None,
 ) -> BackendData:
     """
     Pre-compute all data needed for backend API endpoints.
 
     This function loads all data sources only once and computes everything needed
     for maximum performance at runtime.
+
+    Args:
+        recompute_all_bets: Whether to recompute all bets using Kelly criterion
+        ignored_providers: List of provider names to ignore (case-insensitive)
     """
     logger.info("Starting comprehensive backend data computation...")
 
     # Step 1: Load all base data sources (load once, use everywhere)
     logger.info("Loading base data sources...")
     model_decisions = load_investment_choices_from_google()  # Load once
+
+    # Filter out models from ignored providers
+    if ignored_providers:
+        ignored_providers_lower = [provider.lower() for provider in ignored_providers]
+        original_count = len(model_decisions)
+        model_decisions = [
+            decision for decision in model_decisions
+            if decision.model_info.inference_provider.lower() not in ignored_providers_lower
+        ]
+        filtered_count = len(model_decisions)
+        logger.info(f"Filtered {original_count - filtered_count} model decisions from ignored providers: {ignored_providers}")
+        logger.info(f"Remaining model decisions: {filtered_count}")
     _saved_events = load_saved_events()  # Load once
     events = get_non_duplicated_events(_saved_events)
     logger.info("Loading market prices...")
@@ -192,6 +209,9 @@ def _compute_model_performance(
         for event_decision in model_decision.event_investment_decisions:
             net_gains_per_market = []
             for market_decision in event_decision.market_investment_decisions:
+                # Skip markets that don't have price data, maybe we should renormalize the portfolio
+                if market_decision.market_id not in prices_df.columns:
+                    continue
                 market_series_all = prices_df[market_decision.market_id].copy()
                 # Fill missing values to allow robust slicing
                 market_prices = market_series_all.bfill().ffill().copy()
@@ -332,6 +352,10 @@ def _compute_model_performance(
             )
             assert batch_net_gains_series is not None
 
+            # Skip processing if no data points (empty series)
+            if batch_net_gains_series.empty:
+                continue
+
             current_net_asset_value_compounded = (
                 batch_net_gains_series + 1
             ) * current_compounded_value
@@ -344,12 +368,18 @@ def _compute_model_performance(
             current_compounded_value = current_net_asset_value_compounded.iloc[-1]
             current_cumulative_value = current_net_gains_cumulative.iloc[-1]
 
-        compound_asset_values_series = pd.concat(
-            compound_asset_values, axis=0
-        ).sort_index()
-        cumulative_net_gains_series = pd.concat(
-            cumulative_net_gains, axis=0
-        ).sort_index()
+        # Handle case where all decisions had empty data
+        if not compound_asset_values:
+            # Create empty series with appropriate structure
+            compound_asset_values_series = pd.Series(dtype=float)
+            cumulative_net_gains_series = pd.Series(dtype=float)
+        else:
+            compound_asset_values_series = pd.concat(
+                compound_asset_values, axis=0
+            ).sort_index()
+            cumulative_net_gains_series = pd.concat(
+                cumulative_net_gains, axis=0
+            ).sort_index()
         # Check that duplicate index values are equal
         if compound_asset_values_series.index.has_duplicates:
             assert compound_asset_values_series.groupby(level=0).nunique().max() == 1, (
