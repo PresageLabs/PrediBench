@@ -19,7 +19,7 @@ app = typer.Typer(help="Generate precomputed backend cache data")
 
 @app.command()
 def main(
-    recompute_all_bets: bool = typer.Option(
+    recompute_bets_with_kelly_criterion: bool = typer.Option(
         False,
         "--recompute-all-bets",
         help=(
@@ -36,7 +36,7 @@ def main(
     typer.echo("=== Backend Cache Generation ===")
     typer.echo(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-    if recompute_all_bets:
+    if recompute_bets_with_kelly_criterion:
         typer.echo("RECOMPUTING ALL BETS")
 
     # Compute all backend data
@@ -44,7 +44,7 @@ def main(
     if ignored_providers:
         typer.echo(f"Ignoring providers: {', '.join(ignored_providers)}")
     backend_data = get_data_for_backend(
-        recompute_all_bets=recompute_all_bets,
+        recompute_bets_with_kelly_criterion=recompute_bets_with_kelly_criterion,
         ignored_providers=ignored_providers,
     )
 
