@@ -59,7 +59,7 @@ def _to_date_index(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_data_for_backend(
-    recompute_all_bets: bool = False,
+    recompute_bets_with_kelly_criterion: bool = False,
     ignored_providers: list[str] | None = None,
 ) -> BackendData:
     """
@@ -69,7 +69,7 @@ def get_data_for_backend(
     for maximum performance at runtime.
 
     Args:
-        recompute_all_bets: Whether to recompute all bets using Kelly criterion
+        recompute_bets_with_kelly_criterion: Whether to recompute all bets using Kelly criterion
         ignored_providers: List of provider names to ignore (case-insensitive)
     """
     logger.info("Starting comprehensive backend data computation...")
@@ -114,7 +114,7 @@ def get_data_for_backend(
     enriched_model_decisions, performance_per_model = _compute_profits(
         prices_df=prices_df,
         model_decisions=model_decisions,
-        recompute_all_bets=recompute_all_bets,
+        recompute_bets_with_kelly_criterion=recompute_bets_with_kelly_criterion,
     )
 
     # Step 3: Compute leaderboard from performance
@@ -410,24 +410,34 @@ def compute_performance_per_model(
     return model_performances
 
 
+def recompute_bets_with_kelly_criterion_for_model_decisions(
+    model_decisions: list[ModelInvestmentDecisions],
+    prices_df: pd.DataFrame,
+) -> None:
+    for model_decision in model_decisions:
+        decision_date = model_decision.target_date
+        for event_decision in model_decision.event_investment_decisions:
+            event_decision.normalize_investments(
+                apply_kelly_criterion_at_date=decision_date,
+                market_prices=prices_df,
+            )
+
+
 def _compute_profits(
     prices_df: pd.DataFrame,
     model_decisions: list[ModelInvestmentDecisions],
-    recompute_all_bets: bool = False,
+    recompute_bets_with_kelly_criterion: bool = False,
 ) -> tuple[list[ModelInvestmentDecisions], dict[str, ModelPerformanceBackend]]:
     """Compute performance data (cumulative profit and brier score) per model decision and per model
 
     Produces per-model cumulative PnL (overall/event/market) and Brier scores
     (overall/event/market) as time series, along with summary metrics.
     """
-    if recompute_all_bets:
-        for model_decision in model_decisions:
-            decision_date = model_decision.target_date
-            for event_decision in model_decision.event_investment_decisions:
-                event_decision.normalize_investments(
-                    apply_kelly_criterion_at_date=decision_date,
-                    market_prices=prices_df,
-                )
+    if recompute_bets_with_kelly_criterion:
+        recompute_bets_with_kelly_criterion_for_model_decisions(
+            model_decisions, prices_df
+        )
+
     all_model_ids_names: set[tuple[str, str]] = {
         (decision.model_id, decision.model_info.model_pretty_name)
         for decision in model_decisions
