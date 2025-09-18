@@ -53,14 +53,6 @@ export function LeaderboardTable({
     }
   }
 
-  const getHorizonLabel = (horizon: TimeHorizon): string => {
-    switch (horizon) {
-      case 'one_day': return '1 Day'
-      case 'two_day': return '2 Days'
-      case 'seven_day': return '7 Days'
-      case 'all_time': return 'All Time'
-    }
-  }
 
   const sortedLeaderboard = useMemo(() => {
     return [...leaderboard].sort((a, b) => {
