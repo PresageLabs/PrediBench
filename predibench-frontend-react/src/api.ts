@@ -7,8 +7,6 @@ export interface DecisionReturns {
   all_time_return: number
 }
 
-<<<<<<< HEAD
-=======
 export interface DecisionBrier {
   one_day_brier: number
   two_day_brier: number
@@ -23,7 +21,6 @@ export interface DecisionSharpe {
   all_time_sharpe: number
 }
 
->>>>>>> main
 export interface LeaderboardEntry {
   model_id: string
   model_name: string
@@ -34,7 +31,6 @@ export interface LeaderboardEntry {
   compound_profit_history: { date: string; value: number }[]
   cumulative_profit_history: { date: string; value: number }[]
   trades_dates: string[]
-  average_returns: DecisionReturns
   final_brier_score: number
   average_returns: DecisionReturns
   sharpe: DecisionSharpe
