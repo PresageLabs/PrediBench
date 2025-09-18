@@ -154,14 +154,8 @@ MODELS_BY_PROVIDER = {
             company_pretty_name="Baseline",
         ),
         ModelInfo(
-            model_id="most_likely_outcome",
-            model_pretty_name="Most Likely Outcome",
-            inference_provider="baseline",
-            company_pretty_name="Baseline",
-        ),
-        ModelInfo(
             model_id="most_likely_volume_proportional",
-            model_pretty_name="Volume Proportional",
+            model_pretty_name="Bet on most likely outcome",
             inference_provider="baseline",
             company_pretty_name="Baseline",
         ),
@@ -169,30 +163,3 @@ MODELS_BY_PROVIDER = {
 }
 
 MODEL_MAP = [model for models in MODELS_BY_PROVIDER.values() for model in models]
-
-BACKWARD_MODE_MODELS = [
-    ModelInfo(
-        model_id="Qwen/Qwen3-Coder-480B-A35B-Instruct",
-        model_pretty_name="Qwen3 Coder 480B",
-        inference_provider="fireworks-ai",
-        company_pretty_name="Qwen",
-        open_weights=True,
-        agent_type="code",
-    ),
-    ModelInfo(
-        model_id="openai/gpt-oss-120b",
-        model_pretty_name="GPT-OSS 120B",
-        inference_provider="fireworks-ai",
-        company_pretty_name="OpenAI",
-        open_weights=True,
-        agent_type="toolcalling",
-    ),
-    ModelInfo(
-        model_id="deepseek-ai/DeepSeek-V3.1",
-        model_pretty_name="DeepSeek V3.1",
-        inference_provider="fireworks-ai",
-        company_pretty_name="DeepSeek",
-        open_weights=True,
-        agent_type="code",
-    ),
-]

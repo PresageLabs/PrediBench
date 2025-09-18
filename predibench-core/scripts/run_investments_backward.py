@@ -8,6 +8,7 @@ from huggingface_hub import login
 from predibench.agent.models import ModelInfo
 from predibench.invest import run_investments_for_specific_date
 from predibench.logger_config import get_logger
+from predibench.models import MODELS_BY_PROVIDER
 
 logger = get_logger(__name__)
 
@@ -16,26 +17,7 @@ app = typer.Typer()
 load_dotenv()
 login(os.getenv("HF_TOKEN"))
 
-BACKWARD_MODE_MODELS = [
-    ModelInfo(
-        model_id="test_random",
-        model_pretty_name="Random Baseline",
-        inference_provider="baseline",
-        company_pretty_name="Baseline",
-    ),
-    ModelInfo(
-        model_id="most_likely_outcome",
-        model_pretty_name="Most Likely Outcome",
-        inference_provider="baseline",
-        company_pretty_name="Baseline",
-    ),
-    ModelInfo(
-        model_id="most_likely_volume_proportional",
-        model_pretty_name="Volume Proportional",
-        inference_provider="baseline",
-        company_pretty_name="Baseline",
-    ),
-]
+BACKWARD_MODE_MODELS = MODELS_BY_PROVIDER["baseline"]
 
 
 @app.command()

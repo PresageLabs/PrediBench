@@ -140,42 +140,51 @@ def _create_most_likely_outcome_decisions(
 def _create_volume_proportional_decisions(
     market_data: dict[str, MarketInfo], event: Event, model_info: ModelInfo
 ) -> CompleteMarketInvestmentDecisions:
-    """Bet on the most likely outcome but split across markets proportionally by volume."""
+    """Bet on the market with the highest volume only."""
     market_investments = []
     per_event_allocation = 1.0
 
-    # Get market volumes and find total volume
+    # Get market volumes and find the market with highest volume
     market_volumes = {}
-    total_volume = 0.0
+    highest_volume_market_id = None
+    highest_volume = 0.0
 
     for market in event.markets:
         volume = market.volumeNum or 0.0
         market_volumes[market.id] = volume
-        total_volume += volume
+        if volume > highest_volume:
+            highest_volume = volume
+            highest_volume_market_id = market.id
 
     # If no volume data, use equal weights
-    if total_volume == 0.0:
+    if highest_volume == 0.0:
         return _create_most_likely_outcome_decisions(
             market_data=market_data, model_info=model_info
         )
 
-    # Allocate proportionally by volume with directional betting based on price
+    # Only bet on the market with highest volume
     for market_info in market_data.values():
         market_id = market_info.id
-        volume_proportion = market_volumes[market_id] / total_volume
-        base_amount = per_event_allocation * volume_proportion
-        current_price = market_info.current_price
 
-        if current_price is not None:
-            if current_price < 0.5:
-                amount = base_amount  # Positive bet when price < 50%
-                rationale = f"Volume-proportional allocation: {volume_proportion:.2%} of capital based on volume {market_volumes[market_id]:.0f}, price {current_price:.2f} < 50% (positive bet)"
+        if market_id == highest_volume_market_id:
+            # This is the highest volume market - allocate all capital here
+            current_price = market_info.current_price
+
+            if current_price is not None:
+                if current_price < 0.5:
+                    amount = per_event_allocation  # Positive bet when price < 50%
+                    rationale = f"Highest volume market (volume: {market_volumes[market_id]:.0f}), price {current_price:.2f} < 50% (positive bet)"
+                else:
+                    amount = -per_event_allocation  # Negative bet when price >= 50%
+                    rationale = f"Highest volume market (volume: {market_volumes[market_id]:.0f}), price {current_price:.2f} >= 50% (negative bet)"
             else:
-                amount = -base_amount  # Negative bet when price >= 50%
-                rationale = f"Volume-proportional allocation: {volume_proportion:.2%} of capital based on volume {market_volumes[market_id]:.0f}, price {current_price:.2f} >= 50% (negative bet)"
+                amount = 0.0
+                rationale = f"Highest volume market (volume: {market_volumes[market_id]:.0f}), no price data available"
         else:
+            # Not the highest volume market - no bet
             amount = 0.0
-            rationale = f"Volume-proportional allocation: {volume_proportion:.2%} of capital based on volume {market_volumes[market_id]:.0f}, no price data available"
+            current_price = market_info.current_price
+            rationale = f"Not highest volume market (volume: {market_volumes[market_id]:.0f}), no bet"
 
         model_decision = SingleInvestmentDecision(
             rationale=rationale,
