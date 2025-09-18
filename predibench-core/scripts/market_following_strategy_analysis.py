@@ -1,20 +1,3 @@
-#!/usr/bin/env python3
-"""
-Market baseline analysis: "bet the most probable outcome".
-
-What this script does
-- Builds a market-only baseline that, at each model decision date and market, bets on the most probable side
-  (long YES if p_yes>=0.5 else short YES), using the absolute size of the model's bet as position size (for comparability).
-- Computes per-trade returns at horizons (1d, 2d, 7d, all-time) and Brier scores using the same horizon logic
-  as backend computations (using price >= 0.5 as outcome proxy at horizon).
-- Probes the hypothesis "YES on unlikely events is often overrated" by examining returns when p_yes is small.
-- Produces clean Plotly figures with the project template and exports them to analyses/.
-
-How to run
-  uv run python predibench-core/scripts/market_baseline_analysis.py
-  or: python predibench-core/scripts/market_baseline_analysis.py
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -305,7 +288,7 @@ def main():
     logger.info(f"Baseline aggregate: {agg}")
 
     # Build one composite figure with subplots
-    out_dir = Path("analyses/market_baseline_analysis")
+    out_dir = Path("analyses/market_following_strategy_analysis")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     composite = make_subplots(
@@ -368,12 +351,14 @@ def main():
     # (Removed) Unlikely YES subplot is shown only in the dedicated figure.
 
     composite.update_layout(
-        title_text="Market Baseline Study — Most Probable Outcome", showlegend=True
+        title_text="Market Following Strategy Analysis", showlegend=True
     )
     apply_template(composite, width=1400, height=1000)
-    composite.write_html(str(out_dir / "market_baseline_study.html"))
+    composite.write_html(str(out_dir / "market_following_strategy_analysis.html"))
 
-    logger.info("Exported composite study to analyses/market_baseline_study.html")
+    logger.info(
+        "Exported composite study to analyses/market_following_strategy_analysis.html"
+    )
 
     # =============== New Figure: Bias + Unlikely YES boxplots (2x1) ===============
     # Top: average of (realized_outcome - market_price_at_decision) per 0.1 price bin across [0,1]
@@ -506,11 +491,13 @@ def main():
         )
 
     fig2.update_layout(
-        title_text="Market Baseline — Bias and Unlikely YES Distributions",
+        title_text="Market Following Strategy Analysis — Bias and Unlikely YES Distributions",
         showlegend=True,
     )
     apply_template(fig2, width=1400, height=1000)
-    fig2.write_html(str(out_dir / "market_baseline_bias_and_unlikely_boxplots.html"))
+    fig2.write_html(
+        str(out_dir / "market_following_strategy_bias_and_unlikely_boxplots.html")
+    )
 
 
 if __name__ == "__main__":
