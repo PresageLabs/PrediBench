@@ -9,7 +9,7 @@ from predibench.agent.models import (
     ModelInvestmentDecisions,
     SingleInvestmentDecision,
 )
-from predibench.backend.comprehensive_data import _compute_profits
+from predibench.backend.compute_profits import _compute_profits
 
 
 class MarketStub:

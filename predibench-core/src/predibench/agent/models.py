@@ -11,6 +11,13 @@ from smolagents import Timing, TokenUsage
 # NOTE: price ad odd of the 'yes' on any market should be equal, since normalized to 1
 
 
+class DecisionReturns(BaseModel):
+    one_day_return: float
+    two_day_return: float
+    seven_day_return: float
+    all_time_return: float
+
+
 class DataPoint(BaseModel):
     date: str
     value: float
@@ -87,6 +94,7 @@ class MarketInvestmentDecision(BaseModel):
     brier_score_pair_current: tuple[float, float] | None = (
         None  # tuple of (price current, estimated estimated_probability)
     )
+    returns: DecisionReturns | None = None
 
 
 class EventInvestmentDecisions(BaseModel):
@@ -95,6 +103,7 @@ class EventInvestmentDecisions(BaseModel):
     event_id: str
     event_title: str
     event_description: str | None = None
+    returns: DecisionReturns | None = None
     market_investment_decisions: list[
         MarketInvestmentDecision
     ]  # Multiple markets per event

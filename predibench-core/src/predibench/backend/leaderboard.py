@@ -56,6 +56,7 @@ def get_leaderboard(
             compound_profit_history=performance.compound_profit_history,
             cumulative_profit_history=performance.cumulative_profit_history,
             trades_dates=performance.trades_dates,
+            average_returns=performance.average_returns,
             final_profit=performance.final_profit,
             final_brier_score=performance.final_brier_score,
         )

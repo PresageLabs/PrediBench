@@ -6,7 +6,8 @@ import { CompanyDisplay } from './ui/company-display'
 import { BrierScoreInfoTooltip, PnLTooltip } from './ui/info-tooltip'
 import { ProfitDisplay } from './ui/profit-display'
 
-type SortKey = 'cumulative_profit' | 'brier_score'
+type SortKey = 'cumulative_profit' | 'brier_score' | 'average_returns'
+type ReturnHorizon = 'one_day' | 'two_day' | 'seven_day' | 'all_time'
 
 interface LeaderboardTableProps {
   leaderboard: LeaderboardEntry[]
@@ -21,6 +22,39 @@ export function LeaderboardTable({
 }: LeaderboardTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('brier_score')
   const [leaderboardExpanded, setLeaderboardExpanded] = useState<boolean>(false)
+  const [returnHorizon, setReturnHorizon] = useState<ReturnHorizon>('one_day')
+
+  // Helper function to get return value for a specific horizon
+  const getReturnValue = (entry: LeaderboardEntry, horizon: ReturnHorizon): number => {
+    switch (horizon) {
+      case 'one_day':
+        return entry.average_returns.one_day_return
+      case 'two_day':
+        return entry.average_returns.two_day_return
+      case 'seven_day':
+        return entry.average_returns.seven_day_return
+      case 'all_time':
+        return entry.average_returns.all_time_return
+      default:
+        return 0
+    }
+  }
+
+  // Helper function to get horizon display name
+  const getHorizonDisplayName = (horizon: ReturnHorizon): string => {
+    switch (horizon) {
+      case 'one_day':
+        return '1 Day'
+      case 'two_day':
+        return '2 Days'
+      case 'seven_day':
+        return '7 Days'
+      case 'all_time':
+        return 'All Time'
+      default:
+        return ''
+    }
+  }
 
   const sortedLeaderboard = useMemo(() => {
     return [...leaderboard].sort((a, b) => {
@@ -53,11 +87,25 @@ export function LeaderboardTable({
           return b.final_profit - a.final_profit
         }
 
+        case 'average_returns': {
+          // Get return values for the current horizon
+          const aReturn = getReturnValue(a, returnHorizon)
+          const bReturn = getReturnValue(b, returnHorizon)
+
+          // Sort by return value (higher first - descending)
+          if (bReturn !== aReturn) {
+            return bReturn - aReturn
+          }
+
+          // Tie-breaker: use Brier score (lower is better)
+          return a.final_brier_score - b.final_brier_score
+        }
+
         default:
           return 0
       }
     })
-  }, [leaderboard, sortKey])
+  }, [leaderboard, sortKey, returnHorizon])
 
 
   const handleSort = (key: SortKey) => {
@@ -125,6 +173,27 @@ export function LeaderboardTable({
                         <PnLTooltip />
                       </div>
                     </th>
+                    <th className="text-center py-3 px-4 font-semibold w-32">
+                      <div className="flex flex-col items-center space-y-1 w-full">
+                        <button
+                          onClick={() => handleSort('average_returns')}
+                          className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
+                        >
+                          <ArrowDown className={`h-4 w-4 ${sortKey === 'average_returns' ? 'text-primary' : 'opacity-40'}`} />
+                          <span>Average Returns</span>
+                        </button>
+                        <select
+                          value={returnHorizon}
+                          onChange={(e) => setReturnHorizon(e.target.value as ReturnHorizon)}
+                          className="text-xs bg-background border border-border rounded px-1 py-0.5"
+                        >
+                          <option value="one_day">1 Day</option>
+                          <option value="two_day">2 Days</option>
+                          <option value="seven_day">7 Days</option>
+                          <option value="all_time">All Time</option>
+                        </select>
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -137,6 +206,9 @@ export function LeaderboardTable({
                         <td className="py-2 px-4">
                           <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
                           <div className="h-3 bg-gray-200 rounded animate-pulse w-20 ml-2"></div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
                         </td>
                         <td className="py-4 px-4 text-center">
                           <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
@@ -181,6 +253,16 @@ export function LeaderboardTable({
                               value={model.final_profit}
                               minValue={profitRange.min}
                               maxValue={profitRange.max}
+                              formatValue={(v) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`}
+                            />
+                          </a>
+                        </td>
+                        <td className="py-4 px-4 text-center font-medium">
+                          <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
+                            <ProfitDisplay
+                              value={getReturnValue(model, returnHorizon)}
+                              minValue={Math.min(...leaderboard.map(m => getReturnValue(m, returnHorizon)))}
+                              maxValue={Math.max(...leaderboard.map(m => getReturnValue(m, returnHorizon)))}
                               formatValue={(v) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`}
                             />
                           </a>

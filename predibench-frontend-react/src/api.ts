@@ -1,5 +1,12 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
 
+export interface DecisionReturns {
+  one_day_return: number
+  two_day_return: number
+  seven_day_return: number
+  all_time_return: number
+}
+
 export interface LeaderboardEntry {
   model_id: string
   model_name: string
@@ -10,6 +17,7 @@ export interface LeaderboardEntry {
   compound_profit_history: { date: string; value: number }[]
   cumulative_profit_history: { date: string; value: number }[]
   trades_dates: string[]
+  average_returns: DecisionReturns
   final_brier_score: number
 }
 

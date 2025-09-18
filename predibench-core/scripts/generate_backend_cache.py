@@ -10,7 +10,7 @@ import json
 from datetime import datetime
 
 import typer
-from predibench.backend.comprehensive_data import get_data_for_backend
+from predibench.backend.data_loader import get_data_for_backend
 from predibench.common import DATA_PATH
 from predibench.storage_utils import write_to_storage
 

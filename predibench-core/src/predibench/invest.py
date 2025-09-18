@@ -48,7 +48,9 @@ def run_investments_for_specific_date(
         logger.info(f"Loading events from cache: {cache_file_path}")
         selected_events = load_events_from_file(cache_file_path)
         if len(selected_events) < max_n_events:
-            raise ValueError(f"Selected {len(selected_events)} events from cache, but expected {max_n_events}")
+            raise ValueError(
+                f"Selected {len(selected_events)} events from cache, but expected {max_n_events}"
+            )
     else:
         logger.info("Fetching events from API")
         selected_events = choose_events(
@@ -97,6 +99,8 @@ def run_investments_for_specific_date(
         logger.info("Investment analysis complete!")
 
         return results
+
+    return []
 
 
 if __name__ == "__main__":

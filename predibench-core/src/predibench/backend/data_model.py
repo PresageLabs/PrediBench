@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from predibench.agent.models import DataPoint, ModelInvestmentDecisions
+from predibench.agent.models import DataPoint, ModelInvestmentDecisions, DecisionReturns
 from predibench.polymarket_api import Event, Market
 from pydantic import BaseModel
 
@@ -17,6 +17,7 @@ class LeaderboardEntryBackend(BaseModel):
     trend: Literal["up", "down", "stable"]
     compound_profit_history: list[DataPoint]
     cumulative_profit_history: list[DataPoint]
+    average_returns: DecisionReturns
     final_brier_score: float
 
 
@@ -80,6 +81,7 @@ class ModelPerformanceBackend(BaseModel):
     compound_profit_history: list[DataPoint]
     cumulative_profit_history: list[DataPoint]
     pnl_per_event_decision: dict[str, EventDecisionPnlBackend]
+    average_returns: DecisionReturns
     final_profit: float
     final_brier_score: float
 
