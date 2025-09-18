@@ -413,7 +413,7 @@ def compute_performance_per_model(
 def _compute_profits(
     prices_df: pd.DataFrame,
     model_decisions: list[ModelInvestmentDecisions],
-    recompute_all_bets: bool,
+    recompute_all_bets: bool = False,
 ) -> tuple[list[ModelInvestmentDecisions], dict[str, ModelPerformanceBackend]]:
     """Compute performance data (cumulative profit and brier score) per model decision and per model
 
