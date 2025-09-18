@@ -40,21 +40,6 @@ export function LeaderboardTable({
     }
   }
 
-  // Helper function to get horizon display name
-  const getHorizonDisplayName = (horizon: ReturnHorizon): string => {
-    switch (horizon) {
-      case 'one_day':
-        return '1 Day'
-      case 'two_day':
-        return '2 Days'
-      case 'seven_day':
-        return '7 Days'
-      case 'all_time':
-        return 'All Time'
-      default:
-        return ''
-    }
-  }
 
   const sortedLeaderboard = useMemo(() => {
     return [...leaderboard].sort((a, b) => {
@@ -137,9 +122,8 @@ export function LeaderboardTable({
 
       <div className="relative">
         <div
-          className={`overflow-hidden transition-all duration-300 ${
-            leaderboardExpanded ? 'max-h-none' : 'max-h-[500px]'
-          }`}
+          className={`overflow-hidden transition-all duration-300 ${leaderboardExpanded ? 'max-h-none' : 'max-h-[500px]'
+            }`}
         >
           <div className="bg-card rounded-xl border border-border/30 overflow-hidden max-w-3xl mx-auto">
             <div className="overflow-x-auto">
