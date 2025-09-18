@@ -19,13 +19,6 @@ class DecisionReturns(BaseModel):
     all_time_return: float
 
 
-class DecisionBrier(BaseModel):
-    one_day_brier: float
-    two_day_brier: float
-    seven_day_brier: float
-    all_time_brier: float
-
-
 class DecisionSharpe(BaseModel):
     one_day_sharpe: float
     two_day_sharpe: float
@@ -70,11 +63,10 @@ class MarketInvestmentDecision(BaseModel):
     )
     market_question: str | None = None
     net_gains_at_decision_end: float | None = None
+    returns: DecisionReturns | None = None
     brier_score_pair_current: tuple[float, float] | None = (
         None  # tuple of (price current, estimated estimated_probability)
     )
-    returns: DecisionReturns | None = None
-    brier: DecisionBrier | None = None
 
 
 class EventInvestmentDecisions(BaseModel):
@@ -83,6 +75,7 @@ class EventInvestmentDecisions(BaseModel):
     event_id: str
     event_title: str
     event_description: str | None = None
+    returns: DecisionReturns | None = None
     market_investment_decisions: list[
         MarketInvestmentDecision
     ]  # Multiple markets per event

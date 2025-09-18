@@ -1,12 +1,12 @@
 import { ArrowDown, ChevronDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import type { LeaderboardEntry, DecisionReturns, DecisionSharpe, DecisionBrier } from '../api'
+import type { DecisionReturns, DecisionSharpe, LeaderboardEntry } from '../api'
 import { encodeSlashes } from '../lib/utils'
 import { CompanyDisplay } from './ui/company-display'
 import { BrierScoreInfoTooltip, PnLTooltip } from './ui/info-tooltip'
 import { ProfitDisplay } from './ui/profit-display'
 
-type SortKey = 'cumulative_profit' | 'brier_score' | 'average_returns' | 'average_sharpe'
+type SortKey = 'cumulative_profit' | 'brier_score' | 'average_returns' | 'sharpe'
 type TimeHorizon = 'one_day' | 'two_day' | 'seven_day' | 'all_time'
 
 interface LeaderboardTableProps {
@@ -44,16 +44,6 @@ export function LeaderboardTable({
     }
   }
 
-  const getBrierForHorizon = (brier: DecisionBrier, horizon: TimeHorizon): number => {
-    switch (horizon) {
-      case 'one_day': return brier.one_day_brier
-      case 'two_day': return brier.two_day_brier
-      case 'seven_day': return brier.seven_day_brier
-      case 'all_time': return brier.all_time_brier
-    }
-  }
-
-
   const sortedLeaderboard = useMemo(() => {
     return [...leaderboard].sort((a, b) => {
       switch (sortKey) {
@@ -73,8 +63,8 @@ export function LeaderboardTable({
 
         case 'brier_score': {
           // Calculate display scores for Brier using time horizon (rounded to 3 decimal places)
-          const aBrierDisplay = parseFloat(getBrierForHorizon(a.brier, timeHorizon).toFixed(3))
-          const bBrierDisplay = parseFloat(getBrierForHorizon(b.brier, timeHorizon).toFixed(3))
+          const aBrierDisplay = parseFloat((a.final_brier_score).toFixed(3))
+          const bBrierDisplay = parseFloat((b.final_brier_score).toFixed(3))
 
           // Primary sort by Brier display score (lower first - ascending)
           if (aBrierDisplay !== bBrierDisplay) {
@@ -98,7 +88,7 @@ export function LeaderboardTable({
           return a.final_brier_score - b.final_brier_score
         }
 
-        case 'average_sharpe': {
+        case 'sharpe': {
           const aSharpe = getSharpeForHorizon(a.sharpe, timeHorizon)
           const bSharpe = getSharpeForHorizon(b.sharpe, timeHorizon)
 
@@ -210,9 +200,8 @@ export function LeaderboardTable({
 
       <div className="relative">
         <div
-          className={`overflow-hidden transition-all duration-300 ${
-            leaderboardExpanded ? 'max-h-none' : 'max-h-[500px]'
-          }`}
+          className={`overflow-hidden transition-all duration-300 ${leaderboardExpanded ? 'max-h-none' : 'max-h-[500px]'
+            }`}
         >
           <div className="bg-card rounded-xl border border-border/30 overflow-hidden">
             <div className="overflow-x-auto">
@@ -263,10 +252,10 @@ export function LeaderboardTable({
                       <th className="text-center py-3 px-4 font-semibold">
                         <div className="flex items-center justify-center space-x-1 w-full">
                           <button
-                            onClick={() => handleSort('average_sharpe')}
+                            onClick={() => handleSort('sharpe')}
                             className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
                           >
-                            <ArrowDown className={`h-4 w-4 ${sortKey === 'average_sharpe' ? 'text-primary' : 'opacity-40'}`} />
+                            <ArrowDown className={`h-4 w-4 ${sortKey === 'sharpe' ? 'text-primary' : 'opacity-40'}`} />
                             <span>Sharpe</span>
                           </button>
                         </div>
@@ -329,7 +318,7 @@ export function LeaderboardTable({
                         </td>
                         <td className="py-4 px-4 text-center font-medium">
                           <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
-                            {getBrierForHorizon(model.brier, timeHorizon).toFixed(3)}
+                            {model.final_brier_score.toFixed(3)}
                           </a>
                         </td>
                         <td className="py-4 px-4 text-center font-medium">

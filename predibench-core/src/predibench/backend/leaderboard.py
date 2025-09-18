@@ -56,11 +56,10 @@ def get_leaderboard(
             compound_profit_history=performance.compound_profit_history,
             cumulative_profit_history=performance.cumulative_profit_history,
             trades_dates=performance.trades_dates,
-            final_profit=performance.final_profit,
-            final_brier_score=performance.final_brier_score,
             average_returns=performance.average_returns,
+            final_profit=performance.final_profit,
             sharpe=performance.sharpe,
-            brier=performance.brier,
+            final_brier_score=performance.final_brier_score,
         )
         leaderboard.append(leaderboard_entry)
     return leaderboard
