@@ -268,8 +268,8 @@ class ApiService {
     return await response.json()
   }
 
-  async getFullResultByModelAndEvent(modelId: string, eventId: string, targetDate: string): Promise<FullModelResult | null> {
-    const response = await this.fetchWithTimeout(`${API_BASE_URL}/full_results/by_model_and_event?model_id=${encodeURIComponent(modelId)}&event_id=${encodeURIComponent(eventId)}&target_date=${encodeURIComponent(targetDate)}`)
+  async getFullDecisionByModelAndEvent(modelId: string, eventId: string, targetDate: string): Promise<FullModelResult | null> {
+    const response = await this.fetchWithTimeout(`${API_BASE_URL}/decision_details/by_model_and_event?model_id=${encodeURIComponent(modelId)}&event_id=${encodeURIComponent(eventId)}&target_date=${encodeURIComponent(targetDate)}`)
     if (response.status === 404) {
       console.log('Full result not found', { modelId, eventId, targetDate })
       return null
