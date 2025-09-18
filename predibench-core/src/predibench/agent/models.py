@@ -108,7 +108,7 @@ class EventInvestmentDecisions(BaseModel):
     def normalize_investments(
         self,
         apply_kelly_criterion_at_date: date | None = None,
-        market_prices: dict[str, pd.Series] | None = None,
+        market_prices: pd.DataFrame | None = None,
     ) -> None:
         """
         Normalize investments at the event level.
@@ -142,7 +142,7 @@ class EventInvestmentDecisions(BaseModel):
             # Compute Kelly bet per market from provided market price history
             for md in self.market_investment_decisions:
                 estimated_odds = float(md.decision.estimated_probability)
-                market_price_series = market_prices.get(md.market_id)
+                market_price_series = market_prices[md.market_id]
                 if market_price_series is None or len(market_price_series) == 0:
                     continue
                 # Ensure date index compatibility

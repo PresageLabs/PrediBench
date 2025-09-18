@@ -9,7 +9,7 @@ from predibench.agent.models import (
     ModelInvestmentDecisions,
     SingleInvestmentDecision,
 )
-from predibench.backend.comprehensive_data import _compute_model_performance
+from predibench.backend.comprehensive_data import _compute_profits
 
 
 class MarketStub:
@@ -133,10 +133,7 @@ def _build_model_decisions_second_event(
     )
 
 
-def test_compute_model_performance_gain():
-    # Single event with one market
-    backend_events = [EventStub("event_1", [MarketStub("event_1_market_1")])]
-
+def test_compute_profits_gain():
     prices_df = _build_prices_df()
 
     # Model A bets -0.5 (against market, betting "no")
@@ -152,9 +149,8 @@ def test_compute_model_performance_gain():
     # Relative returns: (0.9/0.8 - 1) = 0.125, (1.0/0.8 - 1) = 0.25
     # Final profit: 0.25 * 0.6 = 0.15
 
-    model_decisions, model_performances = _compute_model_performance(
+    model_decisions, model_performances = _compute_profits(
         prices_df=prices_df,
-        backend_events=backend_events,
         model_decisions=[model_a_decision_1, model_a_decision_2],
     )
     first_model_decision, second_model_decision = model_decisions
@@ -207,4 +203,4 @@ def test_compute_model_performance_gain():
 
 
 if __name__ == "__main__":
-    test_compute_model_performance_gain()
+    test_compute_profits_gain()
