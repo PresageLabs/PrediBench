@@ -557,9 +557,9 @@ def test_compute_profits_detailed_numerical_verification():
     market_b_return = (0.6 / 0.2 - 1) * 0.2
     print(f"Market B return: (0.6/0.2 - 1) * 0.2 = {market_b_return}")
 
-    # Total return per event (divided by 10 as per code)
-    total_event_return = (market_a_return + market_b_return) / 10
-    print(f"Total event return: ({market_a_return} + {market_b_return}) / 10 = {total_event_return}")
+    # Total return per event (mean of market returns)
+    total_event_return = (market_a_return + market_b_return) / 2  # Mean of 2 markets
+    print(f"Total event return (mean): ({market_a_return} + {market_b_return}) / 2 = {total_event_return}")
 
     # Expected final profit should equal total_event_return
     print(f"Expected profit: {total_event_return}")
@@ -636,12 +636,12 @@ def test_compute_profits_negative_bet_verification():
     bet_amount = 0.5
 
     expected_return = (inverted_end_price / inverted_start_price - 1) * bet_amount
-    expected_final_return = expected_return / 10  # Division by 10 per event
+    expected_final_return = expected_return  # No division needed with mean
 
     print(f"Original prices: {original_start_price} → {original_end_price}")
     print(f"Inverted prices: {inverted_start_price} → {inverted_end_price}")
     print(f"Raw return: ({inverted_end_price}/{inverted_start_price} - 1) * {bet_amount} = {expected_return}")
-    print(f"Final return: {expected_return} / 10 = {expected_final_return}")
+    print(f"Expected return: {expected_final_return}")
     print(f"Actual profit: {performance.final_profit}")
 
     assert abs(performance.final_profit - expected_final_return) < 1e-10, (
@@ -778,13 +778,12 @@ def test_division_by_10_issue():
     print(f"Difference: {abs(performance.final_profit - 0.1)}")
 
     # The code divides by 10, which seems arbitrary
-    expected_return_with_division = 1.0 / 10  # 0.1
-    assert abs(performance.final_profit - expected_return_with_division) < 1e-10, (
-        f"Division by 10 calculation: expected {expected_return_with_division}, got {performance.final_profit}"
+    expected_return_correct = 1.0  # 100% gain
+    assert abs(performance.final_profit - expected_return_correct) < 1e-10, (
+        f"Fixed calculation: expected {expected_return_correct}, got {performance.final_profit}"
     )
 
-    # But logically, shouldn't the return be 1.0 (100% gain)?
-    print(f"NOTE: The return is divided by 10 in the code (line 196), but this may be incorrect logic")
+    print(f"FIXED: The calculation now correctly returns 1.0 for a 100% gain ✓")
 
 
 def test_portfolio_aggregation_multiple_markets():
@@ -843,12 +842,12 @@ def test_portfolio_aggregation_multiple_markets():
     # (0.6/0.2 - 1) * 0.3 = (3.0 - 1) * 0.3 = 0.6
     market_2_return = (0.6 / 0.2 - 1) * 0.3
 
-    total_return = (market_1_return + market_2_return) / 10  # Division by 10
+    total_return = (market_1_return + market_2_return) / 2  # Mean of 2 markets
 
     print(f"Market 1 return: {market_1_return}")
     print(f"Market 2 return: {market_2_return}")
-    print(f"Total return (before /10): {market_1_return + market_2_return}")
-    print(f"Total return (after /10): {total_return}")
+    print(f"Total return (sum): {market_1_return + market_2_return}")
+    print(f"Total return (mean): {total_return}")
     print(f"Actual profit: {performance.final_profit}")
 
     assert abs(performance.final_profit - total_return) < 1e-10, (
@@ -895,10 +894,10 @@ def test_floating_point_precision_issues():
 
     # Expected calculation: (0.3/0.1 - 1) * 0.1 = (3.0 - 1) * 0.1 = 0.2
     expected_raw_return = (0.3 / 0.1 - 1) * 0.1
-    expected_final_return = expected_raw_return / 10
+    expected_final_return = expected_raw_return  # No division with mean
 
     print(f"Raw return calculation: (0.3/0.1 - 1) * 0.1 = {expected_raw_return}")
-    print(f"Final return: {expected_raw_return} / 10 = {expected_final_return}")
+    print(f"Expected return: {expected_final_return}")
     print(f"Actual profit: {performance.final_profit}")
     print(f"Precision difference: {abs(performance.final_profit - expected_final_return)}")
 
@@ -908,15 +907,15 @@ def test_floating_point_precision_issues():
     )
 
 
-def test_critical_division_by_10_demonstration():
+def test_fixed_mean_calculation():
     """
-    CRITICAL ISSUE: Demonstrates the problematic division by 10 in compute_profits.py line 196.
+    Test that verifies the fix: using mean() instead of division by 10.
 
-    This test shows that all profits are artificially reduced by a factor of 10,
-    which appears to be an error in the calculation logic.
+    This test shows that profits are now correctly calculated using the mean
+    of market returns within an event, rather than an arbitrary division by 10.
     """
     print("\n" + "="*60)
-    print("CRITICAL NUMERICAL ERROR DEMONSTRATION")
+    print("FIXED CALCULATION VERIFICATION")
     print("="*60)
 
     # Test case: Market goes from 0.1 to 1.0 (10x increase = 900% gain)
@@ -938,7 +937,7 @@ def test_critical_division_by_10_demonstration():
     ]
 
     model_decision = create_test_model_decision(
-        "critical_test", "Critical Test", date(2025, 8, 2),
+        "fixed_test", "Fixed Test", date(2025, 8, 2),
         market_decisions=market_decisions
     )
 
@@ -948,41 +947,29 @@ def test_critical_division_by_10_demonstration():
         recompute_bets_with_kelly_criterion=False,
     )
 
-    performance = model_performances["critical_test"]
+    performance = model_performances["fixed_test"]
 
     print(f"Market price change: 0.1 → 1.0")
     print(f"This represents a 10x increase (900% gain)")
-    print(f"With a bet of 1.0, the logical return should be:")
+    print(f"With a bet of 1.0, the expected return is:")
     print(f"  (1.0/0.1 - 1) * 1.0 = 9.0 (900% profit)")
     print()
-    print(f"However, the code calculates:")
-    print(f"  Raw calculation: (1.0/0.1 - 1) * 1.0 = 9.0")
-    print(f"  After division by 10: 9.0 / 10 = 0.9")
-    print(f"  Actual result: {performance.final_profit}")
+    print(f"FIXED: Line 196 now contains:")
+    print(f"  sum_net_gains_for_event_df = net_gains_for_event_df.mean(axis=1)")
     print()
-    print("ISSUE: Line 196 in compute_profits.py contains:")
-    print("  sum_net_gains_for_event_df = net_gains_for_event_df.sum(axis=1) / 10")
-    print()
-    print("This division by 10 appears to be incorrect and reduces all")
-    print("profits by a factor of 10, making 900% gains appear as 90% gains.")
+    print(f"Actual result: {performance.final_profit}")
+    print(f"Expected result: 9.0")
+    print(f"Calculation is now CORRECT ✓")
     print("="*60)
 
-    # The current (potentially incorrect) behavior
-    expected_with_bug = 9.0 / 10  # 0.9
-    assert abs(performance.final_profit - expected_with_bug) < 1e-10, (
-        f"Current behavior: expected {expected_with_bug}, got {performance.final_profit}"
+    # Verify the correct behavior
+    expected_correct = 9.0  # 900% gain
+    assert abs(performance.final_profit - expected_correct) < 1e-10, (
+        f"Fixed behavior: expected {expected_correct}, got {performance.final_profit}"
     )
-
-    # What the logical behavior should be (without division by 10)
-    logical_expected = 9.0  # 900% gain
-    print(f"Logical expected result (without /10): {logical_expected}")
-    print(f"Actual result (with /10): {performance.final_profit}")
-    print(f"Error factor: {logical_expected / performance.final_profit:.1f}x too small")
-
-    return performance.final_profit, logical_expected
 
 
 if __name__ == "__main__":
-    # Run the critical test to demonstrate the issue
-    test_critical_division_by_10_demonstration()
+    # Run the fixed test to verify the correction
+    test_fixed_mean_calculation()
     
