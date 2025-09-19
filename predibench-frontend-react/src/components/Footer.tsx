@@ -1,7 +1,7 @@
 
 export function Footer() {
   const links = [
-    { name: 'About', href: '/#intro' },
+    { name: 'About', href: '/#About' },
     { name: 'Leaderboard', href: '/leaderboard' },
     { name: 'Models', href: '/models' },
     { name: 'Events', href: '/events' },

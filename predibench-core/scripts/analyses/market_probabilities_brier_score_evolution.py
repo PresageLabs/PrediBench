@@ -521,6 +521,60 @@ def create_brier_score_analysis_plots(df: pd.DataFrame) -> list[go.Figure]:
     )
     figures.append(subplot_fig)
 
+    # Volatility of market prices within each horizon interval (per-market)
+    # For each market and horizon bin, compute the std of market_price values
+    # in that window; then aggregate across markets using the median.
+    df_vol = df_copy[df_copy["hours_to_end"] <= max(horizon_hours)].copy()
+    bins = [0] + horizon_hours
+    df_vol["horizon_bin"] = pd.cut(
+        df_vol["hours_to_end"], bins=bins, labels=horizon_labels, include_lowest=True
+    )
+
+    per_market_vol = (
+        df_vol.groupby(["event_id", "market_id", "horizon_bin"], observed=False)[
+            "market_price"
+        ]
+        .agg(price_std="std", samples="size")
+        .reset_index()
+    )
+
+    vol_stats = (
+        per_market_vol.groupby("horizon_bin", observed=False)
+        .agg(
+            median_vol=("price_std", "median"),
+            count=("price_std", lambda s: int(pd.Series(s).notna().sum())),
+        )
+        .reset_index()
+    )
+
+    vol_stats["horizon_bin"] = pd.Categorical(
+        vol_stats["horizon_bin"], categories=horizon_labels, ordered=True
+    )
+    vol_stats = vol_stats.sort_values("horizon_bin")
+
+    vol_fig = px.bar(
+        vol_stats,
+        x="horizon_bin",
+        y="median_vol",
+        title="Volatility of Market Prices by Horizon",
+        labels={"horizon_bin": "Horizon", "median_vol": "Median Std of Price"},
+        hover_data={"count": True, "median_vol": ":.4f"},
+    )
+    vol_fig.update_yaxes(side="right")
+    vol_fig.update_xaxes(
+        title_text="Time to Event End",
+        categoryorder="array",
+        categoryarray=list(reversed(horizon_labels)),
+    )
+    vol_fig.update_yaxes(title_text="Cross-event volatility of market price")
+    apply_template(vol_fig)
+    vol_fig.update_layout(
+        width=800,
+        height=600,
+        margin=dict(t=50, b=50, l=50, r=100),
+    )
+    figures.append(vol_fig)
+
     # 5. Event-specific Brier score trajectories
     if df_copy["event_id"].nunique() <= 10:  # Only show if not too many events
         fig5 = px.line(
