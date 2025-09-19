@@ -54,10 +54,6 @@ export function DecisionAnnotation({ decision, nextDecision, onEventClick }: Dec
     return () => { cancelled = true }
   }, [decision, nextDecision])
 
-  const totalBets = decision.event_investment_decisions.reduce((total, eventDecision) => {
-    return total + eventDecision.market_investment_decisions.length
-  }, 0)
-
   const formattedStartDate = new Date(decision.target_date).toLocaleDateString('en-US', {
     month: 'long',
     day: 'numeric'
