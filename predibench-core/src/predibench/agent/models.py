@@ -20,10 +20,9 @@ class DecisionReturns(BaseModel):
 
 
 class DecisionSharpe(BaseModel):
-    one_day_sharpe: float
-    two_day_sharpe: float
-    seven_day_sharpe: float
-    all_time_sharpe: float
+    one_day_annualized_sharpe: float
+    two_day_annualized_sharpe: float
+    seven_day_annualized_sharpe: float
 
 
 class SingleInvestmentDecision(BaseModel):
