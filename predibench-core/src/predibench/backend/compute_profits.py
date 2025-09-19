@@ -115,7 +115,6 @@ def compute_performance_per_decision(
                     continue
                 signed_latest_price = valid_signed_prices.iloc[-1]
 
-
                 if (
                     signed_price_at_decision is None
                     or pd.isna(signed_price_at_decision)
@@ -176,8 +175,10 @@ def compute_performance_per_decision(
                 def get_returns(price_at_decision, price_at_expiry) -> float:
                     # Check if either price is NaN/None - if so, return 0
                     if (
-                        pd.isna(price_at_decision) or pd.isna(price_at_expiry)
-                        or price_at_decision is None or price_at_expiry is None
+                        pd.isna(price_at_decision)
+                        or pd.isna(price_at_expiry)
+                        or price_at_decision is None
+                        or price_at_expiry is None
                         or price_at_decision == 0
                     ):
                         return 0.0
@@ -192,28 +193,14 @@ def compute_performance_per_decision(
                 )
 
                 # Store time horizon returns for this market decision
-                # Always compute standard horizons in custom_returns for consistency
-                custom_returns = {
-                    1: get_returns(
-                        signed_price_at_decision,
-                        get_price_at_horizon(decision_date + timedelta(days=1)),
-                    ),
-                    2: get_returns(
-                        signed_price_at_decision,
-                        get_price_at_horizon(decision_date + timedelta(days=2)),
-                    ),
-                    7: get_returns(
-                        signed_price_at_decision,
-                        get_price_at_horizon(decision_date + timedelta(days=7)),
-                    ),
-                }
-
-                # Add any additional custom horizons
+                custom_returns = {}
                 if custom_horizons:
                     for horizon in custom_horizons:
                         custom_returns[horizon] = get_returns(
                             signed_price_at_decision,
-                            get_price_at_horizon(decision_date + timedelta(days=horizon)),
+                            get_price_at_horizon(
+                                decision_date + timedelta(days=horizon)
+                            ),
                         )
 
                 market_decision.returns = DecisionReturns(
@@ -234,15 +221,6 @@ def compute_performance_per_decision(
                     ),
                     custom_horizon_returns=custom_returns if custom_returns else None,
                 )
-
-                # Assert that custom horizon calculations match standard ones
-                if custom_returns:
-                    if 1 in custom_returns:
-                        assert abs(custom_returns[1] - market_decision.returns.one_day_return) < 1e-10, f"1-day mismatch: {custom_returns[1]} vs {market_decision.returns.one_day_return}"
-                    if 2 in custom_returns:
-                        assert abs(custom_returns[2] - market_decision.returns.two_day_return) < 1e-10, f"2-day mismatch: {custom_returns[2]} vs {market_decision.returns.two_day_return}"
-                    if 7 in custom_returns:
-                        assert abs(custom_returns[7] - market_decision.returns.seven_day_return) < 1e-10, f"7-day mismatch: {custom_returns[7]} vs {market_decision.returns.seven_day_return}"
 
                 if market_decision.decision.bet != 0:
                     summary_info_per_model[model_decision.model_id].trade_count += 1
@@ -284,20 +262,32 @@ def compute_performance_per_decision(
             # Total bet is always 1 (including unallocated capital), so no need to normalize here
             # Aggregate ALL custom horizon returns at event level (including standard horizons)
             event_custom_returns = {}
-            if custom_horizons:  # Only create custom returns if custom_horizons was requested
+            if (
+                custom_horizons
+            ):  # Only create custom returns if custom_horizons was requested
                 if markets_with_returns:
                     # Get all horizons from any market that has custom_horizon_returns
                     all_horizons = set()
                     for market_decision in markets_with_returns:
-                        if market_decision.returns is not None and market_decision.returns.custom_horizon_returns is not None:
-                            all_horizons.update(market_decision.returns.custom_horizon_returns.keys())
+                        if (
+                            market_decision.returns is not None
+                            and market_decision.returns.custom_horizon_returns
+                            is not None
+                        ):
+                            all_horizons.update(
+                                market_decision.returns.custom_horizon_returns.keys()
+                            )
 
                     # Aggregate returns for each horizon
                     for horizon in all_horizons:
                         event_custom_returns[horizon] = sum(
-                            market_decision.returns.custom_horizon_returns.get(horizon, 0.0)
+                            market_decision.returns.custom_horizon_returns.get(
+                                horizon, 0.0
+                            )
                             for market_decision in markets_with_returns
-                            if market_decision.returns is not None and market_decision.returns.custom_horizon_returns is not None
+                            if market_decision.returns is not None
+                            and market_decision.returns.custom_horizon_returns
+                            is not None
                         )
                 else:
                     # If no markets with returns, initialize custom horizons with 0.0
@@ -325,7 +315,9 @@ def compute_performance_per_decision(
                     for market_decision in markets_with_returns
                     if market_decision.returns is not None
                 ),
-                custom_horizon_returns=event_custom_returns if event_custom_returns else None,
+                custom_horizon_returns=event_custom_returns
+                if event_custom_returns
+                else None,
             )
 
         # After processing all events for this decision, compute the aggregated
@@ -454,7 +446,9 @@ def compute_performance_per_model(
                         for horizon in all_custom_horizon_returns.keys():
                             if horizon in event_decision.returns.custom_horizon_returns:
                                 all_custom_horizon_returns[horizon].append(
-                                    event_decision.returns.custom_horizon_returns[horizon]
+                                    event_decision.returns.custom_horizon_returns[
+                                        horizon
+                                    ]
                                 )
 
         # Calculate custom horizon average returns
@@ -465,14 +459,15 @@ def compute_performance_per_model(
             else:
                 custom_horizon_averages[horizon] = 0.0
 
-
         # Calculate equal-weighted average returns across all events
         average_returns = DecisionReturns(
             one_day_return=float(np.mean(all_event_returns["one_day_return"])),
             two_day_return=float(np.mean(all_event_returns["two_day_return"])),
             seven_day_return=float(np.mean(all_event_returns["seven_day_return"])),
             all_time_return=float(np.mean(all_event_returns["all_time_return"])),
-            custom_horizon_returns=custom_horizon_averages if custom_horizon_averages else None,
+            custom_horizon_returns=custom_horizon_averages
+            if custom_horizon_averages
+            else None,
         )
 
         # Calculate Sharpe ratios using expectation and volatility of returns per model
