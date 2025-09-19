@@ -15,4 +15,4 @@ wheels/
 .venv
 predibench-core/.env
 */.env
-
+*.DS_Store
