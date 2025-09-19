@@ -66,8 +66,9 @@ def apply_template(
                 font=dict(size=font_size),
             )
         ]
-    if title is not None:
-        layout_updates["title"] = title
+    # Don't save titles in JSON figures - titles will be handled in React
+    # if title is not None:
+    #     layout_updates["title"] = title
     fig.update_layout(layout_updates)
     fig.update_xaxes(
         title_font_family=FONT_FAMILY,
