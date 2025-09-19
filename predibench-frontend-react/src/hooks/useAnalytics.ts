@@ -45,11 +45,43 @@ export const useAnalytics = () => {
     }
   }, []);
 
+  const trackError = useCallback((error: Error, errorInfo?: Record<string, any>) => {
+    if (analytics) {
+      logEvent(analytics, 'exception', {
+        description: error.message,
+        fatal: false,
+        ...errorInfo,
+      });
+    }
+  }, []);
+
+  const trackTiming = useCallback((name: string, value: number, category?: string) => {
+    if (analytics) {
+      logEvent(analytics, 'timing_complete', {
+        name,
+        value,
+        event_category: category,
+      });
+    }
+  }, []);
+
+  const trackSearch = useCallback((searchTerm: string, category?: string) => {
+    if (analytics) {
+      logEvent(analytics, 'search', {
+        search_term: searchTerm,
+        search_category: category,
+      });
+    }
+  }, []);
+
   return {
     trackEvent,
     trackPageView,
     trackUserAction,
     setUserProperty,
     setAnalyticsUserId,
+    trackError,
+    trackTiming,
+    trackSearch,
   };
 };

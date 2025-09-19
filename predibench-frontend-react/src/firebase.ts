@@ -19,6 +19,11 @@ const app = initializeApp(firebaseConfig);
 let analytics: Analytics | null = null;
 if (typeof window !== 'undefined') {
   analytics = getAnalytics(app);
+
+  // Enable analytics debug mode in development
+  if (import.meta.env.DEV) {
+    console.log('Firebase Analytics initialized in development mode');
+  }
 }
 
 export { analytics };
