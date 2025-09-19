@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import type { Event, LeaderboardEntry, ModelInvestmentDecision } from '../api'
 import { apiService } from '../api'
 import { useAnalytics } from '../hooks/useAnalytics'
-import { formatVolume, encodeSlashes } from '../lib/utils'
+import { encodeSlashes, formatVolume } from '../lib/utils'
 import { getChartColor } from './ui/chart-colors'
 import { EventDecisionThumbnail } from './ui/EventDecisionThumbnail'
 import { VisxLineChart } from './ui/visx-line-chart'
@@ -39,6 +39,10 @@ export function EventDetail({ event }: EventDetailProps) {
   const [latestDecisionDate, setLatestDecisionDate] = useState<string | null>(null)
   const [modelIdToName, setModelIdToName] = useState<Record<string, string>>({})
   const [eventModelDecisions, setEventModelDecisions] = useState<ModelInvestmentDecision[]>([])
+
+  // Configuration for market filtering
+  const MAX_VISIBLE_MARKETS = 8
+  const PRICE_THRESHOLD = 0.01
 
   // Function to convert URLs in text to clickable links
   const linkify = (text: string | null | undefined) => {
@@ -179,6 +183,33 @@ export function EventDetail({ event }: EventDetailProps) {
   }, [eventModelDecisions, event.id])
 
   const uniqueModelIds = useMemo(() => Object.keys(latestByModel), [latestByModel])
+
+  // Filter markets: show all if under MAX_VISIBLE_MARKETS, else show top MAX_VISIBLE_MARKETS + any additional above threshold
+  const visibleMarkets = useMemo(() => {
+    if (!event?.markets) return []
+
+    // Add max value to each market for sorting
+    const marketsWithMaxValue = event.markets.map((market) => {
+      const marketData = marketPricesData[market.id] || []
+      const maxValue = marketData.length > 0 ? Math.max(...marketData.map(point => point.price)) : 0
+      return { market, maxValue }
+    })
+
+    // If we have MAX_VISIBLE_MARKETS or fewer markets, show all
+    if (marketsWithMaxValue.length <= MAX_VISIBLE_MARKETS) {
+      return marketsWithMaxValue.map(({ market }) => market)
+    }
+
+    marketsWithMaxValue.sort((a, b) => b.maxValue - a.maxValue)
+
+    const topMarkets = marketsWithMaxValue.slice(0, MAX_VISIBLE_MARKETS)
+
+    const additionalMarkets = marketsWithMaxValue.slice(MAX_VISIBLE_MARKETS).filter(({ maxValue }) => maxValue >= PRICE_THRESHOLD)
+
+    const selectedMarkets = [...topMarkets, ...additionalMarkets]
+
+    return selectedMarkets.map(({ market }) => market)
+  }, [event?.markets, marketPricesData])
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
@@ -235,9 +266,9 @@ export function EventDetail({ event }: EventDetailProps) {
             </div>
           ) : (
             <div className="w-full">
-              {/* Market Legend */}
+              {/* Market Legend - only show markets that will be displayed in chart */}
               <div className="mb-4 flex flex-wrap gap-2">
-                {event?.markets?.map((market, index) => (
+                {visibleMarkets.map((market, index) => (
                   <div key={market.id} className="flex items-center space-x-2">
                     <div
                       className="w-3 h-3 rounded-full"
@@ -257,7 +288,7 @@ export function EventDetail({ event }: EventDetailProps) {
                   height={384}
                   margin={{ left: 60, top: 35, bottom: 38, right: 27 }}
                   yDomain={[0, 1]}
-                  series={event?.markets?.map((market, index) => ({
+                  series={visibleMarkets.map((market, index) => ({
                     dataKey: `market_${market.id}`,
                     data: (marketPricesData[market.id] || []).map(point => ({
                       date: point.date,
@@ -265,7 +296,7 @@ export function EventDetail({ event }: EventDetailProps) {
                     })),
                     stroke: getChartColor(index),
                     name: market.question.length > 30 ? market.question.substring(0, 27) + '...' : market.question
-                  })) || []}
+                  }))}
                 />
               </div>
             </div>
