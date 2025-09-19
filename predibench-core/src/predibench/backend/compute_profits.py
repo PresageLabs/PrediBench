@@ -76,14 +76,15 @@ def compute_performance_per_decision(
                     continue
                 market_series_all = prices_df[market_decision.market_id].copy()
                 # Fill missing values to allow robust slicing
-                market_prices = market_series_all.bfill().ffill().copy()
-                latest_price = float(market_prices.ffill().iloc[-1])
-                if np.isnan(latest_price):
+                market_prices = market_series_all.ffill().bfill().copy()
+                latest_yes_price = float(market_prices.iloc[-1])
+                if np.isnan(latest_yes_price):
                     continue
                 market_decision.brier_score_pair_current = (
-                    latest_price,
+                    latest_yes_price,
                     market_decision.decision.estimated_probability,
                 )
+
                 if market_decision.decision.bet == 0:
                     continue
                 assert (
@@ -91,29 +92,35 @@ def compute_performance_per_decision(
                     and max(market_prices.fillna(0)) <= 1
                 ), "Market prices must be between 0 and 1, got: " + str(market_prices)
 
+                # Computed signed prices: prices for the chosen outcome
                 if market_decision.decision.bet < 0:
-                    market_prices = 1 - market_prices
-
-                market_prices = market_prices.bfill().ffill()
+                    signed_market_prices = 1 - market_prices
+                else:
+                    signed_market_prices = market_prices
 
                 # Find first available price on/after the decision date
-                if decision_date not in market_prices.index:
+                if decision_date not in signed_market_prices.index:
                     continue
-                price_at_decision = market_prices.loc[decision_date]
+                signed_price_at_decision = signed_market_prices.loc[decision_date]
+                signed_latest_price = signed_market_prices.iloc[-1]
 
-                if float(price_at_decision) == 0 or np.isnan(price_at_decision):
+                if float(signed_price_at_decision) == 0 or np.isnan(
+                    signed_price_at_decision
+                ):
                     # Avoid division by zero; skip this market
                     continue
 
                 # Cut market prices between dates using resolved start index
                 if next_decision_date is not None:
-                    market_prices = market_prices.loc[decision_date:next_decision_date]
+                    signed_market_prices = signed_market_prices.loc[
+                        decision_date:next_decision_date
+                    ]
                 else:
-                    market_prices = market_prices.loc[decision_date:]
-                assert not market_prices.empty, "Sliced market prices are empty"
+                    signed_market_prices = signed_market_prices.loc[decision_date:]
+                assert not signed_market_prices.empty, "Sliced market prices are empty"
 
                 net_gains_until_next_decision = (
-                    (market_prices / float(price_at_decision) - 1)
+                    (signed_market_prices / float(signed_price_at_decision) - 1)
                     * abs(market_decision.decision.bet)
                 ).fillna(0)
                 assert np.min(net_gains_until_next_decision) >= -abs(
@@ -140,27 +147,22 @@ def compute_performance_per_decision(
                 )
                 market_decision.net_gains_at_decision_end = net_gains_end_value
 
-                def get_price_at_horion(target_date: date) -> float:
+                def get_price_at_horizon(target_date: date) -> float:
                     """Get price at a specific targt date or the latest available price"""
-                    future_prices = market_prices.loc[
-                        market_prices.index >= target_date
+                    future_prices = signed_market_prices.loc[
+                        signed_market_prices.index >= target_date
                     ]
                     if future_prices.empty:
                         # If no future prices, use the last available price
-                        price_at_horizon = market_prices.iloc[-1]
+                        return signed_market_prices.iloc[-1]
                     else:
-                        price_at_horizon = future_prices.iloc[0]
-                    return price_at_horizon
+                        return future_prices.iloc[0]
 
                 def get_returns(price_at_decision, price_at_expiry) -> float:
                     return (price_at_expiry / float(price_at_decision) - 1) * abs(
                         market_decision.decision.bet
                     )
 
-                market_decision.brier_score_pair_current = (
-                    latest_price,
-                    market_decision.decision.estimated_probability,
-                )
                 summary_info_per_model[
                     model_decision.model_id
                 ].brier_score_pairs.append(
@@ -170,18 +172,20 @@ def compute_performance_per_decision(
                 # Store time horizon returns for this market decision
                 market_decision.returns = DecisionReturns(
                     one_day_return=get_returns(
-                        price_at_decision,
-                        get_price_at_horion(decision_date + timedelta(days=1)),
+                        signed_price_at_decision,
+                        get_price_at_horizon(decision_date + timedelta(days=1)),
                     ),
                     two_day_return=get_returns(
-                        price_at_decision,
-                        get_price_at_horion(decision_date + timedelta(days=2)),
+                        signed_price_at_decision,
+                        get_price_at_horizon(decision_date + timedelta(days=2)),
                     ),
                     seven_day_return=get_returns(
-                        price_at_decision,
-                        get_price_at_horion(decision_date + timedelta(days=7)),
+                        signed_price_at_decision,
+                        get_price_at_horizon(decision_date + timedelta(days=7)),
                     ),
-                    all_time_return=get_returns(price_at_decision, latest_price),
+                    all_time_return=get_returns(
+                        signed_price_at_decision, signed_latest_price
+                    ),
                 )
 
                 if market_decision.decision.bet != 0:
