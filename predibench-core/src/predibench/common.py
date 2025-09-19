@@ -9,6 +9,9 @@ PREDIBENCH_REPO_PATH = PREDIBENCH_PATH.parent.parent.parent
 DATA_PATH = PREDIBENCH_REPO_PATH / "bucket-prod"
 DATA_PATH.mkdir(parents=True, exist_ok=True)
 
+FRONTEND_PUBLIC_PATH = PREDIBENCH_REPO_PATH / "predibench-frontend-react" / "public"
+FRONTEND_PUBLIC_PATH.mkdir(parents=True, exist_ok=True)
+
 BASE_URL_POLYMARKET = "https://gamma-api.polymarket.com"
 
 DEFAULT_MAX_EVENTS = 10
