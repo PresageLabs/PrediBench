@@ -1,19 +1,23 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ModelInvestmentDecision } from '../../api'
 import { calculateDecisionReturns, type DecisionAnalysis } from '../../utils/decisionAnalysis'
 import { ProfitDisplay } from './profit-display'
+
+// Helper function to format dollar values consistently
+const formatDollarValue = (value: number): string => {
+  if (Math.abs(value) < 0.005) return '$0.00'
+  return `${value >= 0 ? '+' : '-'}$${Math.abs(value).toFixed(2)}`
+}
 
 interface DecisionAnnotationProps {
   decision: ModelInvestmentDecision
   nextDecision?: ModelInvestmentDecision
   allDecisions: ModelInvestmentDecision[]
-  /** Cumulative PnL data to calculate period profit */
-  cumulativeData: { date: string; value: number }[]
   /** Callback when an event is clicked */
   onEventClick?: (eventDecision: any, decisionDate: string, decisionDatetime: string) => void
 }
 
-export function DecisionAnnotation({ decision, nextDecision, cumulativeData, onEventClick }: DecisionAnnotationProps) {
+export function DecisionAnnotation({ decision, nextDecision, onEventClick }: DecisionAnnotationProps) {
   const [analysis, setAnalysis] = useState<DecisionAnalysis | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isMobile, setIsMobile] = useState<boolean>(() => {
@@ -33,7 +37,7 @@ export function DecisionAnnotation({ decision, nextDecision, cumulativeData, onE
     const calculateReturns = async () => {
       try {
         setIsLoading(true)
-        const result = await calculateDecisionReturns(decision, nextDecision)
+        const result = await calculateDecisionReturns(decision)
         if (!cancelled) {
           setAnalysis(result)
         }
@@ -74,22 +78,6 @@ export function DecisionAnnotation({ decision, nextDecision, cumulativeData, onE
     day: 'numeric'
   }) : null
 
-  // Calculate cumulative profit for this period
-  const periodProfitChange = useMemo(() => {
-    if (!cumulativeData || cumulativeData.length === 0) return 0
-
-    const startPoint = cumulativeData.find(point => point.date === decision.target_date)
-    const endPoint = nextDecision
-      ? cumulativeData.find(point => point.date === nextDecision.target_date)
-      : cumulativeData[cumulativeData.length - 1] // Use last point if no next decision
-
-    if (startPoint && endPoint) {
-      return endPoint.value - startPoint.value
-    }
-
-    return 0
-  }, [cumulativeData, decision.target_date, nextDecision])
-
   const handleEventClick = (eventId: string) => {
     const eventDecision = decision.event_investment_decisions.find(ed => ed.event_id === eventId)
     if (eventDecision && onEventClick) {
@@ -120,12 +108,12 @@ export function DecisionAnnotation({ decision, nextDecision, cumulativeData, onE
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontWeight: '700', fontSize: '14px' }}>
             <ProfitDisplay
-              value={periodProfitChange}
-              formatValue={(v) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`}
+              value={analysis?.totalReturn ?? 0}
+              formatValue={formatDollarValue}
             />
           </div>
           <div style={{ fontSize: '10px', color: 'hsl(var(--muted-foreground))' }}>
-            Period Portfolio Increase
+            Returns, in dollars (from ${decision.event_investment_decisions.length} invested)
           </div>
         </div>
       </div>
@@ -166,7 +154,7 @@ export function DecisionAnnotation({ decision, nextDecision, cumulativeData, onE
                     {driver.eventTitle}
                   </div>
                   <div style={{ textAlign: 'right', fontWeight: '600', fontSize: '12px' }}>
-                    <ProfitDisplay value={driver.returnAmount} />
+                    <ProfitDisplay value={driver.returnAmount} formatValue={formatDollarValue} />
                   </div>
                 </div>
               )

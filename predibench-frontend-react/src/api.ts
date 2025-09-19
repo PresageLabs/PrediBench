@@ -25,6 +25,7 @@ export interface LeaderboardEntry {
   trades_dates: string[]
   final_brier_score: number
   average_returns: DecisionReturns
+  daily_returns: TimeseriesPoint[]
   sharpe: DecisionSharpe
 }
 
@@ -135,6 +136,7 @@ export interface ModelPerformance {
   event_brier_scores: EventBrierScore[]
   market_brier_scores: MarketBrierScore[]
   compound_profit_history: TimeseriesPoint[]
+  daily_returns: TimeseriesPoint[]
   pnl_per_event_decision: { [eventId: string]: EventPnlBackend }
 }
 

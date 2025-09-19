@@ -91,6 +91,7 @@ class ModelPerformanceBackend(BaseModel):
     sharpe: DecisionSharpe
     final_profit: float
     final_brier_score: float
+    daily_returns: list[DataPoint]
 
 
 class FullModelResult(BaseModel):

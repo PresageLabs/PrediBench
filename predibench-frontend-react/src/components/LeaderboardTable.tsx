@@ -39,7 +39,6 @@ export function LeaderboardTable({
       case 'one_day': return sharpe.one_day_annualized_sharpe
       case 'two_day': return sharpe.two_day_annualized_sharpe
       case 'seven_day': return sharpe.seven_day_annualized_sharpe
-      case 'all_time': return sharpe.seven_day_annualized_sharpe // Use 7-day as fallback since all_time_annualized_sharpe doesn't exist
     }
   }
 
@@ -114,15 +113,6 @@ export function LeaderboardTable({
       max: Math.max(...vals)
     }
   }, [leaderboard, returnsTimeHorizon])
-  const sharpeRange = useMemo(() => {
-    if (leaderboard.length === 0) return { min: 0, max: 0 }
-    const vals = leaderboard.map(model => getSharpeForHorizon(model.sharpe, sharpeTimeHorizon))
-    return {
-      min: Math.min(...vals),
-      max: Math.max(...vals)
-    }
-  }, [leaderboard, sharpeTimeHorizon])
-
 
   return (
     <div>

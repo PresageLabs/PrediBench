@@ -342,7 +342,7 @@ export function EventDecisionDetailPage({ }: EventDecisionDetailPageProps) {
 
                 {/* Overall returns row */}
                 <tr className="border-t-2 border-border bg-muted/20 font-medium">
-                  <td className="py-3 px-3" colSpan={4}>Overall returns</td>
+                  <td className="py-3 px-3" colSpan={4}>Overall returns (from 1$ invested)</td>
                   <td className="py-3 px-3 text-center">
                     <ProfitDisplay
                       value={totalEventPnL}
