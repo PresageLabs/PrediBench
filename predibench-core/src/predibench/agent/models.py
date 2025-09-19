@@ -17,6 +17,7 @@ class DecisionReturns(BaseModel):
     two_day_return: float
     seven_day_return: float
     all_time_return: float
+    custom_horizon_returns: dict[int, float] | None = None  # horizon_days -> return
 
 
 class DecisionSharpe(BaseModel):
