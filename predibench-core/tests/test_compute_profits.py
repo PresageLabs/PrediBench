@@ -603,22 +603,89 @@ def calculate_manual_expectations():
     manual_results['event_returns']['d4_e6'] = event_6_d4_return
 
     print("\n--- STEP 3: PORTFOLIO PNL CALCULATION ---")
+    print("Note: Portfolio PnL uses period-to-period returns, not all-time returns")
 
-    # Calculate portfolio value over time
-    # Start with 1.0, add returns as they realize
+    # Calculate PERIOD returns for portfolio compounding
+    period_returns = {}
+
+    # Decision 1 (Day 1 to Day 3) returns
+    # Market 1: (0.4/0.2 - 1) * 0.3 = 0.3
+    # Market 3 inverted: (0.6/0.5 - 1) * 0.4 = 0.08
+    period_returns['d1'] = {
+        'market_1': 0.3,
+        'market_3': 0.08,
+        'total': 0.38
+    }
+
+    # Decision 2 (Day 3 to Day 7) returns
+    # Market 1: (0.8/0.4 - 1) * 0.4 = 0.4
+    # Market 3: (0.2/0.4 - 1) * 0.2 = -0.1
+    period_returns['d2'] = {
+        'market_1': 0.4,
+        'market_3': -0.1,
+        'total': 0.3
+    }
+
+    # Decision 3 (Day 7 to Day 9) returns
+    # Market 1: (0.8/0.8 - 1) * 0.1 = 0.0
+    # Market 3 inverted: (0.9/0.8 - 1) * 0.3 = 0.0375
+    period_returns['d3'] = {
+        'market_1': 0.0,
+        'market_3': 0.0375,
+        'total': 0.0375
+    }
+
+    # Decision 4 (Day 9 to end) returns
+    # Market 5: (0.64/0.01 - 1) * 0.8 = 50.4
+    period_returns['d4'] = {
+        'market_5': 50.4,
+        'total': 50.4
+    }
+
+    # The algorithm uses COMPOUNDING with period returns
     portfolio_history = [1.0]  # Day 0 (baseline)
 
-    # For simplicity, assume all returns realize at the end of their respective periods
-    # This is a simplified calculation - the actual code might use different timing
+    # Decision 1 period return
+    decision_1_total = period_returns['d1']['total']
+    portfolio_after_d1 = 1.0 * (1 + decision_1_total)
+    portfolio_history.append(portfolio_after_d1)
 
-    total_profit_from_all_events = sum(manual_results['event_returns'].values())
-    final_portfolio_value = 1.0 + total_profit_from_all_events
+    # Decision 2 period return
+    decision_2_total = period_returns['d2']['total']
+    portfolio_after_d2 = portfolio_after_d1 * (1 + decision_2_total)
+    portfolio_history.append(portfolio_after_d2)
 
-    print(f"Sum of all event returns: {total_profit_from_all_events}")
-    print(f"Expected final portfolio value: 1.0 + {total_profit_from_all_events} = {final_portfolio_value}")
-    print(f"Expected final profit: {total_profit_from_all_events}")
+    # Decision 3 period return
+    decision_3_total = period_returns['d3']['total']
+    portfolio_after_d3 = portfolio_after_d2 * (1 + decision_3_total)
+    portfolio_history.append(portfolio_after_d3)
 
-    manual_results['expected_final_profit'] = total_profit_from_all_events
+    # Decision 4 period return
+    decision_4_total = period_returns['d4']['total']
+    portfolio_after_d4 = portfolio_after_d3 * (1 + decision_4_total)
+    portfolio_history.append(portfolio_after_d4)
+
+    final_portfolio_value = portfolio_after_d4
+    total_profit_from_compounding = final_portfolio_value - 1.0
+
+    print("\nCOMPOUNDING CALCULATION WITH PERIOD RETURNS:")
+    print(f"Decision 1 period return: {decision_1_total:.6f}, Portfolio: 1.0 * {1 + decision_1_total:.6f} = {portfolio_after_d1:.6f}")
+    print(f"Decision 2 period return: {decision_2_total:.6f}, Portfolio: {portfolio_after_d1:.6f} * {1 + decision_2_total:.6f} = {portfolio_after_d2:.6f}")
+    print(f"Decision 3 period return: {decision_3_total:.6f}, Portfolio: {portfolio_after_d2:.6f} * {1 + decision_3_total:.6f} = {portfolio_after_d3:.6f}")
+    print(f"Decision 4 period return: {decision_4_total:.6f}, Portfolio: {portfolio_after_d3:.6f} * {1 + decision_4_total:.6f} = {portfolio_after_d4:.6f}")
+    print(f"\nExpected final portfolio value (compounded): {final_portfolio_value:.6f}")
+    print(f"Expected final profit (compounded): {total_profit_from_compounding:.6f}")
+
+    # Show breakdown of period returns
+    print("\nPERIOD RETURNS BREAKDOWN:")
+    for decision, returns in period_returns.items():
+        print(f"{decision}: {returns}")
+
+    # Also show all-time returns for comparison
+    total_alltime_returns = sum(manual_results['event_returns'].values())
+    print(f"\nAll-time returns (for metrics): {total_alltime_returns:.6f}")
+
+    manual_results['expected_final_profit'] = total_profit_from_compounding
 
     print("\n--- STEP 4: BRIER SCORE CALCULATION ---")
 
@@ -695,9 +762,9 @@ def calculate_manual_expectations():
     # Market 4 doesn't have data on day 3
 
     # Decision 3
-    if manual_results['market_returns']['d7_e1_m1'] != 0:  # Market 1 has data
-        trades += 1
-        trade_details.append('d3_m1')
+    # Market 1 on Day 7: bet = 0.1, so it's a trade even if return is 0
+    trades += 1
+    trade_details.append('d3_m1')
     if manual_results['market_returns']['d7_e2_m3'] != 0:  # Market 3 has data
         trades += 1
         trade_details.append('d3_m3')
@@ -716,22 +783,26 @@ def calculate_manual_expectations():
 
     print("\n--- STEP 6: AVERAGE RETURNS BY TIME HORIZON ---")
 
-    # For this simplified calculation, assume all returns are "all-time" returns
-    # In reality, the time horizon calculations would be more complex
-
+    # The algorithm averages ALL event returns, including zeros
     all_event_returns = list(manual_results['event_returns'].values())
+
+    # Calculate average including all events (even those with 0 return)
+    avg_return_all = sum(all_event_returns) / len(all_event_returns) if all_event_returns else 0.0
+
+    # Also show non-zero for comparison
     non_zero_returns = [r for r in all_event_returns if r != 0]
+    avg_return_nonzero = sum(non_zero_returns) / len(non_zero_returns) if non_zero_returns else 0.0
 
-    if non_zero_returns:
-        avg_return = sum(non_zero_returns) / len(non_zero_returns)
-    else:
-        avg_return = 0.0
-
-    print(f"Non-zero event returns: {non_zero_returns}")
-    print(f"Expected average return: {sum(non_zero_returns)} / {len(non_zero_returns)} = {avg_return}")
+    print(f"All event returns (including zeros): {all_event_returns}")
+    print(f"Total events: {len(all_event_returns)}")
+    print(f"Sum of returns: {sum(all_event_returns)}")
+    print(f"Expected average return (including zeros): {sum(all_event_returns)} / {len(all_event_returns)} = {avg_return_all}")
+    print(f"")
+    print(f"For comparison - non-zero returns only: {non_zero_returns}")
+    print(f"Average of non-zero returns: {avg_return_nonzero}")
 
     manual_results['expected_avg_returns'] = {
-        'all_time_return': avg_return,
+        'all_time_return': avg_return_all,
         # Other time horizons would require more detailed calculation
     }
 
@@ -824,7 +895,18 @@ def test_manual_vs_actual_comparison():
 
     print("="*80)
 
-    return manual_results, actual_performance, issues_found
+    # Add assertions for pytest
+    assert abs(actual_performance.final_profit - manual_results['expected_final_profit']) < tolerance, \
+        f"Final profit mismatch: expected {manual_results['expected_final_profit']}, got {actual_performance.final_profit}"
+
+    assert actual_performance.trades_count == manual_results['trade_count'], \
+        f"Trade count mismatch: expected {manual_results['trade_count']}, got {actual_performance.trades_count}"
+
+    assert abs(actual_performance.final_brier_score - manual_results['expected_brier_score']) < tolerance, \
+        f"Brier score mismatch: expected {manual_results['expected_brier_score']}, got {actual_performance.final_brier_score}"
+
+    assert abs(actual_performance.average_returns.all_time_return - manual_results['expected_avg_returns']['all_time_return']) < tolerance, \
+        f"Average return mismatch: expected {manual_results['expected_avg_returns']['all_time_return']}, got {actual_performance.average_returns.all_time_return}"
 
 
 if __name__ == "__main__":

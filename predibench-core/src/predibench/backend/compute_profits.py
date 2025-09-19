@@ -241,7 +241,7 @@ def compute_performance_per_decision(
 
             # Aggregate returns at event level from market decisions
             markets_with_returns = [
-                market_decision
+                market
                 for market in event_decision.market_investment_decisions
                 if market.returns is not None and market.decision.bet != 0
             ]
