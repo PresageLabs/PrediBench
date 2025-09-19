@@ -32,6 +32,7 @@ def compute_performance_per_decision(
     all_model_ids_names: set[tuple[str, str]],
     model_decisions: list[ModelInvestmentDecisions],
     prices_df: pd.DataFrame,
+    custom_horizons: list[int] | None = None,
 ) -> tuple[list[ModelInvestmentDecisions], dict[str, ModelSummaryInfo]]:
     summary_info_per_model: dict[str, ModelSummaryInfo] = {
         model_id: ModelSummaryInfo() for model_id, _ in all_model_ids_names
@@ -191,6 +192,30 @@ def compute_performance_per_decision(
                 )
 
                 # Store time horizon returns for this market decision
+                # Always compute standard horizons in custom_returns for consistency
+                custom_returns = {
+                    1: get_returns(
+                        signed_price_at_decision,
+                        get_price_at_horizon(decision_date + timedelta(days=1)),
+                    ),
+                    2: get_returns(
+                        signed_price_at_decision,
+                        get_price_at_horizon(decision_date + timedelta(days=2)),
+                    ),
+                    7: get_returns(
+                        signed_price_at_decision,
+                        get_price_at_horizon(decision_date + timedelta(days=7)),
+                    ),
+                }
+
+                # Add any additional custom horizons
+                if custom_horizons:
+                    for horizon in custom_horizons:
+                        custom_returns[horizon] = get_returns(
+                            signed_price_at_decision,
+                            get_price_at_horizon(decision_date + timedelta(days=horizon)),
+                        )
+
                 market_decision.returns = DecisionReturns(
                     one_day_return=get_returns(
                         signed_price_at_decision,
@@ -207,7 +232,17 @@ def compute_performance_per_decision(
                     all_time_return=get_returns(
                         signed_price_at_decision, signed_latest_price
                     ),
+                    custom_horizon_returns=custom_returns if custom_returns else None,
                 )
+
+                # Assert that custom horizon calculations match standard ones
+                if custom_returns:
+                    if 1 in custom_returns:
+                        assert abs(custom_returns[1] - market_decision.returns.one_day_return) < 1e-10, f"1-day mismatch: {custom_returns[1]} vs {market_decision.returns.one_day_return}"
+                    if 2 in custom_returns:
+                        assert abs(custom_returns[2] - market_decision.returns.two_day_return) < 1e-10, f"2-day mismatch: {custom_returns[2]} vs {market_decision.returns.two_day_return}"
+                    if 7 in custom_returns:
+                        assert abs(custom_returns[7] - market_decision.returns.seven_day_return) < 1e-10, f"7-day mismatch: {custom_returns[7]} vs {market_decision.returns.seven_day_return}"
 
                 if market_decision.decision.bet != 0:
                     summary_info_per_model[model_decision.model_id].trade_count += 1
@@ -247,6 +282,28 @@ def compute_performance_per_decision(
             ]
 
             # Total bet is always 1 (including unallocated capital), so no need to normalize here
+            # Aggregate ALL custom horizon returns at event level (including standard horizons)
+            event_custom_returns = {}
+            if custom_horizons:  # Only create custom returns if custom_horizons was requested
+                if markets_with_returns:
+                    # Get all horizons from any market that has custom_horizon_returns
+                    all_horizons = set()
+                    for market_decision in markets_with_returns:
+                        if market_decision.returns is not None and market_decision.returns.custom_horizon_returns is not None:
+                            all_horizons.update(market_decision.returns.custom_horizon_returns.keys())
+
+                    # Aggregate returns for each horizon
+                    for horizon in all_horizons:
+                        event_custom_returns[horizon] = sum(
+                            market_decision.returns.custom_horizon_returns.get(horizon, 0.0)
+                            for market_decision in markets_with_returns
+                            if market_decision.returns is not None and market_decision.returns.custom_horizon_returns is not None
+                        )
+                else:
+                    # If no markets with returns, initialize custom horizons with 0.0
+                    for horizon in custom_horizons:
+                        event_custom_returns[horizon] = 0.0
+
             event_decision.returns = DecisionReturns(
                 one_day_return=sum(
                     market_decision.returns.one_day_return
@@ -268,6 +325,7 @@ def compute_performance_per_decision(
                     for market_decision in markets_with_returns
                     if market_decision.returns is not None
                 ),
+                custom_horizon_returns=event_custom_returns if event_custom_returns else None,
             )
 
         # After processing all events for this decision, compute the aggregated
@@ -287,6 +345,7 @@ def compute_performance_per_model(
     all_model_ids_names: set[tuple[str, str]],
     model_decisions: list[ModelInvestmentDecisions],
     summary_info_per_model: dict[str, ModelSummaryInfo],
+    custom_horizons: list[int] | None = None,
 ) -> dict[str, ModelPerformanceBackend]:
     model_performances: dict[str, ModelPerformanceBackend] = {}
     for model_id, model_name in all_model_ids_names:
@@ -374,13 +433,38 @@ def compute_performance_per_model(
                 "all_time_return",
             ]
         }
+
+        # Also collect custom horizon returns if provided
+        all_custom_horizon_returns: dict[int, list[float]] = {}
+        if custom_horizons:
+            for horizon in custom_horizons:
+                all_custom_horizon_returns[horizon] = []
+
         for decision in decisions_for_model:
             for event_decision in decision.event_investment_decisions:
                 if event_decision.returns is not None:
+                    # Collect standard horizon returns
                     for key in all_event_returns.keys():
                         all_event_returns[key].append(
                             getattr(event_decision.returns, key)
                         )
+
+                    # Collect custom horizon returns
+                    if event_decision.returns.custom_horizon_returns:
+                        for horizon in all_custom_horizon_returns.keys():
+                            if horizon in event_decision.returns.custom_horizon_returns:
+                                all_custom_horizon_returns[horizon].append(
+                                    event_decision.returns.custom_horizon_returns[horizon]
+                                )
+
+        # Calculate custom horizon average returns
+        custom_horizon_averages = {}
+        for horizon, returns_list in all_custom_horizon_returns.items():
+            if returns_list:
+                custom_horizon_averages[horizon] = float(np.mean(returns_list))
+            else:
+                custom_horizon_averages[horizon] = 0.0
+
 
         # Calculate equal-weighted average returns across all events
         average_returns = DecisionReturns(
@@ -388,6 +472,7 @@ def compute_performance_per_model(
             two_day_return=float(np.mean(all_event_returns["two_day_return"])),
             seven_day_return=float(np.mean(all_event_returns["seven_day_return"])),
             all_time_return=float(np.mean(all_event_returns["all_time_return"])),
+            custom_horizon_returns=custom_horizon_averages if custom_horizon_averages else None,
         )
 
         # Calculate Sharpe ratios using expectation and volatility of returns per model
@@ -479,6 +564,7 @@ def _compute_profits(
     prices_df: pd.DataFrame,
     model_decisions: list[ModelInvestmentDecisions],
     recompute_bets_with_kelly_criterion: bool = False,
+    custom_horizons: list[int] | None = None,
 ) -> tuple[list[ModelInvestmentDecisions], dict[str, ModelPerformanceBackend]]:
     """Compute performance data (cumulative profit and brier score) per model decision and per model
 
@@ -504,6 +590,7 @@ def _compute_profits(
         all_model_ids_names=all_model_ids_names,
         model_decisions=model_decisions,
         prices_df=prices_df,
+        custom_horizons=custom_horizons,
     )
 
     model_performances: dict[str, ModelPerformanceBackend] = (
@@ -511,6 +598,7 @@ def _compute_profits(
             all_model_ids_names=all_model_ids_names,
             model_decisions=enriched_model_decisions,
             summary_info_per_model=summary_info_per_model,
+            custom_horizons=custom_horizons,
         )
     )
     return enriched_model_decisions, model_performances

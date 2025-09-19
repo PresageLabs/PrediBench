@@ -125,6 +125,7 @@ def load_market_prices(events: list[Event]) -> dict[str, pd.Series | None]:
 def get_data_for_backend(
     recompute_bets_with_kelly_criterion: bool = False,
     ignored_providers: list[str] | None = None,
+    custom_horizons: list[int] | None = None,
 ) -> BackendData:
     """
     Pre-compute all data needed for backend API endpoints.
@@ -179,6 +180,7 @@ def get_data_for_backend(
         prices_df=prices_df,
         model_decisions=model_decisions,
         recompute_bets_with_kelly_criterion=recompute_bets_with_kelly_criterion,
+        custom_horizons=custom_horizons,
     )
 
     # Step 3: Compute leaderboard from performance

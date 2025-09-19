@@ -494,6 +494,8 @@ def main():
         title_text="Market Following Strategy Analysis — Bias and Unlikely YES Distributions",
         showlegend=True,
     )
+    # NOTE: A theory is that “yes on unlikely events” is often overrated, since when people are presented with an event, they tend to overrate its probability
+    # This figure is intended to test that thory - the theory seems false.
     apply_template(fig2, width=1400, height=1000)
     fig2.write_html(
         str(out_dir / "market_following_strategy_bias_and_unlikely_boxplots.html")

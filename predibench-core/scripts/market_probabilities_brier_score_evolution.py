@@ -14,7 +14,6 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 from predibench.backend.data_loader import (
     load_market_prices,
     load_saved_events,
@@ -49,7 +48,8 @@ def calculate_brier_score(predicted_prob: float, actual_outcome: int) -> float:
     """
     predicted_prob = float(np.clip(predicted_prob, 0.0, 1.0))
     assert actual_outcome in (0, 1)
-    return (predicted_prob - actual_outcome) ** 2
+    # Return sqrt of Brier (i.e., absolute error) to reduce squaring effects
+    return abs(predicted_prob - actual_outcome)
 
 
 def _adjust_daily_points_to_end_of_day(
@@ -119,7 +119,7 @@ def _compute_effective_end_datetime(
         # Find the last index where the price changed compared to previous sample
         change_mask = ts.ne(ts.shift(1))
         if change_mask.any():
-            last_change_idx = ts.index[change_mask][ -1 ]
+            last_change_idx = ts.index[change_mask][-1]
             return last_change_idx.to_pydatetime()
         # Never changed: use the last timestamp
         return ts.index.max().to_pydatetime()
@@ -443,175 +443,82 @@ def create_brier_score_analysis_plots(df: pd.DataFrame) -> list[go.Figure]:
         bin_stats["count"] >= 5
     ]  # Only bins with at least 5 observations
 
-    # Build a single figure with 4 subplots
-    subplot_fig = make_subplots(
-        rows=2,
-        cols=2,
-        subplot_titles=(
-            "Average Brier vs. Time (log)",
-            "Brier Score Distribution by Horizon",
-            "Observations per Horizon",
-            "Smoothed Accuracy Trend",
-        ),
-        vertical_spacing=0.18,
-        horizontal_spacing=0.12,
+    # Median barplot for specific horizons
+    # Define horizon labels and corresponding hour cutoffs
+    horizon_labels = [
+        "1h",
+        "6h",
+        "12h",
+        "1d",
+        "2d",
+        "3d",
+        "7d",
+        "14d",
+        "30d",
+    ]
+    horizon_hours = [
+        1,
+        6,
+        12,
+        24,
+        48,
+        72,
+        168,
+        336,
+        720,
+    ]
+
+    # Keep observations up to the largest horizon only
+    df_h = df_copy[df_copy["hours_to_end"] <= max(horizon_hours)].copy()
+
+    # Build bins [0,1], (1,6], ... using the hour cutoffs; label with provided strings
+    bins = [0] + horizon_hours
+    df_h["horizon_bin"] = pd.cut(
+        df_h["hours_to_end"], bins=bins, labels=horizon_labels, include_lowest=True
     )
 
-    # Subplot 1: Rolling median with percentile bands (continuous line + error band)
-    roll_df = df_copy.sort_values("hours_to_end")[
-        ["hours_to_end", "brier_score"]
-    ].reset_index(drop=True)
-    n = len(roll_df)
-    # Use a longer rolling window for stronger smoothing (~15% of series length), clipped
-    window = int(max(201, min(2001, max(3, 0.15 * n))))
-    if window % 2 == 0:  # enforce odd window size for centered median
-        window += 1
-    minp = window // 2
-    med = (
-        roll_df["brier_score"].rolling(window, center=True, min_periods=minp).median()
-    )
-    q25 = (
-        roll_df["brier_score"]
-        .rolling(window, center=True, min_periods=minp)
-        .quantile(0.25, interpolation="linear")
-    )
-    q75 = (
-        roll_df["brier_score"]
-        .rolling(window, center=True, min_periods=minp)
-        .quantile(0.75, interpolation="linear")
+    # Compute median brier score and counts per horizon label
+    med_stats = (
+        df_h.groupby("horizon_bin", observed=False)
+        .agg(median_brier=("brier_score", "median"), count=("brier_score", "size"))
+        .reset_index()
     )
 
-    # Ensure aligned x for rolling stats
-    x_vals = roll_df["hours_to_end"]
+    # Ensure all horizons appear in order, even if empty
+    med_stats["horizon_bin"] = pd.Categorical(
+        med_stats["horizon_bin"], categories=horizon_labels, ordered=True
+    )
+    med_stats = med_stats.sort_values("horizon_bin")
 
-    # Upper bound (draw first)
-    subplot_fig.add_trace(
-        go.Scatter(
-            name="Upper Percentile",
-            x=x_vals,
-            y=q75,
-            mode="lines",
-            line=dict(width=0),
-            marker=dict(color="#444"),
-            showlegend=False,
-        ),
-        row=1,
-        col=1,
-    )
-    # Lower bound filled to upper
-    subplot_fig.add_trace(
-        go.Scatter(
-            name="Lower Percentile",
-            x=x_vals,
-            y=q25,
-            mode="lines",
-            line=dict(width=0),
-            marker=dict(color="#444"),
-            fillcolor="rgba(68, 68, 68, 0.25)",
-            fill="tonexty",
-            showlegend=False,
-        ),
-        row=1,
-        col=1,
-    )
-    # Median line
-    subplot_fig.add_trace(
-        go.Scatter(
-            name="Median Brier",
-            x=x_vals,
-            y=med,
-            mode="lines",
-            line=dict(color="rgb(31, 119, 180)", width=2),
-        ),
-        row=1,
-        col=1,
-    )
-    # Random baseline
-    subplot_fig.add_hline(
-        y=0.25,
-        line_dash="dash",
-        line_color="red",
-        annotation_text="Random baseline (0.25)",
-        row=1,
-        col=1,
+    # Barplot of medians
+    subplot_fig = px.bar(
+        med_stats,
+        x="horizon_bin",
+        y="median_brier",
+        title="Median Sqrt-Brier Score by Horizon",
+        labels={"horizon_bin": "Horizon", "median_brier": "Median Sqrt-Brier"},
+        hover_data={"count": True, "median_brier": ":.3f"},
     )
 
-    # 2. Distribution of Brier scores by time periods
-    df_copy["time_period"] = pd.cut(
-        df_copy["hours_to_end"],
-        bins=[0, 1, 6, 24, 168, 720, float("inf")],
-        labels=["<1h", "1-6h", "6-24h", "1-7d", "1-30d", ">30d"],
-    )
-
-    # Subplot 2: Boxplot per time period
-    fig2 = px.box(df_copy, x="time_period", y="brier_score")
-    for trace in fig2.data:
-        subplot_fig.add_trace(trace, row=1, col=2)
-    subplot_fig.update_xaxes(title_text="Time to Event End", row=1, col=2)
-    subplot_fig.update_yaxes(title_text="Brier Score", row=1, col=2)
-
-    # 3. Number of observations per time bin
-    obs_counts = (
-        df_copy.groupby("time_period", observed=False).size().reset_index(name="count")
-    )
-    # Subplot 3: Observation counts per period
-    fig3 = px.bar(obs_counts, x="time_period", y="count")
-    for trace in fig3.data:
-        subplot_fig.add_trace(trace, row=2, col=1)
-    subplot_fig.update_xaxes(title_text="Time to Event End", row=2, col=1)
-    subplot_fig.update_yaxes(title_text="Observations", row=2, col=1)
-
-    # 4. Accuracy improvement over time (smoothed trend)
-    # Calculate rolling average Brier score
-    df_sorted = df_copy.sort_values("hours_to_end")
-    df_sorted["rolling_brier"] = (
-        df_sorted["brier_score"].rolling(window=50, center=True).mean()
-    )
-
-    # Subplot 4: Smoothed trend
-    subplot_fig.add_trace(
-        go.Scatter(
-            x=df_sorted["hours_to_end"],
-            y=df_sorted["rolling_brier"],
-            mode="lines",
-            name="Rolling Avg Brier (n=50)",
-            line=dict(color="#2ca02c", width=3),
-        ),
-        row=2,
-        col=2,
-    )
-    subplot_fig.update_xaxes(title_text="Hours to Event End", type="log", row=2, col=2)
-    subplot_fig.update_yaxes(title_text="Rolling Brier", row=2, col=2)
-
+    # Move y-axis to the right side
+    subplot_fig.update_yaxes(side="right")
+    # Reverse the X-axis order so closer horizons appear on the right
     subplot_fig.update_xaxes(
-        title_text="Hours to Event End",
-        type="log",
-        autorange="reversed",
-        row=1,
-        col=1,
+        title_text="Time to Event End",
+        categoryorder="array",
+        categoryarray=list(reversed(horizon_labels)),
     )
-    subplot_fig.update_yaxes(title_text="Brier Score (lower = better)", row=1, col=1)
+    subplot_fig.update_yaxes(
+        title_text="Market's predictions get more precise towards event end"
+    )
 
-    subplot_fig.update_layout(
-        title_text="Market Probabilities — Brier Score vs Time to Resolution",
-        height=1100,
-        showlegend=True,
-        margin=dict(t=90, b=90, l=90, r=90),
-    )
-    # Enlarge subplot titles for readability and add slight y-offset
-    for ann in subplot_fig.layout.annotations:
-        ann.font = dict(size=14)
-    # Apply theme, then override size since template may reset it
+    # Apply theme
     apply_template(subplot_fig)
     subplot_fig.update_layout(
-        width=1700,
-        height=1300,
-        margin=dict(t=110, b=110, l=110, r=110),
-        hovermode="x unified",
+        width=800,
+        height=600,
+        margin=dict(t=50, b=50, l=50, r=100),
     )
-    # Re-apply larger subplot title font after template
-    for ann in subplot_fig.layout.annotations:
-        ann.font = dict(size=16)
     figures.append(subplot_fig)
 
     # 5. Event-specific Brier score trajectories
@@ -621,11 +528,13 @@ def create_brier_score_analysis_plots(df: pd.DataFrame) -> list[go.Figure]:
             x="hours_to_end",
             y="brier_score",
             color="event_title",
-            title="Individual Event Brier Score Trajectories",
+            title="Individual Event Sqrt-Brier Trajectories",
             log_x=True,
         )
         fig5.update_layout(
-            xaxis_title="Hours to Event End", yaxis_title="Brier Score", height=600
+            xaxis_title="Hours to Event End",
+            yaxis_title="Sqrt-Brier Score",
+            height=600,
         )
         apply_template(fig5)
         figures.append(fig5)
@@ -633,12 +542,11 @@ def create_brier_score_analysis_plots(df: pd.DataFrame) -> list[go.Figure]:
     # Add one lightweight supplemental plot to maintain backward compatibility with tests
     # (not exported; only included in return value)
     fig_summary = px.histogram(
-        df_copy,
-        x="time_period",
-        y="brier_score",
-        histfunc="avg",
-        title="Avg Brier per Horizon",
+        df_copy, x="hours_to_end", nbins=30, title="Hours to End Distribution"
     )
+    # Reverse X so that 0 hours is on the right; move Y axis to the right
+    fig_summary.update_xaxes(autorange="reversed", title_text="Hours to Event End")
+    fig_summary.update_yaxes(side="right", title_text="Count")
     apply_template(fig_summary)
     figures.append(fig_summary)
 
