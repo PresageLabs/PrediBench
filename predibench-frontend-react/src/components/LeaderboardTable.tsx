@@ -3,10 +3,10 @@ import { useMemo, useState } from 'react'
 import type { DecisionReturns, DecisionSharpe, LeaderboardEntry } from '../api'
 import { encodeSlashes } from '../lib/utils'
 import { CompanyDisplay } from './ui/company-display'
-import { BrierScoreInfoTooltip, PnLTooltip } from './ui/info-tooltip'
+import { BrierScoreInfoTooltip, InfoTooltip } from './ui/info-tooltip'
 import { ProfitDisplay } from './ui/profit-display'
 
-type SortKey = 'cumulative_profit' | 'brier_score' | 'average_returns' | 'sharpe'
+type SortKey = 'brier_score' | 'average_returns' | 'sharpe'
 type TimeHorizon = 'one_day' | 'two_day' | 'seven_day' | 'all_time'
 
 interface LeaderboardTableProps {
@@ -20,11 +20,10 @@ export function LeaderboardTable({
   loading = false,
   initialVisibleModels = 10
 }: LeaderboardTableProps) {
-  const [sortKey, setSortKey] = useState<SortKey>('brier_score')
+  const [sortKey, setSortKey] = useState<SortKey>('average_returns')
   const [leaderboardExpanded, setLeaderboardExpanded] = useState<boolean>(false)
-  const [showAverageReturns, setShowAverageReturns] = useState<boolean>(false)
-  const [showSharpe, setShowSharpe] = useState<boolean>(false)
-  const [timeHorizon, setTimeHorizon] = useState<TimeHorizon>('seven_day')
+  const [returnsTimeHorizon, setReturnsTimeHorizon] = useState<TimeHorizon>('seven_day')
+  const [sharpeTimeHorizon, setSharpeTimeHorizon] = useState<'one_day' | 'two_day' | 'seven_day'>('seven_day')
 
   const getReturnForHorizon = (returns: DecisionReturns, horizon: TimeHorizon): number => {
     switch (horizon) {
@@ -35,32 +34,25 @@ export function LeaderboardTable({
     }
   }
 
-  const getSharpeForHorizon = (sharpe: DecisionSharpe, horizon: TimeHorizon): number => {
+  const getSharpeForHorizon = (sharpe: DecisionSharpe, horizon: 'one_day' | 'two_day' | 'seven_day'): number => {
     switch (horizon) {
-      case 'one_day': return sharpe.one_day_sharpe
-      case 'two_day': return sharpe.two_day_sharpe
-      case 'seven_day': return sharpe.seven_day_sharpe
-      case 'all_time': return sharpe.all_time_sharpe
+      case 'one_day': return sharpe.one_day_annualized_sharpe
+      case 'two_day': return sharpe.two_day_annualized_sharpe
+      case 'seven_day': return sharpe.seven_day_annualized_sharpe
     }
+  }
+
+  const getSharpeSignificance = (sharpe: number, tradesCount: number): 'significant' | 'insignificant' => {
+    // Calculate t-statistic: t ≈ Sharpe * sqrt(T) where T = number of independent observations
+    const tStatistic = Math.abs(sharpe) * Math.sqrt(tradesCount)
+
+    // Significant if t >= 1.96 (5% level, two-sided) and Sharpe is positive
+    return sharpe > 0 && tStatistic >= 1.96 ? 'significant' : 'insignificant'
   }
 
   const sortedLeaderboard = useMemo(() => {
     return [...leaderboard].sort((a, b) => {
       switch (sortKey) {
-        case 'cumulative_profit': {
-          // Calculate display scores (rounded to 1 decimal place)
-          const aDisplayScore = parseFloat((a.final_profit * 100).toFixed(1))
-          const bDisplayScore = parseFloat((b.final_profit * 100).toFixed(1))
-
-          // Primary sort by display score (higher first)
-          if (bDisplayScore !== aDisplayScore) {
-            return bDisplayScore - aDisplayScore
-          }
-
-          // Tie-breaker: if display scores are identical, use Brier score (lower is better)
-          return a.final_brier_score - b.final_brier_score
-        }
-
         case 'brier_score': {
           // Calculate display scores for Brier using time horizon (rounded to 3 decimal places)
           const aBrierDisplay = parseFloat((a.final_brier_score).toFixed(3))
@@ -76,8 +68,8 @@ export function LeaderboardTable({
         }
 
         case 'average_returns': {
-          const aReturn = getReturnForHorizon(a.average_returns, timeHorizon)
-          const bReturn = getReturnForHorizon(b.average_returns, timeHorizon)
+          const aReturn = getReturnForHorizon(a.average_returns, returnsTimeHorizon)
+          const bReturn = getReturnForHorizon(b.average_returns, returnsTimeHorizon)
 
           // Primary sort by returns (higher first - descending)
           if (bReturn !== aReturn) {
@@ -89,8 +81,8 @@ export function LeaderboardTable({
         }
 
         case 'sharpe': {
-          const aSharpe = getSharpeForHorizon(a.sharpe, timeHorizon)
-          const bSharpe = getSharpeForHorizon(b.sharpe, timeHorizon)
+          const aSharpe = getSharpeForHorizon(a.sharpe, sharpeTimeHorizon)
+          const bSharpe = getSharpeForHorizon(b.sharpe, sharpeTimeHorizon)
 
           // Primary sort by Sharpe (higher first - descending)
           if (bSharpe !== aSharpe) {
@@ -105,42 +97,22 @@ export function LeaderboardTable({
           return 0
       }
     })
-  }, [leaderboard, sortKey, timeHorizon])
+  }, [leaderboard, sortKey, returnsTimeHorizon, sharpeTimeHorizon])
 
 
   const handleSort = (key: SortKey) => {
     setSortKey(key)
   }
 
-  // Calculate min and max profit values for color scaling
-  const profitRange = useMemo(() => {
-    if (leaderboard.length === 0) return { min: 0, max: 0 }
-    const profits = leaderboard.map(model => model.final_profit)
-    return {
-      min: Math.min(...profits),
-      max: Math.max(...profits)
-    }
-  }, [leaderboard])
-
-  // Ranges for Avg Returns and Sharpe (used for consistent coloring)
+  // Ranges for Average Returns and Sharpe (used for consistent coloring)
   const returnsRange = useMemo(() => {
     if (leaderboard.length === 0) return { min: 0, max: 0 }
-    const vals = leaderboard.map(model => getReturnForHorizon(model.average_returns, timeHorizon))
+    const vals = leaderboard.map(model => getReturnForHorizon(model.average_returns, returnsTimeHorizon))
     return {
       min: Math.min(...vals),
       max: Math.max(...vals)
     }
-  }, [leaderboard, timeHorizon])
-
-  const sharpeRange = useMemo(() => {
-    if (leaderboard.length === 0) return { min: 0, max: 0 }
-    const vals = leaderboard.map(model => getSharpeForHorizon(model.sharpe, timeHorizon))
-    return {
-      min: Math.min(...vals),
-      max: Math.max(...vals)
-    }
-  }, [leaderboard, timeHorizon])
-
+  }, [leaderboard, returnsTimeHorizon])
 
   return (
     <div>
@@ -154,49 +126,6 @@ export function LeaderboardTable({
         </div>
       )}
 
-      {/* Column Toggle Controls */}
-      {!loading && leaderboard.length > 0 && (
-        <div className="flex flex-col sm:flex-row gap-4 mb-6 p-4 bg-card rounded-lg border border-border/30">
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium text-muted-foreground">Show Columns:</span>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showAverageReturns}
-                onChange={(e) => setShowAverageReturns(e.target.checked)}
-                className="rounded"
-              />
-              <span className="text-sm">Average Returns</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showSharpe}
-                onChange={(e) => setShowSharpe(e.target.checked)}
-                className="rounded"
-              />
-              <span className="text-sm">Sharpe Ratio</span>
-            </label>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-muted-foreground">Time Horizon:</span>
-            <select
-              value={timeHorizon}
-              onChange={(e) => setTimeHorizon(e.target.value as TimeHorizon)}
-              className="text-sm border border-border rounded px-2 py-1 bg-background"
-            >
-              <option value="one_day">1 Day</option>
-              <option value="two_day">2 Days</option>
-              <option value="seven_day">7 Days</option>
-              <option value="all_time">All Time</option>
-            </select>
-            <span className="text-xs text-muted-foreground">
-              (affects Brier Score{showAverageReturns ? ', Average Returns' : ''}{showSharpe ? ', Sharpe Ratio' : ''})
-            </span>
-          </div>
-        </div>
-      )}
 
       <div className="relative">
         <div
@@ -211,6 +140,30 @@ export function LeaderboardTable({
                     <th className="text-center py-4 px-3 font-semibold"></th>
                     <th className="text-left py-4 px-4 font-semibold">Model Name</th>
                     <th className="text-center py-3 px-4 font-semibold">
+                      <div className="flex flex-col items-center space-y-1 w-full">
+                        <div className="flex items-center space-x-1">
+                          <button
+                            onClick={() => handleSort('average_returns')}
+                            className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
+                          >
+                            <ArrowDown className={`h-4 w-4 ${sortKey === 'average_returns' ? 'text-primary' : 'opacity-40'}`} />
+                            <span>Average Returns</span>
+                          </button>
+                          <InfoTooltip content="Average return per prediction across all bet. Each bet's return is calculated at the selected time horizon." />
+                        </div>
+                        <select
+                          value={returnsTimeHorizon}
+                          onChange={(e) => setReturnsTimeHorizon(e.target.value as TimeHorizon)}
+                          className="text-xs border border-border rounded px-1 py-0.5 bg-background"
+                        >
+                          <option value="one_day">1 Day</option>
+                          <option value="two_day">2 Days</option>
+                          <option value="seven_day">7 Days</option>
+                          <option value="all_time">All Time</option>
+                        </select>
+                      </div>
+                    </th>
+                    <th className="text-center py-3 px-4 font-semibold">
                       <div className="flex items-center justify-center space-x-1 w-full">
                         <button
                           onClick={() => handleSort('brier_score')}
@@ -224,43 +177,31 @@ export function LeaderboardTable({
                       </div>
                     </th>
                     <th className="text-center py-3 px-4 font-semibold">
-                      <div className="flex items-center justify-center space-x-1 w-full">
-                        <button
-                          onClick={() => handleSort('cumulative_profit')}
-                          className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
-                        >
-                          <ArrowDown className={`h-4 w-4 ${sortKey === 'cumulative_profit' ? 'text-primary' : 'opacity-40'}`} />
-                          <span>Portfolio Increase</span>
-                        </button>
-                        <PnLTooltip />
-                      </div>
-                    </th>
-                    {showAverageReturns && (
-                      <th className="text-center py-3 px-4 font-semibold">
-                        <div className="flex items-center justify-center space-x-1 w-full">
-                          <button
-                            onClick={() => handleSort('average_returns')}
-                            className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
-                          >
-                            <ArrowDown className={`h-4 w-4 ${sortKey === 'average_returns' ? 'text-primary' : 'opacity-40'}`} />
-                            <span>Avg Returns</span>
-                          </button>
-                        </div>
-                      </th>
-                    )}
-                    {showSharpe && (
-                      <th className="text-center py-3 px-4 font-semibold">
-                        <div className="flex items-center justify-center space-x-1 w-full">
+                      <div className="flex flex-col items-center space-y-1 w-full">
+                        <div className="flex items-center space-x-1">
                           <button
                             onClick={() => handleSort('sharpe')}
                             className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
                           >
                             <ArrowDown className={`h-4 w-4 ${sortKey === 'sharpe' ? 'text-primary' : 'opacity-40'}`} />
-                            <span>Sharpe</span>
+                            <span>Annualized Sharpe</span>
                           </button>
+                          <InfoTooltip content="Risk-adjusted return metric : Sharpe ratio is the ratio of the average return to the standard deviation of the returns. Read more [here](https://en.wikipedia.org/wiki/Sharpe_ratio). Green indicates statistically significant positive performance, computed using 5% significance t-statistic using the number of bets placed." />
                         </div>
-                      </th>
-                    )}
+                        <select
+                          value={sharpeTimeHorizon}
+                          onChange={(e) => setSharpeTimeHorizon(e.target.value as 'one_day' | 'two_day' | 'seven_day')}
+                          className="text-xs border border-border rounded px-1 py-0.5 bg-background"
+                        >
+                          <option value="one_day">1 Day</option>
+                          <option value="two_day">2 Days</option>
+                          <option value="seven_day">7 Days</option>
+                        </select>
+                      </div>
+                    </th>
+                    <th className="hidden md:table-cell text-center py-3 px-2 text-sm font-medium">
+                      <span>Bets placed</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -280,16 +221,12 @@ export function LeaderboardTable({
                         <td className="py-4 px-4 text-center">
                           <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
                         </td>
-                        {showAverageReturns && (
-                          <td className="py-4 px-4 text-center">
-                            <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
-                          </td>
-                        )}
-                        {showSharpe && (
-                          <td className="py-4 px-4 text-center">
-                            <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
-                          </td>
-                        )}
+                        <td className="py-4 px-4 text-center">
+                          <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
+                        </td>
+                        <td className="hidden md:table-cell py-4 px-2 text-center">
+                          <div className="h-3 bg-gray-200 rounded animate-pulse w-8 mx-auto"></div>
+                        </td>
                       </tr>
                     ))
                   ) : (
@@ -318,43 +255,40 @@ export function LeaderboardTable({
                         </td>
                         <td className="py-4 px-4 text-center font-medium">
                           <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
+                            <ProfitDisplay
+                              value={getReturnForHorizon(model.average_returns, returnsTimeHorizon)}
+                              minValue={returnsRange.min}
+                              maxValue={returnsRange.max}
+                              formatValue={(v) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(2)}%`}
+                            />
+                          </a>
+                        </td>
+                        <td className="py-4 px-4 text-center font-medium">
+                          <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
                             {model.final_brier_score.toFixed(3)}
                           </a>
                         </td>
                         <td className="py-4 px-4 text-center font-medium">
                           <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
-                            <ProfitDisplay
-                              value={model.final_profit}
-                              minValue={profitRange.min}
-                              maxValue={profitRange.max}
-                              formatValue={(v) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`}
-                            />
+                            <span
+                              className={
+                                getSharpeSignificance(
+                                  getSharpeForHorizon(model.sharpe, sharpeTimeHorizon),
+                                  model.trades_count
+                                ) === 'significant'
+                                  ? 'text-green-600'
+                                  : 'text-gray-500'
+                              }
+                            >
+                              {`${getSharpeForHorizon(model.sharpe, sharpeTimeHorizon) >= 0 ? '+' : ''}${getSharpeForHorizon(model.sharpe, sharpeTimeHorizon).toFixed(3)}`}
+                            </span>
                           </a>
                         </td>
-                        {showAverageReturns && (
-                          <td className="py-4 px-4 text-center font-medium">
-                            <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
-                              <ProfitDisplay
-                                value={getReturnForHorizon(model.average_returns, timeHorizon)}
-                                minValue={returnsRange.min}
-                                maxValue={returnsRange.max}
-                                formatValue={(v) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(2)}%`}
-                              />
-                            </a>
-                          </td>
-                        )}
-                        {showSharpe && (
-                          <td className="py-4 px-4 text-center font-medium">
-                            <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
-                              <ProfitDisplay
-                                value={getSharpeForHorizon(model.sharpe, timeHorizon)}
-                                minValue={sharpeRange.min}
-                                maxValue={sharpeRange.max}
-                                formatValue={(v) => `${v >= 0 ? '+' : ''}${v.toFixed(3)}`}
-                              />
-                            </a>
-                          </td>
-                        )}
+                        <td className="hidden md:table-cell py-4 px-2 text-center text-sm text-muted-foreground">
+                          <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
+                            {model.trades_count}
+                          </a>
+                        </td>
                       </tr>
                     ))
                   )}

@@ -42,7 +42,7 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
     return predictionDates[idx]
   }, [predictionDates, cutoffIndex])
 
-  const stitchedSeries = useMemo(() => {
+  const profitSeries = useMemo(() => {
     return leaderboard.map((model, index) => {
       // Use the already-computed compound_profit_history from the leaderboard (backend computed this properly)
       const pnlHistory = model.compound_profit_history || []
@@ -112,10 +112,10 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
                 <VisxLineChart
                   height={800}
                   margin={{ left: 60, top: 35, bottom: 38, right: 27 }}
-                  series={stitchedSeries}
+                  series={profitSeries}
                   xDomain={(() => {
                     try {
-                      const allDates = stitchedSeries.flatMap(s => s.data.map(p => new Date(p.date)))
+                      const allDates = profitSeries.flatMap(s => s.data.map(p => new Date(p.date)))
                       if (allDates.length === 0) return undefined
                       const minDate = new Date(cutoffDate)
                       const maxDate = new Date(Math.max(...allDates.map(d => d.getTime())))
@@ -127,9 +127,9 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
                   })()}
                   yDomain={(() => {
                     try {
-                      console.log('Debug: stitchedSeries length:', stitchedSeries.length)
-                      console.log('Debug: stitchedSeries sample:', stitchedSeries[0])
-                      const allValues = stitchedSeries.flatMap(s => s.data.map(p => p.value))
+                      console.log('Debug: profitSeries length:', profitSeries.length)
+                      console.log('Debug: profitSeries sample:', profitSeries[0])
+                      const allValues = profitSeries.flatMap(s => s.data.map(p => p.value))
                       if (allValues.length === 0) return [0, 1]
                       const min = Math.min(...allValues)
                       const max = Math.max(...allValues)

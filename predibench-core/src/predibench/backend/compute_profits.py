@@ -302,6 +302,7 @@ def compute_performance_per_model(
         current_cumulative_value: float = 1.0
         compound_asset_values: list[pd.Series] = []
         cumulative_net_gains: list[pd.Series] = []
+        daily_returns: list[pd.Series] = []
 
         for decision_date in sorted(decisions_by_date.keys()):
             decision = decisions_by_date[decision_date]
@@ -321,6 +322,8 @@ def compute_performance_per_model(
                 batch_net_gains_series + current_cumulative_value
             )
 
+            daily_returns.append(batch_net_gains_series)
+
             cumulative_net_gains.append(current_net_gains_cumulative)
             compound_asset_values.append(current_net_asset_value_compounded)
             current_compounded_value = current_net_asset_value_compounded.iloc[-1]
@@ -338,6 +341,7 @@ def compute_performance_per_model(
             cumulative_net_gains_series = pd.concat(
                 cumulative_net_gains, axis=0
             ).sort_index()
+        daily_returns_series = pd.concat(daily_returns, axis=0).sort_index()
         # Check that duplicate index values are equal
         if compound_asset_values_series.index.has_duplicates:
             assert compound_asset_values_series.groupby(level=0).nunique().max() == 1, (
@@ -352,6 +356,9 @@ def compute_performance_per_model(
         ]
         cumulative_net_gains_series = cumulative_net_gains_series[
             ~cumulative_net_gains_series.index.duplicated(keep="first")
+        ]
+        daily_returns_series = daily_returns_series[
+            ~daily_returns_series.index.duplicated(keep="first")
         ]
         compound_net_gains_series = compound_asset_values_series - 1.0
 
@@ -403,18 +410,18 @@ def compute_performance_per_model(
 
         # Calculate Sharpe ratios using expectation and volatility of returns
         sharpe = DecisionSharpe(
-            one_day_sharpe=calculate_sharpe_from_returns(
+            one_day_annualized_sharpe=calculate_sharpe_from_returns(
                 all_event_returns["one_day_return"]
-            ),
-            two_day_sharpe=calculate_sharpe_from_returns(
+            )
+            * np.sqrt(252),
+            two_day_annualized_sharpe=calculate_sharpe_from_returns(
                 all_event_returns["two_day_return"]
-            ),
-            seven_day_sharpe=calculate_sharpe_from_returns(
+            )
+            * np.sqrt(156),
+            seven_day_annualized_sharpe=calculate_sharpe_from_returns(
                 all_event_returns["seven_day_return"]
-            ),
-            all_time_sharpe=calculate_sharpe_from_returns(
-                all_event_returns["all_time_return"]
-            ),
+            )
+            * np.sqrt(52),
         )
 
         model_performances[model_id] = ModelPerformanceBackend(
@@ -442,6 +449,7 @@ def compute_performance_per_model(
             average_returns=average_returns,
             sharpe=sharpe,
             final_profit=final_profit,
+            daily_returns=DataPoint.list_datapoints_from_series(daily_returns_series),
             final_brier_score=np.mean(
                 [
                     (brier_score_pair[0] - brier_score_pair[1]) ** 2

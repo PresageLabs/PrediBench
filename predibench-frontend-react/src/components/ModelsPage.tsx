@@ -13,7 +13,6 @@ import { DecisionAnnotation } from './ui/DecisionAnnotation'
 import { EventDecisionThumbnail } from './ui/EventDecisionThumbnail'
 import { BrierScoreInfoTooltip, PnLTooltip } from './ui/info-tooltip'
 // import { ProfitDisplay } from './ui/profit-display'
-import { rescalePnlHistoryFromCutoff } from '../utils/stitching'
 import { VisxLineChart } from './ui/visx-line-chart'
 
 interface ModelsPageProps {
@@ -30,7 +29,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
   // const [loading, setLoading] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [calendarDate, setCalendarDate] = useState(new Date())
-  const [modelPerformance, setModelPerformance] = useState<ModelPerformance | null>(null)
+  const [modelPerformance, setModelPerformance] = useState<ModelPerformance>()
   const [predictionDates, setPredictionDates] = useState<string[]>([])
   const [cutoffIndex, setCutoffIndex] = useState<number>(0)
 
@@ -40,9 +39,9 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
 
   const selectedModelData = leaderboard.find(m => m.model_id === selectedModelId)
 
-  // Sort models by ascending Brier score for dropdown ordering and default selection
-  const sortedByBrier = useMemo(() => {
-    return [...leaderboard].sort((a, b) => a.final_brier_score - b.final_brier_score)
+  // Sort models by descending Average Return (7 days) for dropdown ordering and default selection
+  const sortedByAverageReturns = useMemo(() => {
+    return [...leaderboard].sort((a, b) => b.average_returns.seven_day_return - a.average_returns.seven_day_return)
   }, [leaderboard])
 
   useEffect(() => {
@@ -52,10 +51,10 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
 
     if (decodedSelectedFromUrl && leaderboard.find(m => m.model_id === decodedSelectedFromUrl)) {
       setSelectedModelId(decodedSelectedFromUrl)
-    } else if (!selectedModelId && sortedByBrier.length > 0) {
-      setSelectedModelId(sortedByBrier[0].model_id)
+    } else if (!selectedModelId && sortedByAverageReturns.length > 0) {
+      setSelectedModelId(sortedByAverageReturns[0].model_id)
     }
-  }, [leaderboard, sortedByBrier, selectedModelId, location.search])
+  }, [leaderboard, sortedByAverageReturns, selectedModelId, location.search])
 
   // selectedModel is already the canonical model_id from the leaderboard
 
@@ -194,15 +193,25 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     return predictionDates[idx]
   }, [predictionDates, cutoffIndex])
 
-  // Portfolio Increase series using compound_profit_history from ModelPerformanceBackend
-  const stitchedSeries = useMemo(() => {
-    if (!modelPerformance?.compound_profit_history?.length) return [] as { dataKey: string; data: { date: string; value: number }[]; stroke: string; name?: string }[]
-    const rescaled = rescalePnlHistoryFromCutoff(modelPerformance.compound_profit_history, cutoffDate)
+  // Daily returns series using daily_returns from ModelPerformance
+  const profitSeries = useMemo(() => {
+    if (!modelPerformance || !modelPerformance.daily_returns) return []
+
+    const dailyReturns = modelPerformance.daily_returns
+    console.log('Daily returns data:', dailyReturns, 'cutoffDate:', cutoffDate)
+
+    // Filter daily returns from cutoff date onwards
+    const filteredReturns = dailyReturns
+      .filter(point => point.date >= cutoffDate)
+      .sort((a, b) => a.date.localeCompare(b.date))
+
+    console.log('Filtered returns:', filteredReturns)
+
     return [{
-      dataKey: `model_${selectedModelId}_stitched`,
-      data: rescaled.map(p => ({ date: p.date, value: p.value })),
+      dataKey: `model_${selectedModelId}_daily_returns`,
+      data: filteredReturns.map(p => ({ date: p.date, value: p.value })), // Use actual dollar returns
       stroke: getChartColor(0),
-      name: 'Portfolio Increase'
+      name: 'Daily Returns'
     }]
   }, [modelPerformance, cutoffDate, selectedModelId])
 
@@ -215,9 +224,6 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     // Sort decisions by date to calculate returns properly
     const sortedDecisions = [...modelDecisions].sort((a, b) => a.target_date.localeCompare(b.target_date))
 
-    // Get cumulative data for period profit calculations
-    const cumulativeData = (modelPerformance.compound_profit_history || []).map(pt => ({ date: pt.date, value: pt.value }))
-
     sortedDecisions.forEach((decision, index) => {
       const nextDecision = index < sortedDecisions.length - 1 ? sortedDecisions[index + 1] : undefined
 
@@ -227,7 +233,6 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
             decision={decision}
             nextDecision={nextDecision}
             allDecisions={sortedDecisions}
-            cumulativeData={cumulativeData}
             onEventClick={handleEventClick}
           />
         )
@@ -262,7 +267,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
               sideOffset={4}
             >
               <Select.Viewport className="p-1 max-h-[70vh] overflow-y-auto">
-                {sortedByBrier.map((model, index) => (
+                {sortedByAverageReturns.map((model, index) => (
                   <Select.Item
                     key={model.model_id}
                     value={model.model_id}
@@ -280,7 +285,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                         <div>
                           <div className="font-medium">{model.model_name}</div>
                           <div className="text-xs text-muted-foreground mt-1">
-                            Brier score: {model.final_brier_score.toFixed(3)} | Profit: {(model.final_profit * 100).toFixed(1)}%
+                            Avg Return (7d): {(model.average_returns.seven_day_return * 100).toFixed(1)}% | Brier score: {model.final_brier_score.toFixed(3)}
                           </div>
                         </div>
                       </div>
@@ -322,10 +327,10 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
               </div >
             </div >
 
-            {/* Portfolio Increase Chart */}
+            {/* Daily Returns Chart */}
             <div className="mb-8">
               <h3 className="text-lg font-semibold mb-4 flex items-center">
-                Portfolio Increase
+                Daily Returns
                 <PnLTooltip />
               </h3>
               {/* Cutoff Slider (below title, above graph) */}
@@ -344,35 +349,29 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                 </div>
               </div>
               <div className="h-auto sm:h-[500px]">
-                {stitchedSeries.length === 0 ? (
-                  <div className="h-full bg-muted/20 rounded-lg flex items-center justify-center">
-                    <div className="text-sm text-muted-foreground">No event profit data available.</div>
-                  </div>
-                ) : (
-                  <VisxLineChart
-                    height={500}
-                    margin={{ left: 60, top: 35, bottom: 38, right: 27 }}
-                    series={stitchedSeries}
-                    xDomain={(() => {
-                      const allDates = stitchedSeries.flatMap(s => s.data.map(p => new Date(p.date)))
-                      if (allDates.length === 0) return undefined
-                      const minDate = new Date(cutoffDate)
-                      const maxDate = new Date(Math.max(...allDates.map(d => d.getTime())))
-                      return [minDate, maxDate]
-                    })()}
-                    yDomain={(() => {
-                      const values = stitchedSeries.flatMap(s => s.data.map(p => p.value))
-                      if (values.length === 0) return [0, 1]
-                      const min = Math.min(...values)
-                      const max = Math.max(...values)
-                      if (!isFinite(min) || !isFinite(max)) return [0, 1]
-                      const range = max - min
-                      const padding = Math.max(range * 0.25, 0.02)
-                      return [min - padding, max + padding]
-                    })()}
-                    additionalAnnotations={additionalAnnotations}
-                  />
-                )}
+                <VisxLineChart
+                  height={500}
+                  margin={{ left: 60, top: 35, bottom: 38, right: 27 }}
+                  series={profitSeries}
+                  xDomain={(() => {
+                    const allDates = profitSeries.flatMap(s => s.data.map(p => new Date(p.date)))
+                    if (allDates.length === 0) return undefined
+                    const minDate = new Date(cutoffDate)
+                    const maxDate = new Date(Math.max(...allDates.map(d => d.getTime())))
+                    return [minDate, maxDate]
+                  })()}
+                  yDomain={(() => {
+                    const values = profitSeries.flatMap(s => s.data.map(p => p.value))
+                    if (values.length === 0) return [0, 1]
+                    const min = Math.min(...values)
+                    const max = Math.max(...values)
+                    if (!isFinite(min) || !isFinite(max)) return [0, 1]
+                    const range = max - min
+                    const padding = Math.max(range * 0.25, 0.02)
+                    return [min - padding, max + padding]
+                  })()}
+                  additionalAnnotations={additionalAnnotations}
+                />
               </div>
             </div>
 

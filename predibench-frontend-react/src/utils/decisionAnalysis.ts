@@ -23,10 +23,8 @@ export interface DecisionAnalysis {
  */
 export async function calculateDecisionReturns(
   decision: ModelInvestmentDecision,
-  nextDecision?: ModelInvestmentDecision
 ): Promise<DecisionAnalysis> {
   // Use backend event-level net_gains_until_next_decision when available; fallback to summing market gains
-  const endDate = nextDecision?.target_date || null
   const drivers: DecisionDriver[] = []
   let totalReturn = 0
   let totalBets = 0
@@ -35,19 +33,14 @@ export async function calculateDecisionReturns(
     const marketCount = eventDecision.market_investment_decisions.length
     const eventBet = eventDecision.market_investment_decisions.reduce((acc, md) => acc + Math.abs(md.decision.bet), 0)
 
+    // Use the same logic as EventDecisionDetailPage: sum net_gains_at_decision_end from markets
     let eventReturn = 0
-    const series = eventDecision.net_gains_until_next_decision || []
-    if (series.length > 0) {
-      if (!endDate) {
-        eventReturn = series[series.length - 1]?.value ?? 0
-      } else {
-        const candidates = series.filter(p => p.date <= endDate)
-        eventReturn = candidates.length ? candidates[candidates.length - 1].value : 0
+    eventDecision.market_investment_decisions.forEach(market_decision => {
+      const g = market_decision.net_gains_at_decision_end
+      if (g !== null && g !== undefined) {
+        eventReturn += g
       }
-    } else {
-      // Fallback: sum market gains
-      eventReturn = eventDecision.market_investment_decisions.reduce((acc, md) => acc + (md.net_gains_at_decision_end ?? 0), 0)
-    }
+    })
 
     totalReturn += eventReturn
     totalBets += marketCount
