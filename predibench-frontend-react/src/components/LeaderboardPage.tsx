@@ -127,8 +127,6 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
                   })()}
                   yDomain={(() => {
                     try {
-                      console.log('Debug: profitSeries length:', profitSeries.length)
-                      console.log('Debug: profitSeries sample:', profitSeries[0])
                       const allValues = profitSeries.flatMap(s => s.data.map(p => p.value))
                       if (allValues.length === 0) return [0, 1]
                       const min = Math.min(...allValues)
