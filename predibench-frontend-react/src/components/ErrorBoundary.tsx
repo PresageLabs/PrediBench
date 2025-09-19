@@ -1,4 +1,6 @@
 import React from 'react'
+import { logEvent } from 'firebase/analytics'
+import { analytics } from '../firebase'
 
 interface ErrorBoundaryState {
   hasError: boolean
@@ -26,6 +28,17 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     console.error('ErrorBoundary caught an error:', error)
     console.error('Error info:', errorInfo)
     console.error('Stack:', error.stack)
+
+    // Track error in Firebase Analytics
+    if (analytics) {
+      logEvent(analytics, 'exception', {
+        description: error.message,
+        fatal: true,
+        error_boundary: true,
+        component_stack: errorInfo.componentStack,
+        error_stack: error.stack,
+      })
+    }
   }
 
   render() {
