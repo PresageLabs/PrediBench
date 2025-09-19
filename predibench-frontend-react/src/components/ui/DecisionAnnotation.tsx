@@ -102,7 +102,7 @@ export function DecisionAnnotation({ decision, nextDecision, onEventClick }: Dec
             {formattedStartDate}{formattedEndDate && ` → ${formattedEndDate}`}
           </div>
           <div style={{ fontSize: '11px', color: 'hsl(var(--muted-foreground))' }}>
-            {totalBets} bets taken at {formattedStartDateTime}
+            {formattedStartDateTime}: Bet on {decision.event_investment_decisions.length} events
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>

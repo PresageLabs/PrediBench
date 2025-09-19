@@ -176,7 +176,7 @@ export function LeaderboardTable({
                         <BrierScoreInfoTooltip />
                       </div>
                     </th>
-                    <th className="text-center py-3 px-4 font-semibold">
+                    <th className="hidden md:table-cell text-center py-3 px-4 font-semibold">
                       <div className="flex flex-col items-center space-y-1 w-full">
                         <div className="flex items-center space-x-1">
                           <button
@@ -221,7 +221,7 @@ export function LeaderboardTable({
                         <td className="py-4 px-4 text-center">
                           <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
                         </td>
-                        <td className="py-4 px-4 text-center">
+                        <td className="hidden md:table-cell py-4 px-4 text-center">
                           <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
                         </td>
                         <td className="hidden md:table-cell py-4 px-2 text-center">
@@ -268,7 +268,7 @@ export function LeaderboardTable({
                             {model.final_brier_score.toFixed(3)}
                           </a>
                         </td>
-                        <td className="py-4 px-4 text-center font-medium">
+                        <td className="hidden md:table-cell py-4 px-4 text-center font-medium">
                           <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
                             <span
                               className={
