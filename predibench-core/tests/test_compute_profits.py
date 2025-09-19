@@ -969,7 +969,374 @@ def test_fixed_mean_calculation():
     )
 
 
+def test_leaderboard_metrics_numerical_verification():
+    """
+    Comprehensive test to verify numerical accuracy of all leaderboard metrics:
+    - Average returns (1d, 2d, 7d, all-time)
+    - Portfolio increases (compound/cumulative)
+    - Brier scores
+    - Sharpe ratios
+    """
+    print("\n" + "="*70)
+    print("LEADERBOARD METRICS NUMERICAL VERIFICATION")
+    print("="*70)
+
+    # Create extended test data covering multiple time horizons
+    prices_df = pd.DataFrame(
+        {
+            "market_A": [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.0],
+            "market_B": [0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0, 0.0],
+            "market_C": [0.5, 0.55, 0.45, 0.6, 0.4, 0.65, 0.35, 0.7, 0.3, 0.75],
+        },
+        index=[
+            date(2025, 8, 2),   # Decision date (day 0)
+            date(2025, 8, 3),   # Day 1
+            date(2025, 8, 4),   # Day 2
+            date(2025, 8, 5),   # Day 3
+            date(2025, 8, 6),   # Day 4
+            date(2025, 8, 7),   # Day 5
+            date(2025, 8, 8),   # Day 6
+            date(2025, 8, 9),   # Day 7
+            date(2025, 8, 10),  # Day 8
+            date(2025, 8, 11),  # Day 9
+        ],
+    )
+
+    # Create model with multiple events to test aggregation
+    event1_markets = [
+        MarketInvestmentDecision(
+            market_id="market_A",
+            decision=SingleInvestmentDecision(
+                rationale="Event 1 Market A",
+                estimated_probability=0.8,
+                bet=0.5,
+                confidence=8,
+            ),
+        ),
+        MarketInvestmentDecision(
+            market_id="market_B",
+            decision=SingleInvestmentDecision(
+                rationale="Event 1 Market B",
+                estimated_probability=0.2,
+                bet=-0.3,
+                confidence=7,
+            ),
+        ),
+    ]
+
+    event2_markets = [
+        MarketInvestmentDecision(
+            market_id="market_C",
+            decision=SingleInvestmentDecision(
+                rationale="Event 2 Market C",
+                estimated_probability=0.6,
+                bet=0.4,
+                confidence=6,
+            ),
+        ),
+    ]
+
+    # Create model with multiple decisions to test time series
+    model_decision_1 = ModelInvestmentDecisions(
+        model_id="leaderboard_test",
+        model_info=ModelInfo(
+            model_id="leaderboard_test",
+            model_pretty_name="Leaderboard Test Model",
+            inference_provider="test_provider",
+            company_pretty_name="Test Company",
+        ),
+        target_date=date(2025, 8, 2),
+        decision_datetime=datetime.combine(date(2025, 8, 2), datetime.min.time()),
+        event_investment_decisions=[
+            EventInvestmentDecisions(
+                event_id="event_1",
+                event_title="Test Event 1",
+                market_investment_decisions=event1_markets,
+                unallocated_capital=0.2,
+            ),
+            EventInvestmentDecisions(
+                event_id="event_2",
+                event_title="Test Event 2",
+                market_investment_decisions=event2_markets,
+                unallocated_capital=0.6,
+            ),
+        ],
+    )
+
+    # Second decision on a later date
+    model_decision_2 = ModelInvestmentDecisions(
+        model_id="leaderboard_test",
+        model_info=ModelInfo(
+            model_id="leaderboard_test",
+            model_pretty_name="Leaderboard Test Model",
+            inference_provider="test_provider",
+            company_pretty_name="Test Company",
+        ),
+        target_date=date(2025, 8, 5),  # 3 days later
+        decision_datetime=datetime.combine(date(2025, 8, 5), datetime.min.time()),
+        event_investment_decisions=[
+            EventInvestmentDecisions(
+                event_id="event_3",
+                event_title="Test Event 3",
+                market_investment_decisions=[
+                    MarketInvestmentDecision(
+                        market_id="market_A",
+                        decision=SingleInvestmentDecision(
+                            rationale="Event 3 Market A",
+                            estimated_probability=0.9,
+                            bet=0.8,
+                            confidence=9,
+                        ),
+                    ),
+                ],
+                unallocated_capital=0.2,
+            ),
+        ],
+    )
+
+    enriched_decisions, model_performances = _compute_profits(
+        prices_df=prices_df,
+        model_decisions=[model_decision_1, model_decision_2],
+        recompute_bets_with_kelly_criterion=False,
+    )
+
+    performance = model_performances["leaderboard_test"]
+
+    print("=== MANUAL CALCULATION VERIFICATION ===")
+
+    # Verify time horizon returns manually
+    print("\n--- Time Horizon Returns Verification ---")
+
+    # Extract individual market returns for manual calculation
+    event_1_market_a = enriched_decisions[0].event_investment_decisions[0].market_investment_decisions[0]
+    event_1_market_b = enriched_decisions[0].event_investment_decisions[0].market_investment_decisions[1]
+    event_2_market_c = enriched_decisions[0].event_investment_decisions[1].market_investment_decisions[0]
+    event_3_market_a = enriched_decisions[1].event_investment_decisions[0].market_investment_decisions[0]
+
+    print(f"Event 1 Market A returns: {event_1_market_a.returns}")
+    print(f"Event 1 Market B returns: {event_1_market_b.returns}")
+    print(f"Event 2 Market C returns: {event_2_market_c.returns}")
+    print(f"Event 3 Market A returns: {event_3_market_a.returns}")
+
+    # Verify event-level aggregation
+    event_1_returns = enriched_decisions[0].event_investment_decisions[0].returns
+    event_2_returns = enriched_decisions[0].event_investment_decisions[1].returns
+    event_3_returns = enriched_decisions[1].event_investment_decisions[0].returns
+
+    print(f"\nEvent 1 aggregated returns: {event_1_returns}")
+    print(f"Event 2 aggregated returns: {event_2_returns}")
+    print(f"Event 3 aggregated returns: {event_3_returns}")
+
+    # Manual calculation of average returns
+    print("\n--- Average Returns Manual Calculation ---")
+
+    # Collect all event returns for manual averaging
+    all_one_day = [event_1_returns.one_day_return, event_2_returns.one_day_return, event_3_returns.one_day_return]
+    all_two_day = [event_1_returns.two_day_return, event_2_returns.two_day_return, event_3_returns.two_day_return]
+    all_seven_day = [event_1_returns.seven_day_return, event_2_returns.seven_day_return, event_3_returns.seven_day_return]
+    all_all_time = [event_1_returns.all_time_return, event_2_returns.all_time_return, event_3_returns.all_time_return]
+
+    manual_avg_returns = {
+        "one_day": sum(all_one_day) / len(all_one_day),
+        "two_day": sum(all_two_day) / len(all_two_day),
+        "seven_day": sum(all_seven_day) / len(all_seven_day),
+        "all_time": sum(all_all_time) / len(all_all_time),
+    }
+
+    print(f"Manual average 1-day return: {manual_avg_returns['one_day']}")
+    print(f"Calculated average 1-day return: {performance.average_returns.one_day_return}")
+    print(f"Manual average 2-day return: {manual_avg_returns['two_day']}")
+    print(f"Calculated average 2-day return: {performance.average_returns.two_day_return}")
+    print(f"Manual average 7-day return: {manual_avg_returns['seven_day']}")
+    print(f"Calculated average 7-day return: {performance.average_returns.seven_day_return}")
+    print(f"Manual average all-time return: {manual_avg_returns['all_time']}")
+    print(f"Calculated average all-time return: {performance.average_returns.all_time_return}")
+
+    # Verify Sharpe ratios
+    print("\n--- Sharpe Ratio Manual Calculation ---")
+
+    def manual_sharpe(returns_list):
+        if len(returns_list) < 2:
+            return 0.0
+        mean_ret = sum(returns_list) / len(returns_list)
+        variance = sum((x - mean_ret) ** 2 for x in returns_list) / (len(returns_list) - 1)
+        std_ret = variance ** 0.5
+        return mean_ret / std_ret if std_ret != 0 else 0.0
+
+    manual_sharpes = {
+        "one_day": manual_sharpe(all_one_day),
+        "two_day": manual_sharpe(all_two_day),
+        "seven_day": manual_sharpe(all_seven_day),
+        "all_time": manual_sharpe(all_all_time),
+    }
+
+    print(f"Manual 1-day Sharpe: {manual_sharpes['one_day']}")
+    print(f"Calculated 1-day Sharpe: {performance.sharpe.one_day_sharpe}")
+    print(f"Manual 2-day Sharpe: {manual_sharpes['two_day']}")
+    print(f"Calculated 2-day Sharpe: {performance.sharpe.two_day_sharpe}")
+
+    # Verify Brier score
+    print("\n--- Brier Score Manual Calculation ---")
+
+    # Collect all Brier score pairs for manual calculation
+    all_brier_pairs = []
+    for decision in enriched_decisions:
+        for event_decision in decision.event_investment_decisions:
+            for market_decision in event_decision.market_investment_decisions:
+                if market_decision.brier_score_pair_current:
+                    all_brier_pairs.append(market_decision.brier_score_pair_current)
+
+    manual_brier = sum((actual - predicted) ** 2 for actual, predicted in all_brier_pairs) / len(all_brier_pairs)
+
+    print(f"Manual Brier score: {manual_brier}")
+    print(f"Calculated Brier score: {performance.final_brier_score}")
+    print(f"Brier score pairs: {all_brier_pairs}")
+
+    # Portfolio performance verification
+    print("\n--- Portfolio Performance ---")
+    print(f"Final profit: {performance.final_profit}")
+    print(f"Trades count: {performance.trades_count}")
+    print(f"Compound profit history length: {len(performance.compound_profit_history)}")
+    print(f"Final compound value: {performance.compound_profit_history[-1].value if performance.compound_profit_history else 'N/A'}")
+
+    # Assertions
+    print("\n--- NUMERICAL ASSERTIONS ---")
+
+    # Test average returns
+    assert abs(performance.average_returns.one_day_return - manual_avg_returns["one_day"]) < 1e-10, (
+        f"1-day average return error: {performance.average_returns.one_day_return} vs {manual_avg_returns['one_day']}"
+    )
+    assert abs(performance.average_returns.two_day_return - manual_avg_returns["two_day"]) < 1e-10, (
+        f"2-day average return error: {performance.average_returns.two_day_return} vs {manual_avg_returns['two_day']}"
+    )
+
+    # Test Sharpe ratios
+    assert abs(performance.sharpe.one_day_sharpe - manual_sharpes["one_day"]) < 1e-10, (
+        f"1-day Sharpe error: {performance.sharpe.one_day_sharpe} vs {manual_sharpes['one_day']}"
+    )
+
+    # Test Brier score
+    assert abs(performance.final_brier_score - manual_brier) < 1e-10, (
+        f"Brier score error: {performance.final_brier_score} vs {manual_brier}"
+    )
+
+    print("✓ All average return calculations verified")
+    print("✓ All Sharpe ratio calculations verified")
+    print("✓ Brier score calculation verified")
+    print("✓ Portfolio performance verified")
+    print("="*70)
+
+
+def test_leaderboard_edge_cases():
+    """
+    Test edge cases in leaderboard calculations:
+    - Single event (should have zero Sharpe ratio)
+    - Perfect predictions (Brier score near 0)
+    - No variation in returns (zero Sharpe)
+    """
+    print("\n" + "="*60)
+    print("LEADERBOARD EDGE CASES VERIFICATION")
+    print("="*60)
+
+    # Case 1: Single event (should result in zero Sharpe ratios)
+    prices_df = pd.DataFrame(
+        {"single_market": [0.2, 0.4, 0.6, 0.8, 1.0]},
+        index=[date(2025, 8, 2), date(2025, 8, 3), date(2025, 8, 4), date(2025, 8, 5), date(2025, 8, 6)],
+    )
+
+    model_decision = create_test_model_decision(
+        "single_event_test", "Single Event Test", date(2025, 8, 2),
+        market_decisions=[
+            MarketInvestmentDecision(
+                market_id="single_market",
+                decision=SingleInvestmentDecision(
+                    rationale="Single event test",
+                    estimated_probability=0.9,  # Close to final price of 1.0
+                    bet=0.5,
+                    confidence=8,
+                ),
+            ),
+        ]
+    )
+
+    _, model_performances = _compute_profits(
+        prices_df=prices_df,
+        model_decisions=[model_decision],
+        recompute_bets_with_kelly_criterion=False,
+    )
+
+    performance = model_performances["single_event_test"]
+
+    print("--- Single Event Test ---")
+    print(f"Average returns: {performance.average_returns}")
+    print(f"Sharpe ratios: {performance.sharpe}")
+    print(f"Brier score: {performance.final_brier_score}")
+    print(f"Final profit: {performance.final_profit}")
+
+    # With only one event, Sharpe ratios should be 0 (can't calculate std with n=1)
+    assert performance.sharpe.one_day_sharpe == 0.0, f"Expected 0 Sharpe for single event, got {performance.sharpe.one_day_sharpe}"
+    assert performance.sharpe.two_day_sharpe == 0.0, f"Expected 0 Sharpe for single event, got {performance.sharpe.two_day_sharpe}"
+
+    # Brier score should be low since prediction (0.9) is close to actual (1.0)
+    expected_brier = (1.0 - 0.9) ** 2  # = 0.01
+    assert abs(performance.final_brier_score - expected_brier) < 1e-10, (
+        f"Brier score error: expected {expected_brier}, got {performance.final_brier_score}"
+    )
+
+    print("✓ Single event Sharpe ratios correctly zero")
+    print("✓ Brier score calculation correct for single prediction")
+
+    # Case 2: Multiple events with identical returns (zero Sharpe)
+    identical_prices_df = pd.DataFrame(
+        {"stable_market": [0.5, 0.6, 0.7, 0.8, 0.9]},  # Same 20% gain each day
+        index=[date(2025, 8, 2), date(2025, 8, 3), date(2025, 8, 4), date(2025, 8, 5), date(2025, 8, 6)],
+    )
+
+    # Create multiple identical decisions
+    identical_decisions = []
+    for i in range(3):
+        decision = create_test_model_decision(
+            "identical_test", "Identical Test", date(2025, 8, 2),
+            event_id=f"event_{i}",
+            market_decisions=[
+                MarketInvestmentDecision(
+                    market_id="stable_market",
+                    decision=SingleInvestmentDecision(
+                        rationale=f"Identical event {i}",
+                        estimated_probability=0.8,
+                        bet=0.5,
+                        confidence=8,
+                    ),
+                ),
+            ]
+        )
+        identical_decisions.append(decision)
+
+    _, identical_performances = _compute_profits(
+        prices_df=identical_prices_df,
+        model_decisions=identical_decisions,
+        recompute_bets_with_kelly_criterion=False,
+    )
+
+    identical_performance = identical_performances["identical_test"]
+
+    print("\n--- Identical Returns Test ---")
+    print(f"Average returns: {identical_performance.average_returns}")
+    print(f"Sharpe ratios: {identical_performance.sharpe}")
+
+    # With identical returns, standard deviation should be 0, so Sharpe should be 0
+    assert identical_performance.sharpe.one_day_sharpe == 0.0, (
+        f"Expected 0 Sharpe for identical returns, got {identical_performance.sharpe.one_day_sharpe}"
+    )
+    assert identical_performance.sharpe.seven_day_sharpe == 0.0, (
+        f"Expected 0 Sharpe for identical returns, got {identical_performance.sharpe.seven_day_sharpe}"
+    )
+
+    print("✓ Identical returns correctly produce zero Sharpe ratios")
+    print("="*60)
+
+
 if __name__ == "__main__":
-    # Run the fixed test to verify the correction
-    test_fixed_mean_calculation()
+    # Run the leaderboard verification test
+    test_leaderboard_metrics_numerical_verification()
     

@@ -372,7 +372,7 @@ def compute_performance_per_model(
             mean_return = np.mean(returns_array)
             std_return = np.std(returns_array, ddof=1)  # Sample standard deviation
 
-            if std_return == 0 or np.isnan(std_return) or np.isnan(mean_return):
+            if std_return < 1e-15 or np.isnan(std_return) or np.isnan(mean_return):
                 return 0.0
 
             # Sharpe ratio = mean return / volatility
