@@ -1,4 +1,4 @@
-import { BarChart3, Menu, Newspaper, TrendingUpDown, Trophy, X } from 'lucide-react'
+import { BarChart3, Info, Menu, Newspaper, TrendingUpDown, Trophy, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { Footer } from './Footer'
@@ -15,7 +15,8 @@ export function Layout({ children, currentPage }: LayoutProps) {
   const pages = [
     { id: 'leaderboard', name: 'Leaderboard', href: '/leaderboard', icon: Trophy },
     { id: 'models', name: 'Models', href: '/models', icon: BarChart3 },
-    { id: 'events', name: 'Events', href: '/events', icon: Newspaper }
+    { id: 'events', name: 'Events', href: '/events', icon: Newspaper },
+    { id: 'about', name: 'About', href: '/about', icon: Info }
   ]
 
   return (
