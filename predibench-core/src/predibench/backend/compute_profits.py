@@ -197,7 +197,7 @@ def compute_performance_per_decision(
             else:
                 net_gains_for_event_df = pd.DataFrame(index=prices_df.index)
 
-            sum_net_gains_for_event_df = net_gains_for_event_df.sum(axis=1) / 10
+            sum_net_gains_for_event_df = net_gains_for_event_df.mean(axis=1)
             # Keep this per-event series to compute the model-level aggregate
             assert sum_net_gains_for_event_df.index.is_monotonic_increasing, (
                 "Index is not sorted"
