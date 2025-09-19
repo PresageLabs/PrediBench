@@ -715,8 +715,9 @@ def main():
     logger.info("Creating visualizations...")
     figures = create_brier_score_analysis_plots(brier_df)
 
-    # Export all figures to dedicated subfolder under analyses/
-    base_dir = Path("analyses") / "market_probabilities_brier_score_evolution"
+    # Export all figures to dedicated subfolder under frontend public
+    repo_root = Path(__file__).resolve().parents[3]
+    base_dir = repo_root / "predibench-frontend-react/public/market_probabilities_brier_score_evolution"
     base_dir.mkdir(parents=True, exist_ok=True)
 
     def _slugify(title: str | None, fallback: str) -> str:
@@ -733,8 +734,8 @@ def main():
         title_text = getattr(title_text, "text", None) if title_text else None
         default_name = f"figure_{i:02d}"
         slug = _slugify(title_text, default_name)
-        file_path = base_dir / f"{slug}.html"
-        fig.write_html(str(file_path))
+        file_path = base_dir / f"{slug}.json"
+        fig.write_json(str(file_path))
         logger.info(f"Saved plot to {file_path}")
 
     # Save summary statistics

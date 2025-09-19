@@ -264,10 +264,9 @@ def analyze_holding_horizons():
 
     logger.info("Creating visualizations...")
 
-    # Create output directory
-    output_dir = Path(
-        "/Users/aymeric/Documents/Code/predibench/analyses/holding_horizon_analysis"
-    )
+    # Create output directory under frontend public
+    repo_root = Path(__file__).resolve().parents[3]
+    output_dir = repo_root / "predibench-frontend-react/public/holding_horizon_analysis"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     avg_returns_by_horizon = results_df.mean(axis=0)
@@ -325,8 +324,8 @@ def analyze_holding_horizons():
     )
 
     apply_template(fig1)
-    fig1.write_html(output_dir / "1_average_returns_by_horizon.html")
-    logger.info(f"Saved Figure 1 to {output_dir / '1_average_returns_by_horizon.html'}")
+    fig1.write_json(output_dir / "1_average_returns_by_horizon.json")
+    logger.info(f"Saved Figure 1 to {output_dir / '1_average_returns_by_horizon.json'}")
 
     # Figure 2: Best Horizon Distribution
     fig2 = go.Figure()
@@ -349,9 +348,9 @@ def analyze_holding_horizons():
     )
 
     apply_template(fig2)
-    fig2.write_html(output_dir / "2_optimal_horizon_distribution.html")
+    fig2.write_json(output_dir / "2_optimal_horizon_distribution.json")
     logger.info(
-        f"Saved Figure 2 to {output_dir / '2_optimal_horizon_distribution.html'}"
+        f"Saved Figure 2 to {output_dir / '2_optimal_horizon_distribution.json'}"
     )
 
     # Figure 3: Return Distribution by Horizon (Box plots)
@@ -374,9 +373,9 @@ def analyze_holding_horizons():
     )
 
     apply_template(fig3)
-    fig3.write_html(output_dir / "3_return_distribution_by_horizon.html")
+    fig3.write_json(output_dir / "3_return_distribution_by_horizon.json")
     logger.info(
-        f"Saved Figure 3 to {output_dir / '3_return_distribution_by_horizon.html'}"
+        f"Saved Figure 3 to {output_dir / '3_return_distribution_by_horizon.json'}"
     )
 
     # Figure 4: Heatmap of top models' performance across horizons
@@ -405,8 +404,8 @@ def analyze_holding_horizons():
     )
 
     apply_template(fig4)
-    fig4.write_html(output_dir / "4_model_performance_heatmap.html")
-    logger.info(f"Saved Figure 4 to {output_dir / '4_model_performance_heatmap.html'}")
+    fig4.write_json(output_dir / "4_model_performance_heatmap.json")
+    logger.info(f"Saved Figure 4 to {output_dir / '4_model_performance_heatmap.json'}")
 
     # Print summary statistics
     logger.info("\n=== HOLDING HORIZON ANALYSIS SUMMARY ===")
