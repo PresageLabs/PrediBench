@@ -12,6 +12,7 @@ interface CompanyInfo {
   name: string
   logo: string
   logoType: 'svg' | 'png'
+  description?: string
 }
 
 const companyMapping: Record<string, CompanyInfo> = {
@@ -49,8 +50,8 @@ const companyMapping: Record<string, CompanyInfo> = {
   'Sonar Deep Research': { name: 'Perplexity', logo: perplexityLogo, logoType: 'png' },
 
   // Baseline models
-  'Random Baseline': { name: 'Baseline', logo: moonshotLogo, logoType: 'png' },
-  'Market baseline': { name: 'Baseline', logo: moonshotLogo, logoType: 'png' }
+  'Random Baseline': { name: 'Random predictions', logo: moonshotLogo, logoType: 'png', description: 'Makes random trading decisions' },
+  'Market baseline': { name: 'Volume-weighted', logo: moonshotLogo, logoType: 'png', description: 'Follows market volume proportions' }
 }
 
 export function getCompanyInfo(modelName: string): CompanyInfo | null {
@@ -85,7 +86,7 @@ export function getCompanyInfo(modelName: string): CompanyInfo | null {
     return { name: 'Perplexity', logo: moonshotLogo, logoType: 'png' }
   }
   if (modelName.includes('Baseline') || modelName.includes('baseline')) {
-    return { name: 'Baseline', logo: moonshotLogo, logoType: 'png' }
+    return { name: 'Baseline', logo: moonshotLogo, logoType: 'png', description: 'Benchmark model' }
   }
 
   return null
