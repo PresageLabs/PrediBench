@@ -6,6 +6,44 @@ interface InfoTooltipProps {
   content: string
 }
 
+function parseMarkdownLinks(text: string) {
+  // Regular expression to match [text](url) markdown links
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g
+  const parts: (string | JSX.Element)[] = []
+  let lastIndex = 0
+  let match
+
+  while ((match = linkRegex.exec(text)) !== null) {
+    // Add text before the link
+    if (match.index > lastIndex) {
+      parts.push(text.substring(lastIndex, match.index))
+    }
+
+    // Add the link element
+    const [, linkText, url] = match
+    parts.push(
+      <a
+        key={match.index}
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline hover:no-underline text-blue-400"
+      >
+        {linkText}
+      </a>
+    )
+
+    lastIndex = linkRegex.lastIndex
+  }
+
+  // Add remaining text after the last link
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex))
+  }
+
+  return parts.length > 0 ? parts : [text]
+}
+
 export function InfoTooltip({ content }: InfoTooltipProps) {
   return (
     <Tooltip.Provider>
@@ -22,9 +60,7 @@ export function InfoTooltip({ content }: InfoTooltipProps) {
             sideOffset={4}
           >
             <span>
-              {content}	→ <a href="/#intro" className="underline hover:no-underline">
-                Read more
-              </a>
+              {parseMarkdownLinks(content)}
             </span>
             <Tooltip.Arrow className="fill-popover" />
           </Tooltip.Content>

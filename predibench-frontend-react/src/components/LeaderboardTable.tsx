@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import type { DecisionReturns, DecisionSharpe, LeaderboardEntry } from '../api'
 import { encodeSlashes } from '../lib/utils'
 import { CompanyDisplay } from './ui/company-display'
-import { BrierScoreInfoTooltip } from './ui/info-tooltip'
+import { BrierScoreInfoTooltip, InfoTooltip } from './ui/info-tooltip'
 import { ProfitDisplay } from './ui/profit-display'
 
 type SortKey = 'brier_score' | 'average_returns' | 'sharpe'
@@ -159,6 +159,7 @@ export function LeaderboardTable({
                             <ArrowDown className={`h-4 w-4 ${sortKey === 'average_returns' ? 'text-primary' : 'opacity-40'}`} />
                             <span>Average Returns</span>
                           </button>
+                          <InfoTooltip content="Average return per prediction across all bet. Each bet's return is calculated at the selected time horizon." />
                         </div>
                         <select
                           value={returnsTimeHorizon}
@@ -195,6 +196,7 @@ export function LeaderboardTable({
                             <ArrowDown className={`h-4 w-4 ${sortKey === 'sharpe' ? 'text-primary' : 'opacity-40'}`} />
                             <span>Annualized Sharpe</span>
                           </button>
+                          <InfoTooltip content="Risk-adjusted return metric : Sharpe ratio is the ratio of the average return to the standard deviation of the returns. Read more [here](https://en.wikipedia.org/wiki/Sharpe_ratio). Green indicates statistically significant positive performance, computed using 5% significance t-statistic using the number of bets placed." />
                         </div>
                         <select
                           value={sharpeTimeHorizon}
