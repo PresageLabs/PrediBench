@@ -1,5 +1,5 @@
 import { ArrowDown, ChevronDown } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import type { DecisionReturns, DecisionSharpe, LeaderboardEntry } from '../api'
 import { encodeSlashes } from '../lib/utils'
 import { CompanyDisplay } from './ui/company-display'
@@ -24,6 +24,26 @@ export function LeaderboardTable({
   const [leaderboardExpanded, setLeaderboardExpanded] = useState<boolean>(false)
   const [returnsTimeHorizon, setReturnsTimeHorizon] = useState<TimeHorizon>('seven_day')
   const [sharpeTimeHorizon, setSharpeTimeHorizon] = useState<'one_day' | 'two_day' | 'seven_day'>('seven_day')
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [returnsDropdownOpen, setReturnsDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const returnsDropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false)
+      }
+      if (returnsDropdownRef.current && !returnsDropdownRef.current.contains(event.target as Node)) {
+        setReturnsDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   const getReturnForHorizon = (returns: DecisionReturns, horizon: TimeHorizon): number => {
     switch (horizon) {
@@ -151,16 +171,59 @@ export function LeaderboardTable({
                           </button>
                           <InfoTooltip content="Average return per prediction across all bet. Each bet's return is calculated at the selected time horizon." />
                         </div>
-                        <select
-                          value={returnsTimeHorizon}
-                          onChange={(e) => setReturnsTimeHorizon(e.target.value as TimeHorizon)}
-                          className="text-xs border border-border rounded px-1 py-0.5 bg-background"
-                        >
-                          <option value="one_day">1 Day</option>
-                          <option value="two_day">2 Days</option>
-                          <option value="seven_day">7 Days</option>
-                          <option value="all_time">All Time</option>
-                        </select>
+                        <div className="relative" ref={returnsDropdownRef}>
+                          <button
+                            onClick={() => setReturnsDropdownOpen(!returnsDropdownOpen)}
+                            className="text-xs font-medium border border-border rounded-md px-2 py-1 bg-background text-foreground hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors cursor-pointer flex items-center gap-1 min-w-[70px]"
+                          >
+                            <span>
+                              {returnsTimeHorizon === 'one_day' ? '1 Day' :
+                               returnsTimeHorizon === 'two_day' ? '2 Days' :
+                               returnsTimeHorizon === 'seven_day' ? '7 Days' : 'All Time'}
+                            </span>
+                            <ChevronDown className={`h-3 w-3 transition-transform ${returnsDropdownOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                          {returnsDropdownOpen && (
+                            <div className="absolute top-full left-0 mt-1 w-full bg-background border border-border rounded-md overflow-hidden z-50">
+                              <button
+                                onClick={() => {
+                                  setReturnsTimeHorizon('one_day')
+                                  setReturnsDropdownOpen(false)
+                                }}
+                                className="w-full text-left text-xs font-medium px-2 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
+                              >
+                                1 Day
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setReturnsTimeHorizon('two_day')
+                                  setReturnsDropdownOpen(false)
+                                }}
+                                className="w-full text-left text-xs font-medium px-2 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
+                              >
+                                2 Days
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setReturnsTimeHorizon('seven_day')
+                                  setReturnsDropdownOpen(false)
+                                }}
+                                className="w-full text-left text-xs font-medium px-2 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
+                              >
+                                7 Days
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setReturnsTimeHorizon('all_time')
+                                  setReturnsDropdownOpen(false)
+                                }}
+                                className="w-full text-left text-xs font-medium px-2 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
+                              >
+                                All Time
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </th>
                     <th className="text-center py-3 px-4 font-semibold">
@@ -188,15 +251,49 @@ export function LeaderboardTable({
                           </button>
                           <InfoTooltip content="Risk-adjusted return metric : Sharpe ratio is the ratio of the average return to the standard deviation of the returns. Read more [here](https://en.wikipedia.org/wiki/Sharpe_ratio). Green indicates statistically significant positive performance, computed using 5% significance t-statistic using the number of bets placed." />
                         </div>
-                        <select
-                          value={sharpeTimeHorizon}
-                          onChange={(e) => setSharpeTimeHorizon(e.target.value as 'one_day' | 'two_day' | 'seven_day')}
-                          className="text-xs border border-border rounded px-1 py-0.5 bg-background"
-                        >
-                          <option value="one_day">1 Day</option>
-                          <option value="two_day">2 Days</option>
-                          <option value="seven_day">7 Days</option>
-                        </select>
+                        <div className="relative" ref={dropdownRef}>
+                          <button
+                            onClick={() => setDropdownOpen(!dropdownOpen)}
+                            className="text-xs font-medium border border-border rounded-md px-2 py-1 bg-background text-foreground hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors cursor-pointer flex items-center gap-1 min-w-[60px]"
+                          >
+                            <span>
+                              {sharpeTimeHorizon === 'one_day' ? '1 Day' :
+                               sharpeTimeHorizon === 'two_day' ? '2 Days' : '7 Days'}
+                            </span>
+                            <ChevronDown className={`h-3 w-3 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                          {dropdownOpen && (
+                            <div className="absolute top-full left-0 mt-1 w-full bg-background border border-border rounded-md overflow-hidden z-50">
+                              <button
+                                onClick={() => {
+                                  setSharpeTimeHorizon('one_day')
+                                  setDropdownOpen(false)
+                                }}
+                                className="w-full text-left text-xs font-medium px-2 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
+                              >
+                                1 Day
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSharpeTimeHorizon('two_day')
+                                  setDropdownOpen(false)
+                                }}
+                                className="w-full text-left text-xs font-medium px-2 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
+                              >
+                                2 Days
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSharpeTimeHorizon('seven_day')
+                                  setDropdownOpen(false)
+                                }}
+                                className="w-full text-left text-xs font-medium px-2 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
+                              >
+                                7 Days
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </th>
                     <th className="hidden md:table-cell text-center py-3 px-2 text-sm font-medium">
