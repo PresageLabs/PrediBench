@@ -75,11 +75,16 @@ def compute_performance_per_decision(
                 if market_decision.market_id not in prices_df.columns:
                     continue
                 market_series_all = prices_df[market_decision.market_id].copy()
-                # Fill missing values to allow robust slicing
-                market_prices = market_series_all.ffill().bfill().copy()
-                latest_yes_price = float(market_prices.iloc[-1])
-                if np.isnan(latest_yes_price):
-                    continue
+                # Don't fill missing values - keep NaN to indicate when markets are not available
+                market_prices = market_series_all.copy()
+
+                # Find the latest non-NaN price for Brier score calculation
+                valid_prices = market_prices.dropna()
+                if valid_prices.empty:
+                    continue  # Skip if no valid prices at all
+
+                latest_yes_price = float(valid_prices.iloc[-1])
+
                 market_decision.brier_score_pair_current = (
                     latest_yes_price,
                     market_decision.decision.estimated_probability,
@@ -102,10 +107,19 @@ def compute_performance_per_decision(
                 if decision_date not in signed_market_prices.index:
                     continue
                 signed_price_at_decision = signed_market_prices.loc[decision_date]
-                signed_latest_price = signed_market_prices.iloc[-1]
 
-                if float(signed_price_at_decision) == 0 or np.isnan(
-                    signed_price_at_decision
+                # Calculate signed_latest_price from the full valid prices, not sliced data
+                valid_signed_prices = signed_market_prices.dropna()
+                if valid_signed_prices.empty:
+                    continue
+                signed_latest_price = valid_signed_prices.iloc[-1]
+
+
+                if (
+                    signed_price_at_decision is None
+                    or pd.isna(signed_price_at_decision)
+                    or float(signed_price_at_decision) == 0
+                    or np.isnan(signed_price_at_decision)
                 ):
                     # Avoid division by zero; skip this market
                     continue
@@ -159,6 +173,13 @@ def compute_performance_per_decision(
                         return future_prices.iloc[0]
 
                 def get_returns(price_at_decision, price_at_expiry) -> float:
+                    # Check if either price is NaN/None - if so, return 0
+                    if (
+                        pd.isna(price_at_decision) or pd.isna(price_at_expiry)
+                        or price_at_decision is None or price_at_expiry is None
+                        or price_at_decision == 0
+                    ):
+                        return 0.0
                     return (price_at_expiry / float(price_at_decision) - 1) * abs(
                         market_decision.decision.bet
                     )
@@ -197,7 +218,7 @@ def compute_performance_per_decision(
             else:
                 net_gains_for_event_df = pd.DataFrame(index=prices_df.index)
 
-            sum_net_gains_for_event_df = net_gains_for_event_df.sum(axis=1) / 10
+            sum_net_gains_for_event_df = net_gains_for_event_df.sum(axis=1)
             # Keep this per-event series to compute the model-level aggregate
             assert sum_net_gains_for_event_df.index.is_monotonic_increasing, (
                 "Index is not sorted"
@@ -220,7 +241,7 @@ def compute_performance_per_decision(
 
             # Aggregate returns at event level from market decisions
             markets_with_returns = [
-                market_decision
+                market
                 for market in event_decision.market_investment_decisions
                 if market.returns is not None and market.decision.bet != 0
             ]
@@ -474,9 +495,9 @@ def _compute_profits(
         for decision in model_decisions
     }
 
-    # Filter rows strictly after August 1
+    # Filter rows from August 1 onwards (inclusive)
     cutoff = date(2025, 8, 1)
-    prices_df = prices_df[prices_df.index > cutoff]
+    prices_df = prices_df[prices_df.index >= cutoff]
     prices_df = prices_df.sort_index()
 
     enriched_model_decisions, summary_info_per_model = compute_performance_per_decision(
