@@ -28,10 +28,10 @@ const getProfitColor = (value: number, minValue: number, maxValue: number): stri
   }
 }
 
-export function ProfitDisplay({ 
-  value, 
-  minValue, 
-  maxValue, 
+export function ProfitDisplay({
+  value,
+  minValue,
+  maxValue,
   formatValue = (v) => {
     // Check if value rounds to zero at 2 decimal places
     if (Math.abs(v) < 0.005) return '$0.00'
@@ -42,11 +42,11 @@ export function ProfitDisplay({
   // Use consistent global bounds if none provided
   const effectiveMinValue = minValue !== undefined ? minValue : -0.3
   const effectiveMaxValue = maxValue !== undefined ? maxValue : 0.3
-  
+
   const color = getProfitColor(value, effectiveMinValue, effectiveMaxValue)
-  
+
   return (
-    <span 
+    <span
       style={{ color }}
       className={className}
     >

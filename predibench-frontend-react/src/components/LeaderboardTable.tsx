@@ -20,9 +20,10 @@ export function LeaderboardTable({
   loading = false,
   initialVisibleModels = 10
 }: LeaderboardTableProps) {
-  const [sortKey, setSortKey] = useState<SortKey>('brier_score')
+  const [sortKey, setSortKey] = useState<SortKey>('average_returns')
   const [leaderboardExpanded, setLeaderboardExpanded] = useState<boolean>(false)
-  const [timeHorizon, setTimeHorizon] = useState<TimeHorizon>('seven_day')
+  const [returnsTimeHorizon, setReturnsTimeHorizon] = useState<TimeHorizon>('seven_day')
+  const [sharpeTimeHorizon, setSharpeTimeHorizon] = useState<'one_day' | 'two_day' | 'seven_day'>('seven_day')
 
   const getReturnForHorizon = (returns: DecisionReturns, horizon: TimeHorizon): number => {
     switch (horizon) {
@@ -33,13 +34,21 @@ export function LeaderboardTable({
     }
   }
 
-  const getSharpeForHorizon = (sharpe: DecisionSharpe, horizon: TimeHorizon): number => {
+  const getSharpeForHorizon = (sharpe: DecisionSharpe, horizon: 'one_day' | 'two_day' | 'seven_day'): number => {
     switch (horizon) {
       case 'one_day': return sharpe.one_day_annualized_sharpe
       case 'two_day': return sharpe.two_day_annualized_sharpe
       case 'seven_day': return sharpe.seven_day_annualized_sharpe
       case 'all_time': return sharpe.seven_day_annualized_sharpe // Use 7-day as fallback since all_time_annualized_sharpe doesn't exist
     }
+  }
+
+  const getSharpeSignificance = (sharpe: number, tradesCount: number): 'significant' | 'insignificant' => {
+    // Calculate t-statistic: t ≈ Sharpe * sqrt(T) where T = number of independent observations
+    const tStatistic = Math.abs(sharpe) * Math.sqrt(tradesCount)
+
+    // Significant if t >= 1.96 (5% level, two-sided) and Sharpe is positive
+    return sharpe > 0 && tStatistic >= 1.96 ? 'significant' : 'insignificant'
   }
 
   const sortedLeaderboard = useMemo(() => {
@@ -60,8 +69,8 @@ export function LeaderboardTable({
         }
 
         case 'average_returns': {
-          const aReturn = getReturnForHorizon(a.average_returns, timeHorizon)
-          const bReturn = getReturnForHorizon(b.average_returns, timeHorizon)
+          const aReturn = getReturnForHorizon(a.average_returns, returnsTimeHorizon)
+          const bReturn = getReturnForHorizon(b.average_returns, returnsTimeHorizon)
 
           // Primary sort by returns (higher first - descending)
           if (bReturn !== aReturn) {
@@ -73,8 +82,8 @@ export function LeaderboardTable({
         }
 
         case 'sharpe': {
-          const aSharpe = getSharpeForHorizon(a.sharpe, timeHorizon)
-          const bSharpe = getSharpeForHorizon(b.sharpe, timeHorizon)
+          const aSharpe = getSharpeForHorizon(a.sharpe, sharpeTimeHorizon)
+          const bSharpe = getSharpeForHorizon(b.sharpe, sharpeTimeHorizon)
 
           // Primary sort by Sharpe (higher first - descending)
           if (bSharpe !== aSharpe) {
@@ -89,30 +98,30 @@ export function LeaderboardTable({
           return 0
       }
     })
-  }, [leaderboard, sortKey, timeHorizon])
+  }, [leaderboard, sortKey, returnsTimeHorizon, sharpeTimeHorizon])
 
 
   const handleSort = (key: SortKey) => {
     setSortKey(key)
   }
 
-  // Ranges for Avg Returns and Sharpe (used for consistent coloring)
+  // Ranges for Average Returns and Sharpe (used for consistent coloring)
   const returnsRange = useMemo(() => {
     if (leaderboard.length === 0) return { min: 0, max: 0 }
-    const vals = leaderboard.map(model => getReturnForHorizon(model.average_returns, timeHorizon))
+    const vals = leaderboard.map(model => getReturnForHorizon(model.average_returns, returnsTimeHorizon))
     return {
       min: Math.min(...vals),
       max: Math.max(...vals)
     }
-  }, [leaderboard, timeHorizon])
+  }, [leaderboard, returnsTimeHorizon])
   const sharpeRange = useMemo(() => {
     if (leaderboard.length === 0) return { min: 0, max: 0 }
-    const vals = leaderboard.map(model => getSharpeForHorizon(model.sharpe, timeHorizon))
+    const vals = leaderboard.map(model => getSharpeForHorizon(model.sharpe, sharpeTimeHorizon))
     return {
       min: Math.min(...vals),
       max: Math.max(...vals)
     }
-  }, [leaderboard, timeHorizon])
+  }, [leaderboard, sharpeTimeHorizon])
 
 
   return (
@@ -128,166 +137,183 @@ export function LeaderboardTable({
       )}
 
 
-      <div className="relative flex gap-4">
-        <div className="flex-1">
-          <div
-            className={`overflow-hidden transition-all duration-300 ${leaderboardExpanded ? 'max-h-none' : 'max-h-[500px]'
-              }`}
-          >
-            <div className="bg-card rounded-xl border border-border/30 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full table-auto">
-                  <thead className="bg-muted/30">
-                    <tr>
-                      <th className="text-center py-4 px-3 font-semibold"></th>
-                      <th className="text-left py-4 px-4 font-semibold">Model Name</th>
-                      <th className="text-center py-3 px-4 font-semibold">
-                        <div className="flex items-center justify-center space-x-1 w-full">
+      <div className="relative">
+        <div
+          className={`overflow-hidden transition-all duration-300 ${leaderboardExpanded ? 'max-h-none' : 'max-h-[500px]'
+            }`}
+        >
+          <div className="bg-card rounded-xl border border-border/30 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full table-auto">
+                <thead className="bg-muted/30">
+                  <tr>
+                    <th className="text-center py-4 px-3 font-semibold"></th>
+                    <th className="text-left py-4 px-4 font-semibold">Model Name</th>
+                    <th className="text-center py-3 px-4 font-semibold">
+                      <div className="flex flex-col items-center space-y-1 w-full">
+                        <div className="flex items-center space-x-1">
                           <button
                             onClick={() => handleSort('average_returns')}
                             className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
                           >
                             <ArrowDown className={`h-4 w-4 ${sortKey === 'average_returns' ? 'text-primary' : 'opacity-40'}`} />
-                            <span>Avg Returns</span>
+                            <span>Average Returns</span>
                           </button>
                         </div>
-                      </th>
-                      <th className="text-center py-3 px-4 font-semibold">
-                        <div className="flex items-center justify-center space-x-1 w-full">
-                          <button
-                            onClick={() => handleSort('brier_score')}
-                            className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
-                            title="Brier Score - Lower values indicate better prediction accuracy (0 = perfect, 1 = worst)"
-                          >
-                            <ArrowDown className={`h-4 w-4 ${sortKey === 'brier_score' ? 'text-primary' : 'opacity-40'}`} />
-                            <span>Brier Score</span>
-                          </button>
-                          <BrierScoreInfoTooltip />
-                        </div>
-                      </th>
-                      <th className="text-center py-3 px-4 font-semibold">
-                        <div className="flex items-center justify-center space-x-1 w-full">
+                        <select
+                          value={returnsTimeHorizon}
+                          onChange={(e) => setReturnsTimeHorizon(e.target.value as TimeHorizon)}
+                          className="text-xs border border-border rounded px-1 py-0.5 bg-background"
+                        >
+                          <option value="one_day">1 Day</option>
+                          <option value="two_day">2 Days</option>
+                          <option value="seven_day">7 Days</option>
+                          <option value="all_time">All Time</option>
+                        </select>
+                      </div>
+                    </th>
+                    <th className="text-center py-3 px-4 font-semibold">
+                      <div className="flex items-center justify-center space-x-1 w-full">
+                        <button
+                          onClick={() => handleSort('brier_score')}
+                          className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
+                          title="Brier Score - Lower values indicate better prediction accuracy (0 = perfect, 1 = worst)"
+                        >
+                          <ArrowDown className={`h-4 w-4 ${sortKey === 'brier_score' ? 'text-primary' : 'opacity-40'}`} />
+                          <span>Brier Score</span>
+                        </button>
+                        <BrierScoreInfoTooltip />
+                      </div>
+                    </th>
+                    <th className="text-center py-3 px-4 font-semibold">
+                      <div className="flex flex-col items-center space-y-1 w-full">
+                        <div className="flex items-center space-x-1">
                           <button
                             onClick={() => handleSort('sharpe')}
                             className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
                           >
                             <ArrowDown className={`h-4 w-4 ${sortKey === 'sharpe' ? 'text-primary' : 'opacity-40'}`} />
-                            <span>Sharpe</span>
+                            <span>Annualized Sharpe</span>
                           </button>
                         </div>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loading && leaderboard.length === 0 ? (
-                      Array.from({ length: 5 }).map((_, index) => (
-                        <tr key={index} className="border-t border-border/20">
-                          <td className="py-2 px-3 text-center">
-                            <div className="h-4 bg-gray-200 rounded animate-pulse w-8 mx-auto"></div>
-                          </td>
-                          <td className="py-2 px-4">
-                            <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
-                            <div className="h-3 bg-gray-200 rounded animate-pulse w-20 ml-2"></div>
-                          </td>
-                          <td className="py-4 px-4 text-center">
-                            <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
-                          </td>
-                          <td className="py-4 px-4 text-center">
-                            <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
-                          </td>
-                          <td className="py-4 px-4 text-center">
-                            <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      sortedLeaderboard.map((model, index) => (
-                        <tr key={model.model_id} className="border-t border-border/20 hover:bg-muted/20 transition-colors">
-                          <td className="py-2 px-3 text-center">
-                            <span className={index <= 2 ? "text-2xl" : "text-md font-medium text-muted-foreground"}>
-                              {index === 0 ? '🥇' :
-                                index === 1 ? '🥈' :
-                                  index === 2 ? '🥉' :
-                                    `#${index + 1}`}
-                            </span>
-                          </td>
-                          <td className="py-2 px-4">
-                            <div>
-                              <a
-                                href={`/models?selected=${encodeSlashes(model.model_id)}`}
-                                className="font-medium hover:text-primary transition-colors block"
-                              >
-                                {model.model_name}
-                              </a>
-                              <div className="ml-2 mt-1">
-                                <CompanyDisplay modelName={model.model_name} />
-                              </div>
+                        <select
+                          value={sharpeTimeHorizon}
+                          onChange={(e) => setSharpeTimeHorizon(e.target.value as 'one_day' | 'two_day' | 'seven_day')}
+                          className="text-xs border border-border rounded px-1 py-0.5 bg-background"
+                        >
+                          <option value="one_day">1 Day</option>
+                          <option value="two_day">2 Days</option>
+                          <option value="seven_day">7 Days</option>
+                        </select>
+                      </div>
+                    </th>
+                    <th className="hidden md:table-cell text-center py-3 px-2 text-sm font-medium">
+                      <span>Bets placed</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading && leaderboard.length === 0 ? (
+                    Array.from({ length: 5 }).map((_, index) => (
+                      <tr key={index} className="border-t border-border/20">
+                        <td className="py-2 px-3 text-center">
+                          <div className="h-4 bg-gray-200 rounded animate-pulse w-8 mx-auto"></div>
+                        </td>
+                        <td className="py-2 px-4">
+                          <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
+                          <div className="h-3 bg-gray-200 rounded animate-pulse w-20 ml-2"></div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="h-4 bg-gray-200 rounded animate-pulse w-16 mx-auto"></div>
+                        </td>
+                        <td className="hidden md:table-cell py-4 px-2 text-center">
+                          <div className="h-3 bg-gray-200 rounded animate-pulse w-8 mx-auto"></div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    sortedLeaderboard.map((model, index) => (
+                      <tr key={model.model_id} className="border-t border-border/20 hover:bg-muted/20 transition-colors">
+                        <td className="py-2 px-3 text-center">
+                          <span className={index <= 2 ? "text-2xl" : "text-md font-medium text-muted-foreground"}>
+                            {index === 0 ? '🥇' :
+                              index === 1 ? '🥈' :
+                                index === 2 ? '🥉' :
+                                  `#${index + 1}`}
+                          </span>
+                        </td>
+                        <td className="py-2 px-4">
+                          <div>
+                            <a
+                              href={`/models?selected=${encodeSlashes(model.model_id)}`}
+                              className="font-medium hover:text-primary transition-colors block"
+                            >
+                              {model.model_name}
+                            </a>
+                            <div className="ml-2 mt-1">
+                              <CompanyDisplay modelName={model.model_name} />
                             </div>
-                          </td>
-                          <td className="py-4 px-4 text-center font-medium">
-                            <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
-                              <ProfitDisplay
-                                value={getReturnForHorizon(model.average_returns, timeHorizon)}
-                                minValue={returnsRange.min}
-                                maxValue={returnsRange.max}
-                                formatValue={(v) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(2)}%`}
-                              />
-                            </a>
-                          </td>
-                          <td className="py-4 px-4 text-center font-medium">
-                            <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
-                              {model.final_brier_score.toFixed(3)}
-                            </a>
-                          </td>
-                          <td className="py-4 px-4 text-center font-medium">
-                            <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
-                              <ProfitDisplay
-                                value={getSharpeForHorizon(model.sharpe, timeHorizon)}
-                                minValue={sharpeRange.min}
-                                maxValue={sharpeRange.max}
-                                formatValue={(v) => `${v >= 0 ? '+' : ''}${v.toFixed(3)}`}
-                              />
-                            </a>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4 text-center font-medium">
+                          <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
+                            <ProfitDisplay
+                              value={getReturnForHorizon(model.average_returns, returnsTimeHorizon)}
+                              minValue={returnsRange.min}
+                              maxValue={returnsRange.max}
+                              formatValue={(v) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(2)}%`}
+                            />
+                          </a>
+                        </td>
+                        <td className="py-4 px-4 text-center font-medium">
+                          <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
+                            {model.final_brier_score.toFixed(3)}
+                          </a>
+                        </td>
+                        <td className="py-4 px-4 text-center font-medium">
+                          <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
+                            <span
+                              className={
+                                getSharpeSignificance(
+                                  getSharpeForHorizon(model.sharpe, sharpeTimeHorizon),
+                                  model.trades_count
+                                ) === 'significant'
+                                  ? 'text-green-600'
+                                  : 'text-gray-500'
+                              }
+                            >
+                              {`${getSharpeForHorizon(model.sharpe, sharpeTimeHorizon) >= 0 ? '+' : ''}${getSharpeForHorizon(model.sharpe, sharpeTimeHorizon).toFixed(3)}`}
+                            </span>
+                          </a>
+                        </td>
+                        <td className="hidden md:table-cell py-4 px-2 text-center text-sm text-muted-foreground">
+                          <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
+                            {model.trades_count}
+                          </a>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
-          {!leaderboardExpanded && sortedLeaderboard.length > initialVisibleModels && (
-            <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-background to-transparent flex items-end justify-center pb-2">
-              <button
-                onClick={() => setLeaderboardExpanded(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-background border border-border rounded-lg hover:bg-accent transition-colors text-sm"
-              >
-                <span>Show all</span>
-                <ChevronDown size={16} />
-              </button>
-            </div>
-          )}
         </div>
-
-        {/* Time Horizon Selector */}
-        {!loading && leaderboard.length > 0 && (
-          <div className="w-48 pt-8">
-            <div className="p-3 bg-card rounded-lg border border-border/30">
-              <div className="mb-2">
-                <span className="text-xs font-medium text-muted-foreground">Time Horizon:</span>
-              </div>
-              <select
-                value={timeHorizon}
-                onChange={(e) => setTimeHorizon(e.target.value as TimeHorizon)}
-                className="w-full text-xs border border-border rounded px-2 py-1 bg-background"
-              >
-                <option value="one_day">1 Day</option>
-                <option value="two_day">2 Days</option>
-                <option value="seven_day">7 Days</option>
-                <option value="all_time">All Time</option>
-              </select>
-            </div>
+        {!leaderboardExpanded && sortedLeaderboard.length > initialVisibleModels && (
+          <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-background to-transparent flex items-end justify-center pb-2">
+            <button
+              onClick={() => setLeaderboardExpanded(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-background border border-border rounded-lg hover:bg-accent transition-colors text-sm"
+            >
+              <span>Show all</span>
+              <ChevronDown size={16} />
+            </button>
           </div>
         )}
       </div>
