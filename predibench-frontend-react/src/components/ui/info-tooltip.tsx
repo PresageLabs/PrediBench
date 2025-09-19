@@ -78,6 +78,6 @@ export function BrierScoreInfoTooltip() {
 
 export function PnLTooltip() {
   return (
-    <InfoTooltip content="How much the total invested amount has grown. On every event, each model can allocate $1.0 between markets, and we measure how much comes out, then we sum this across predictions. So +20% means that in total, investments returned 120% of the amount invested." />
+    <InfoTooltip content="Daily returns over the lates prediction ; when we run a prediction, we allocate 1$ per event. This graphs track how well each investment did." />
   )
 }
