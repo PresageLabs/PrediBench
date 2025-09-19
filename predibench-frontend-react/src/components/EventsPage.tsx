@@ -1,5 +1,5 @@
-import { Search } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { Search, ChevronDown } from 'lucide-react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import type { Event, LeaderboardEntry, ModelInvestmentDecision } from '../api'
 import { apiService } from '../api'
 import { EventCard } from './EventCard'
@@ -18,6 +18,12 @@ export function EventsPage({ events, loading: initialLoading = false }: EventsPa
   const [orderBy, setOrderBy] = useState<'asc' | 'desc'>('desc')
   const [isLive, setIsLive] = useState(false)
   const [selectedTag, setSelectedTag] = useState<string>('')
+  const [tagDropdownOpen, setTagDropdownOpen] = useState(false)
+  const [sortDropdownOpen, setSortDropdownOpen] = useState(false)
+  const [orderDropdownOpen, setOrderDropdownOpen] = useState(false)
+  const tagDropdownRef = useRef<HTMLDivElement>(null)
+  const sortDropdownRef = useRef<HTMLDivElement>(null)
+  const orderDropdownRef = useRef<HTMLDivElement>(null)
 
   // Featured Events (latest ModelInvestmentDecisions batch)
   const [featuredEventIds, setFeaturedEventIds] = useState<string[]>([])
@@ -47,6 +53,25 @@ export function EventsPage({ events, loading: initialLoading = false }: EventsPa
     }
     loadFeatured()
     return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (tagDropdownRef.current && !tagDropdownRef.current.contains(event.target as Node)) {
+        setTagDropdownOpen(false)
+      }
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target as Node)) {
+        setSortDropdownOpen(false)
+      }
+      if (orderDropdownRef.current && !orderDropdownRef.current.contains(event.target as Node)) {
+        setOrderDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
   }, [])
 
   const featuredEvents = useMemo(() => {
@@ -159,48 +184,135 @@ export function EventsPage({ events, loading: initialLoading = false }: EventsPa
           {/* Tag Filter */}
           <div className="flex items-center space-x-2">
             <span className="text-sm font-medium">Tag:</span>
-            <select
-              value={selectedTag}
-              onChange={(e) => setSelectedTag(e.target.value)}
-              className="px-3 py-1 border border-border rounded bg-background text-sm"
-              disabled={topTags.length === 0}
-            >
-              <option value="">All tags</option>
-              {topTags.length === 0 ? (
-                <option disabled>No tags available</option>
-              ) : (
-                topTags.map(tag => (
-                  <option key={tag} value={tag}>{tag}</option>
-                ))
+            <div className="relative" ref={tagDropdownRef}>
+              <button
+                onClick={() => setTagDropdownOpen(!tagDropdownOpen)}
+                disabled={topTags.length === 0}
+                className="text-sm font-medium border border-border rounded-md px-3 py-1 bg-background text-foreground hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors cursor-pointer flex items-center gap-2 min-w-[100px] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span className="truncate">
+                  {selectedTag || 'All tags'}
+                </span>
+                <ChevronDown className={`h-3 w-3 transition-transform ${tagDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {tagDropdownOpen && (
+                <div className="absolute top-full left-0 mt-1 w-full bg-background border border-border rounded-md overflow-hidden z-50 min-w-[100px]">
+                  <button
+                    onClick={() => {
+                      setSelectedTag('')
+                      setTagDropdownOpen(false)
+                    }}
+                    className="w-full text-left text-sm font-medium px-3 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    All tags
+                  </button>
+                  {topTags.length === 0 ? (
+                    <div className="w-full text-left text-sm font-medium px-3 py-1 text-muted-foreground">
+                      No tags available
+                    </div>
+                  ) : (
+                    topTags.map(tag => (
+                      <button
+                        key={tag}
+                        onClick={() => {
+                          setSelectedTag(tag)
+                          setTagDropdownOpen(false)
+                        }}
+                        className="w-full text-left text-sm font-medium px-3 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
+                      >
+                        {tag}
+                      </button>
+                    ))
+                  )}
+                </div>
               )}
-            </select>
+            </div>
           </div>
 
           {/* Sort By */}
           <div className="flex items-center space-x-2">
             <span className="text-sm font-medium">Sort by:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as 'volume' | 'probability' | 'endDate')}
-              className="px-3 py-1 border border-border rounded bg-background text-sm"
-            >
-              <option value="volume">Volume</option>
-              <option value="probability">Probability</option>
-              <option value="endDate">End Date</option>
-            </select>
+            <div className="relative" ref={sortDropdownRef}>
+              <button
+                onClick={() => setSortDropdownOpen(!sortDropdownOpen)}
+                className="text-sm font-medium border border-border rounded-md px-3 py-1 bg-background text-foreground hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors cursor-pointer flex items-center gap-2 min-w-[100px]"
+              >
+                <span>
+                  {sortBy === 'volume' ? 'Volume' :
+                   sortBy === 'probability' ? 'Probability' : 'End Date'}
+                </span>
+                <ChevronDown className={`h-3 w-3 transition-transform ${sortDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {sortDropdownOpen && (
+                <div className="absolute top-full left-0 mt-1 w-full bg-background border border-border rounded-md overflow-hidden z-50">
+                  <button
+                    onClick={() => {
+                      setSortBy('volume')
+                      setSortDropdownOpen(false)
+                    }}
+                    className="w-full text-left text-sm font-medium px-3 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    Volume
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSortBy('probability')
+                      setSortDropdownOpen(false)
+                    }}
+                    className="w-full text-left text-sm font-medium px-3 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    Probability
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSortBy('endDate')
+                      setSortDropdownOpen(false)
+                    }}
+                    className="w-full text-left text-sm font-medium px-3 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    End Date
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Order */}
           <div className="flex items-center space-x-2">
             <span className="text-sm font-medium">Order:</span>
-            <select
-              value={orderBy}
-              onChange={(e) => setOrderBy(e.target.value as 'asc' | 'desc')}
-              className="px-3 py-1 border border-border rounded bg-background text-sm"
-            >
-              <option value="desc">High to Low</option>
-              <option value="asc">Low to High</option>
-            </select>
+            <div className="relative" ref={orderDropdownRef}>
+              <button
+                onClick={() => setOrderDropdownOpen(!orderDropdownOpen)}
+                className="text-sm font-medium border border-border rounded-md px-3 py-1 bg-background text-foreground hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors cursor-pointer flex items-center gap-2 min-w-[110px]"
+              >
+                <span>
+                  {orderBy === 'desc' ? 'High to Low' : 'Low to High'}
+                </span>
+                <ChevronDown className={`h-3 w-3 transition-transform ${orderDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {orderDropdownOpen && (
+                <div className="absolute top-full left-0 mt-1 w-full bg-background border border-border rounded-md overflow-hidden z-50">
+                  <button
+                    onClick={() => {
+                      setOrderBy('desc')
+                      setOrderDropdownOpen(false)
+                    }}
+                    className="w-full text-left text-sm font-medium px-3 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    High to Low
+                  </button>
+                  <button
+                    onClick={() => {
+                      setOrderBy('asc')
+                      setOrderDropdownOpen(false)
+                    }}
+                    className="w-full text-left text-sm font-medium px-3 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    Low to High
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Live/All Toggle */}

@@ -1,5 +1,5 @@
-import { Search } from 'lucide-react'
-import { useState } from 'react'
+import { Search, ChevronDown } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import type { Event } from '../api'
 import { EventCard } from './EventCard'
@@ -25,6 +25,31 @@ export function FeaturedEvents({
   const [orderBy, setOrderBy] = useState<'asc' | 'desc'>('desc')
   const [isLive, setIsLive] = useState(false)
   const [selectedTag, setSelectedTag] = useState<string>('')
+  const [tagDropdownOpen, setTagDropdownOpen] = useState(false)
+  const [sortDropdownOpen, setSortDropdownOpen] = useState(false)
+  const [orderDropdownOpen, setOrderDropdownOpen] = useState(false)
+  const tagDropdownRef = useRef<HTMLDivElement>(null)
+  const sortDropdownRef = useRef<HTMLDivElement>(null)
+  const orderDropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (tagDropdownRef.current && !tagDropdownRef.current.contains(event.target as Node)) {
+        setTagDropdownOpen(false)
+      }
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target as Node)) {
+        setSortDropdownOpen(false)
+      }
+      if (orderDropdownRef.current && !orderDropdownRef.current.contains(event.target as Node)) {
+        setOrderDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   // Get unique tags from all events
   const uniqueTags = Array.from(new Set(events.flatMap(event => event.tags || []))).sort()
