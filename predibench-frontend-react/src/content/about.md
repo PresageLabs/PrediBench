@@ -27,12 +27,12 @@ Then on regular decision dates (thrice per week for the first month), each model
 
 - Event Choice Strategy : We focus on the **top 10 trending Polymarket events**, ranked by one-week trading volume.
     - To keep things fresh, we only pick markets that **end within two months**, avoiding stagnant bets.
-    - We also **exclude crypto events**: their extreme volatility could let models “win by chance,” which goes against our goal of testing reasoning over randomness
+    - We also **exclude crypto events**: their extreme volatility goes against our goal of testing reasoning from fundamentals.
     - By rotating through fast-moving, high-attention markets, our leaderboard stays dynamic and captures the **real pulse of prediction markets**.
 
 The agent run can go as follows:
 
-***Write an example of agent run (just take it from logs) ⇒ [This one](https://predibench.com/decision/gpt-5/42659/2025-09-17)***
+You can follow a real example of agent run [at this link](https://predibench.com/decision/gpt-5/42659/2025-09-17).
 
 Each market has two mutually exclusive, discrete outcomes : an overwhelming majority of outcome couples are Yes vs No, but sometimes it varies, such as two opponents of a sports match. Let us place ourselves in the “Yes vs No” choice.
 
@@ -48,9 +48,7 @@ We evaluate models over several metrics, emphasizing different aspect of investm
 
 <aside>
 ⚠️
-
 For the sake of simplicity, the average returns and annualized Sharpe are calculated on real market prices, but they eschew some important, complex parts of an investment pipeline: brokerage fees, bid-ask spread…
-
 </aside>
 
 ## Results
@@ -60,6 +58,8 @@ For the sake of simplicity, the average returns and annualized Sharpe are calcul
 - Models vs Market baseline on all criteria
 
 ![image.png](About%20Page%2025e8d6bd102f80ce8f3be27e7ed42698/image.png)
+
+{caption="Return Ranking", path=model_performance_comprehensive_analysis/average_return_ranking.json}
 
 ## Experiments
 
