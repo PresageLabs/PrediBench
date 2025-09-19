@@ -57,9 +57,7 @@ For the sake of simplicity, the average returns and annualized Sharpe are calcul
 
 - Models vs Market baseline on all criteria
 
-![image.png](About%20Page%2025e8d6bd102f80ce8f3be27e7ed42698/image.png)
-
-{caption="Return Ranking", path=model_performance_comprehensive_analysis/average_return_ranking.json}
+{caption="Return Ranking", path=model_performance_comprehensive_analysis/average_return_ranking.json, second_path=model_performance_comprehensive_analysis/average_return_ranking.json}
 
 ## Experiments
 

@@ -24,7 +24,7 @@ export function MarkdownRenderer({ content, className }: Props) {
     | { type: 'ul'; items: string[] }
     | { type: 'ol'; items: string[] }
     | { type: 'code'; text: string }
-    | { type: 'plotly'; caption: string; path: string }
+    | { type: 'plotly'; caption: string; path: string; secondPath?: string }
 
   const blocks: Block[] = []
   let i = 0
@@ -87,7 +87,7 @@ export function MarkdownRenderer({ content, className }: Props) {
       continue
     }
 
-    // Custom Plotly embed: {caption="...", path=...}
+    // Custom Plotly embed: {caption="...", path=..., second_path=...}
     const embedMatch = line.trim().match(/^\{([^}]*)\}$/)
     if (embedMatch) {
       flushParagraph()
@@ -97,10 +97,13 @@ export function MarkdownRenderer({ content, className }: Props) {
       const capMatch = inner.match(/caption\s*=\s*"([^"]+)"/)
       // capture path=... (quoted or unquoted, until comma or end)
       const pathMatch = inner.match(/path\s*=\s*("([^"]+)"|[^,\s}]+)/)
+      // optional second_path=... (quoted or unquoted, until comma or end)
+      const secondPathMatch = inner.match(/second_path\s*=\s*("([^"]+)"|[^,\s}]+)/)
       const caption = capMatch?.[1]?.trim()
       const path = (pathMatch?.[2] || pathMatch?.[1])?.replace(/^"|"$/g, '').trim()
+      const secondPath = (secondPathMatch?.[2] || secondPathMatch?.[1])?.replace(/^"|"$/g, '').trim()
       if (caption && path) {
-        blocks.push({ type: 'plotly', caption, path })
+        blocks.push({ type: 'plotly', caption, path, secondPath })
         i++
         continue
       }
@@ -247,7 +250,7 @@ export function MarkdownRenderer({ content, className }: Props) {
             )
           case 'plotly':
             return (
-              <PlotlyCard key={idx} caption={b.caption} path={b.path} />
+              <PlotlyCard key={idx} caption={b.caption} path={b.path} secondPath={b.secondPath} />
             )
           default:
             return null

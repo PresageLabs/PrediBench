@@ -63,51 +63,155 @@ function decodeTypedArrays(obj: any): any {
   return obj
 }
 
-export function PlotlyCard({ caption, path }: { caption: string; path: string }) {
-  const containerRef = useRef<HTMLDivElement | null>(null)
+export function PlotlyCard({ caption, path, secondPath }: { caption: string; path: string; secondPath?: string }) {
+  const containerRef1 = useRef<HTMLDivElement | null>(null)
+  const containerRef2 = useRef<HTMLDivElement | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const { theme } = useTheme()
 
-  const url = useMemo(() => {
-    const clean = path.startsWith('/') ? path : `/${path}`
-    return clean
-  }, [path])
+  const url1 = useMemo(() => (path.startsWith('/') ? path : `/${path}`), [path])
+  const url2 = useMemo(() => (secondPath ? (secondPath.startsWith('/') ? secondPath : `/${secondPath}`) : undefined), [secondPath])
 
   const getCardBg = (): string => {
-    // Prefer reading from the card container to inherit CSS variables
-    const el = containerRef.current || document.documentElement
-    const styles = getComputedStyle(el)
-    // CSS variables store H S L (and optional / alpha). Build hsl(var)
+    // Read from root where CSS variables are set according to theme
+    const styles = getComputedStyle(document.documentElement)
     const card = styles.getPropertyValue('--card').trim()
     return card ? `hsl(${card})` : (theme === 'dark' ? '#000' : '#fff')
   }
 
+  // Simple foreground rule per request: white in dark mode, otherwise standard dark gray
+  const getSimpleFg = (): string => (theme === 'dark' ? '#ffffff' : '#111827')
+
   useEffect(() => {
     let cancelled = false
-    let plotted = false
+    let plotted1 = false
+    let plotted2 = false
+    let ro1: ResizeObserver | null = null
+    let ro2: ResizeObserver | null = null
 
     async function run() {
       setLoading(true)
       setError(null)
       try {
-        const res = await fetch(url)
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const raw = (await res.json()) as PlotlyFigure
-        const fig = decodeTypedArrays(raw)
-        if (!containerRef.current) return
+        const [res1, res2] = await Promise.all([
+          fetch(url1),
+          url2 ? fetch(url2) : Promise.resolve(undefined as unknown as Response),
+        ])
+        if (!res1.ok) throw new Error(`HTTP ${res1.status} on ${url1}`)
+        const raw1 = (await res1.json()) as PlotlyFigure
+        const fig1 = decodeTypedArrays(raw1)
+        const fig2 = res2 ? decodeTypedArrays(await res2.json()) as PlotlyFigure : undefined
+        if (!containerRef1.current) return
 
         const config = {
           responsive: true,
           displaylogo: false,
           modeBarButtonsToRemove: ['toImage'],
-          ...(fig.config || {}),
+          ...(fig1.config || {}),
         }
 
-        const themedLayout = { ...(fig.layout || {}), paper_bgcolor: getCardBg(), plot_bgcolor: getCardBg() }
-        await Plotly.newPlot(containerRef.current, fig.data, themedLayout, config)
+        const bg = getCardBg()
+        const fg = getSimpleFg()
+        const dims1 = (() => {
+          const el = containerRef1.current!
+          const w = Math.max(0, Math.round(el.getBoundingClientRect().width))
+          const h = Math.max(320, Math.round(w * 0.6))
+          return { w, h }
+        })()
+        const themedLayout1 = {
+          ...(fig1.layout || {}),
+          paper_bgcolor: bg,
+          plot_bgcolor: bg,
+          font: { ...((fig1.layout || {}).font || {}), color: fg },
+          width: dims1.w,
+          height: dims1.h,
+          title: (fig1.layout || {}).title ? { ...((fig1.layout || {}).title), font: { ...(((fig1.layout || {}).title || {}).font || {}), color: fg } } : (fig1.layout || {}).title,
+          legend: (fig1.layout || {}).legend ? { ...((fig1.layout || {}).legend), font: { ...(((fig1.layout || {}).legend || {}).font || {}), color: fg } } : (fig1.layout || {}).legend,
+          xaxis: {
+            ...((fig1.layout || {}).xaxis || {}),
+            linecolor: fg,
+            tickcolor: fg,
+            tickfont: { ...((((fig1.layout || {}).xaxis || {}).tickfont || {})), color: fg },
+            title: (((fig1.layout || {}).xaxis || {}).title)
+              ? { ...(((fig1.layout || {}).xaxis || {}).title), font: { ...(((((fig1.layout || {}).xaxis || {}).title || {}).font || {})), color: fg } }
+              : ((fig1.layout || {}).xaxis || {}).title,
+          },
+          yaxis: {
+            ...((fig1.layout || {}).yaxis || {}),
+            linecolor: fg,
+            tickcolor: fg,
+            tickfont: { ...((((fig1.layout || {}).yaxis || {}).tickfont || {})), color: fg },
+            title: (((fig1.layout || {}).yaxis || {}).title)
+              ? { ...(((fig1.layout || {}).yaxis || {}).title), font: { ...(((((fig1.layout || {}).yaxis || {}).title || {}).font || {})), color: fg } }
+              : ((fig1.layout || {}).yaxis || {}).title,
+          },
+        }
+        await Plotly.newPlot(containerRef1.current, fig1.data, themedLayout1, config)
+        plotted1 = true
+
+        if (containerRef2.current && fig2) {
+          const dims2 = (() => {
+            const el = containerRef2.current!
+            const w = Math.max(0, Math.round(el.getBoundingClientRect().width))
+            const h = Math.max(320, Math.round(w * 0.6))
+            return { w, h }
+          })()
+          const themedLayout2 = {
+            ...(fig2.layout || {}),
+            paper_bgcolor: bg,
+            plot_bgcolor: bg,
+            font: { ...((fig2.layout || {}).font || {}), color: fg },
+            width: dims2.w,
+            height: dims2.h,
+            title: (fig2.layout || {}).title ? { ...((fig2.layout || {}).title), font: { ...(((fig2.layout || {}).title || {}).font || {}), color: fg } } : (fig2.layout || {}).title,
+            legend: (fig2.layout || {}).legend ? { ...((fig2.layout || {}).legend), font: { ...(((fig2.layout || {}).legend || {}).font || {}), color: fg } } : (fig2.layout || {}).legend,
+            xaxis: {
+              ...((fig2.layout || {}).xaxis || {}),
+              linecolor: fg,
+              tickcolor: fg,
+              tickfont: { ...((((fig2.layout || {}).xaxis || {}).tickfont || {})), color: fg },
+              title: (((fig2.layout || {}).xaxis || {}).title)
+                ? { ...(((fig2.layout || {}).xaxis || {}).title), font: { ...(((((fig2.layout || {}).xaxis || {}).title || {}).font || {})), color: fg } }
+                : ((fig2.layout || {}).xaxis || {}).title,
+            },
+            yaxis: {
+              ...((fig2.layout || {}).yaxis || {}),
+              linecolor: fg,
+              tickcolor: fg,
+              tickfont: { ...((((fig2.layout || {}).yaxis || {}).tickfont || {})), color: fg },
+              title: (((fig2.layout || {}).yaxis || {}).title)
+                ? { ...(((fig2.layout || {}).yaxis || {}).title), font: { ...(((((fig2.layout || {}).yaxis || {}).title || {}).font || {})), color: fg } }
+                : ((fig2.layout || {}).yaxis || {}).title,
+            },
+          }
+          await Plotly.newPlot(containerRef2.current, fig2.data, themedLayout2, { ...config, ...(fig2.config || {}) })
+          plotted2 = true
+        }
         if (cancelled) return
-        plotted = true
+        // Setup resize observers to keep plots within card bounds
+        if (containerRef1.current) {
+          ro1 = new ResizeObserver(() => {
+            try {
+              const el = containerRef1.current!
+              const w = Math.max(0, Math.round(el.getBoundingClientRect().width))
+              const h = Math.max(320, Math.round(w * 0.6))
+              Plotly.relayout(el, { width: w, height: h })
+            } catch {}
+          })
+          ro1.observe(containerRef1.current)
+        }
+        if (containerRef2.current) {
+          ro2 = new ResizeObserver(() => {
+            try {
+              const el = containerRef2.current!
+              const w = Math.max(0, Math.round(el.getBoundingClientRect().width))
+              const h = Math.max(320, Math.round(w * 0.6))
+              Plotly.relayout(el, { width: w, height: h })
+            } catch {}
+          })
+          ro2.observe(containerRef2.current)
+        }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to render chart')
       } finally {
@@ -119,24 +223,65 @@ export function PlotlyCard({ caption, path }: { caption: string; path: string })
 
     return () => {
       cancelled = true
-      if (plotted && containerRef.current) {
-        try { Plotly.purge(containerRef.current) } catch { /* no-op */ }
+      try { ro1?.disconnect() } catch {}
+      try { ro2?.disconnect() } catch {}
+      if (plotted1 && containerRef1.current) {
+        try { Plotly.purge(containerRef1.current) } catch { /* no-op */ }
+      }
+      if (plotted2 && containerRef2.current) {
+        try { Plotly.purge(containerRef2.current) } catch { /* no-op */ }
       }
     }
-  }, [url])
+  }, [url1, url2])
 
-  // Update background dynamically without re-fetching data
+  // Update background and foreground dynamically without re-fetching data
   useEffect(() => {
-    if (!containerRef.current) return
-    const bg = getCardBg()
-    try {
-      Plotly.relayout(containerRef.current, {
-        paper_bgcolor: bg,
-        plot_bgcolor: bg,
-      })
-    } catch {
-      // ignore
+    // Defer to next frame so CSS variables have updated after theme class change
+    let raf = 0
+    const relayout = () => {
+      const bg = getCardBg()
+      const fg = getSimpleFg()
+      try {
+        if (containerRef1.current) {
+          Plotly.relayout(containerRef1.current, {
+            paper_bgcolor: bg,
+            plot_bgcolor: bg,
+            'font.color': fg,
+            'title.font.color': fg,
+            'legend.font.color': fg,
+            'xaxis.linecolor': fg,
+            'xaxis.tickcolor': fg,
+            'xaxis.tickfont.color': fg,
+            'xaxis.title.font.color': fg,
+            'yaxis.linecolor': fg,
+            'yaxis.tickcolor': fg,
+            'yaxis.tickfont.color': fg,
+            'yaxis.title.font.color': fg,
+          })
+        }
+        if (containerRef2.current) {
+          Plotly.relayout(containerRef2.current, {
+            paper_bgcolor: bg,
+            plot_bgcolor: bg,
+            'font.color': fg,
+            'title.font.color': fg,
+            'legend.font.color': fg,
+            'xaxis.linecolor': fg,
+            'xaxis.tickcolor': fg,
+            'xaxis.tickfont.color': fg,
+            'xaxis.title.font.color': fg,
+            'yaxis.linecolor': fg,
+            'yaxis.tickcolor': fg,
+            'yaxis.tickfont.color': fg,
+            'yaxis.title.font.color': fg,
+          })
+        }
+      } catch {
+        // ignore
+      }
     }
+    raf = window.requestAnimationFrame(relayout)
+    return () => window.cancelAnimationFrame(raf)
   }, [theme])
 
   return (
@@ -145,14 +290,14 @@ export function PlotlyCard({ caption, path }: { caption: string; path: string })
         <CardTitle>{caption}</CardTitle>
       </CardHeader>
       <CardContent>
-        {error ? (
-          <div className="text-red-500 text-sm">{error}</div>
+        {error && <div className="text-red-500 text-sm mb-2">{error}</div>}
+        {secondPath ? (
+          <div className="grid md:grid-cols-2 gap-6">
+            <div ref={containerRef1} className="w-full overflow-hidden" style={{ minHeight: 360 }} />
+            <div ref={containerRef2} className="w-full overflow-hidden" style={{ minHeight: 360 }} />
+          </div>
         ) : (
-          <div
-            ref={containerRef}
-            className="w-full"
-            style={{ minHeight: 360 }}
-          />
+          <div ref={containerRef1} className="w-full overflow-hidden" style={{ minHeight: 360 }} />
         )}
         {loading && !error && (
           <div className="text-sm text-muted-foreground mt-2">Loading chart…</div>
