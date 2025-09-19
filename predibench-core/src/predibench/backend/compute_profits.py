@@ -78,9 +78,7 @@ def compute_performance_per_decision(
                 # Fill missing values to allow robust slicing
                 market_prices = market_series_all.bfill().ffill().copy()
                 latest_price = float(market_prices.ffill().iloc[-1])
-                import math
-
-                if math.isnan(latest_price):
+                if np.isnan(latest_price):
                     continue
                 market_decision.brier_score_pair_current = (
                     latest_price,
@@ -95,8 +93,6 @@ def compute_performance_per_decision(
 
                 if market_decision.decision.bet < 0:
                     market_prices = 1 - market_prices
-
-                import numpy as np
 
                 market_prices = market_prices.bfill().ffill()
 
@@ -139,28 +135,13 @@ def compute_performance_per_decision(
 
                 # Gain, brier score, trade count
                 net_gains_end_value = net_gains_until_next_decision.iloc[-1]
-                assert not math.isnan(net_gains_end_value), (
+                assert not np.isnan(net_gains_end_value), (
                     f"net_gains_at_decision_end is NaN for market {market_decision.market_id}"
                 )
                 market_decision.net_gains_at_decision_end = net_gains_end_value
 
-                # Calculate returns and Sharpe ratios at different time horizons using full price series
-
-                def get_return_at_horizon(
-                    decision_date: date, horizon_days: int
-                ) -> float:
-                    """Get return at a specific time horizon (in days) using full price series"""
-                    target_date = decision_date + timedelta(days=horizon_days)
-
-                    # Get price at decision date
-                    if decision_date not in market_prices.index:
-                        return 0.0
-                    price_at_decision = market_prices.loc[decision_date]
-
-                    if float(price_at_decision) == 0 or np.isnan(price_at_decision):
-                        return 0.0
-
-                    # Find the price at target date or the closest date after
+                def get_price_at_horion(target_date: date) -> float:
+                    """Get price at a specific targt date or the latest available price"""
                     future_prices = market_prices.loc[
                         market_prices.index >= target_date
                     ]
@@ -169,17 +150,12 @@ def compute_performance_per_decision(
                         price_at_horizon = market_prices.iloc[-1]
                     else:
                         price_at_horizon = future_prices.iloc[0]
+                    return price_at_horizon
 
-                    # Calculate return
-                    return (price_at_horizon / float(price_at_decision) - 1) * abs(
+                def get_returns(price_at_decision, price_at_expiry) -> float:
+                    return (price_at_expiry / float(price_at_decision) - 1) * abs(
                         market_decision.decision.bet
                     )
-
-                def get_all_time_return(decision_date: date) -> float:
-                    """Get return from decision date to the last available price"""
-                    return (
-                        latest_price / max(0.0001, float(price_at_decision)) - 1
-                    ) * abs(market_decision.decision.bet)
 
                 market_decision.brier_score_pair_current = (
                     latest_price,
@@ -193,10 +169,19 @@ def compute_performance_per_decision(
 
                 # Store time horizon returns for this market decision
                 market_decision.returns = DecisionReturns(
-                    one_day_return=get_return_at_horizon(decision_date, 1),
-                    two_day_return=get_return_at_horizon(decision_date, 2),
-                    seven_day_return=get_return_at_horizon(decision_date, 7),
-                    all_time_return=get_all_time_return(decision_date),
+                    one_day_return=get_returns(
+                        price_at_decision,
+                        get_price_at_horion(decision_date + timedelta(days=1)),
+                    ),
+                    two_day_return=get_returns(
+                        price_at_decision,
+                        get_price_at_horion(decision_date + timedelta(days=2)),
+                    ),
+                    seven_day_return=get_returns(
+                        price_at_decision,
+                        get_price_at_horion(decision_date + timedelta(days=7)),
+                    ),
+                    all_time_return=get_returns(price_at_decision, latest_price),
                 )
 
                 if market_decision.decision.bet != 0:
@@ -236,49 +221,29 @@ def compute_performance_per_decision(
                 if market.returns is not None and market.decision.bet != 0
             ]
 
-            total_bet = sum(
-                abs(market_decision.decision.bet)
-                for market_decision in markets_with_returns
+            # Total bet is always 1 (including unallocated capital), so no need to normalize here
+            event_decision.returns = DecisionReturns(
+                one_day_return=sum(
+                    market_decision.returns.one_day_return
+                    for market_decision in markets_with_returns
+                    if market_decision.returns is not None
+                ),
+                two_day_return=sum(
+                    market_decision.returns.two_day_return
+                    for market_decision in markets_with_returns
+                    if market_decision.returns is not None
+                ),
+                seven_day_return=sum(
+                    market_decision.returns.seven_day_return
+                    for market_decision in markets_with_returns
+                    if market_decision.returns is not None
+                ),
+                all_time_return=sum(
+                    market_decision.returns.all_time_return
+                    for market_decision in markets_with_returns
+                    if market_decision.returns is not None
+                ),
             )
-
-            if total_bet > 0:
-                event_decision.returns = DecisionReturns(
-                    one_day_return=sum(
-                        market_decision.returns.one_day_return
-                        * abs(market_decision.decision.bet)
-                        for market_decision in markets_with_returns
-                        if market_decision.returns is not None
-                    )
-                    / total_bet,
-                    two_day_return=sum(
-                        market_decision.returns.two_day_return
-                        * abs(market_decision.decision.bet)
-                        for market_decision in markets_with_returns
-                        if market_decision.returns is not None
-                    )
-                    / total_bet,
-                    seven_day_return=sum(
-                        market_decision.returns.seven_day_return
-                        * abs(market_decision.decision.bet)
-                        for market_decision in markets_with_returns
-                        if market_decision.returns is not None
-                    )
-                    / total_bet,
-                    all_time_return=sum(
-                        market_decision.returns.all_time_return
-                        * abs(market_decision.decision.bet)
-                        for market_decision in markets_with_returns
-                        if market_decision.returns is not None
-                    )
-                    / total_bet,
-                )
-            else:
-                event_decision.returns = DecisionReturns(
-                    one_day_return=0.0,
-                    two_day_return=0.0,
-                    seven_day_return=0.0,
-                    all_time_return=0.0,
-                )
 
         # After processing all events for this decision, compute the aggregated
         # portfolio growth across all events (already divided by 10 per event).
@@ -368,32 +333,30 @@ def compute_performance_per_model(
         final_profit = compound_net_gains_series.iloc[-1]
 
         # Calculate average returns across all event decisions for this model
-        all_event_returns = []
+        all_event_returns: dict[str, list[float]] = {
+            key: []
+            for key in [
+                "one_day_return",
+                "two_day_return",
+                "seven_day_return",
+                "all_time_return",
+            ]
+        }
         for decision in decisions_for_model:
             for event_decision in decision.event_investment_decisions:
                 if event_decision.returns is not None:
-                    all_event_returns.append(event_decision.returns)
+                    for key in all_event_returns.keys():
+                        all_event_returns[key].append(
+                            getattr(event_decision.returns, key)
+                        )
 
-        if all_event_returns:
-            # Calculate equal-weighted average returns across all events
-            average_returns = DecisionReturns(
-                one_day_return=sum(r.one_day_return for r in all_event_returns)
-                / len(all_event_returns),
-                two_day_return=sum(r.two_day_return for r in all_event_returns)
-                / len(all_event_returns),
-                seven_day_return=sum(r.seven_day_return for r in all_event_returns)
-                / len(all_event_returns),
-                all_time_return=sum(r.all_time_return for r in all_event_returns)
-                / len(all_event_returns),
-            )
-        else:
-            # Default to zero returns if no data available
-            average_returns = DecisionReturns(
-                one_day_return=0.0,
-                two_day_return=0.0,
-                seven_day_return=0.0,
-                all_time_return=0.0,
-            )
+        # Calculate equal-weighted average returns across all events
+        average_returns = DecisionReturns(
+            one_day_return=float(np.mean(all_event_returns["one_day_return"])),
+            two_day_return=float(np.mean(all_event_returns["two_day_return"])),
+            seven_day_return=float(np.mean(all_event_returns["seven_day_return"])),
+            all_time_return=float(np.mean(all_event_returns["all_time_return"])),
+        )
 
         # Calculate Sharpe ratios using expectation and volatility of returns per model
         def calculate_sharpe_from_returns(returns_list: list[float]) -> float:
@@ -411,32 +374,22 @@ def compute_performance_per_model(
             # Sharpe ratio = mean return / volatility
             # No need for annualization since returns are already in the correct horizon units
             sharpe = mean_return / std_return
-
             return float(sharpe)
-
-        # Collect all returns for each time horizon across all market decisions for this model
-        one_day_returns = []
-        two_day_returns = []
-        seven_day_returns = []
-        all_time_returns = []
-
-        for decision in decisions_for_model:
-            for event_decision in decision.event_investment_decisions:
-                for market_decision in event_decision.market_investment_decisions:
-                    if market_decision.returns is not None:
-                        one_day_returns.append(market_decision.returns.one_day_return)
-                        two_day_returns.append(market_decision.returns.two_day_return)
-                        seven_day_returns.append(
-                            market_decision.returns.seven_day_return
-                        )
-                        all_time_returns.append(market_decision.returns.all_time_return)
 
         # Calculate Sharpe ratios using expectation and volatility of returns
         sharpe = DecisionSharpe(
-            one_day_sharpe=calculate_sharpe_from_returns(one_day_returns),
-            two_day_sharpe=calculate_sharpe_from_returns(two_day_returns),
-            seven_day_sharpe=calculate_sharpe_from_returns(seven_day_returns),
-            all_time_sharpe=calculate_sharpe_from_returns(all_time_returns),
+            one_day_sharpe=calculate_sharpe_from_returns(
+                all_event_returns["one_day_return"]
+            ),
+            two_day_sharpe=calculate_sharpe_from_returns(
+                all_event_returns["two_day_return"]
+            ),
+            seven_day_sharpe=calculate_sharpe_from_returns(
+                all_event_returns["seven_day_return"]
+            ),
+            all_time_sharpe=calculate_sharpe_from_returns(
+                all_event_returns["all_time_return"]
+            ),
         )
 
         model_performances[model_id] = ModelPerformanceBackend(
