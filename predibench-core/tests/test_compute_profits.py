@@ -420,6 +420,413 @@ def test_complex_sample_data():
     return enriched_decisions, model_performances
 
 
+def calculate_manual_expectations():
+    """
+    Calculate all expected values manually, independent of _compute_profits code.
+    This serves as ground truth to identify bugs in the actual implementation.
+    """
+    prices_df, model_decisions = create_complex_sample_data()
+
+    print("\n" + "="*80)
+    print("MANUAL CALCULATION OF EXPECTED VALUES")
+    print("="*80)
+
+    # Manual calculation structures
+    manual_results = {
+        'market_returns': {},  # individual market returns by decision/market
+        'event_returns': {},   # aggregated event returns by decision/event
+        'portfolio_pnl': [],   # day-by-day portfolio value
+        'brier_scores': [],    # all brier score calculations
+        'trade_count': 0,      # total trades executed
+        'expected_final_profit': 0,
+        'expected_avg_returns': {},
+        'expected_brier_score': 0,
+    }
+
+    print("\n--- STEP 1: INDIVIDUAL MARKET RETURN CALCULATIONS ---")
+
+    # Decision 1 (Day 1): Events 1, 2, 3
+    print("\n** DECISION 1 (2025-08-01) **")
+
+    # Event 1, Market 1: 0.2 (day 1) → 0.8 (day 9), bet = 0.3
+    market_1_start = 0.2  # day 1 price
+    market_1_end = 0.8    # final price day 9
+    bet_1_1 = 0.3
+    market_1_return = (market_1_end / market_1_start - 1) * bet_1_1
+    print(f"Event 1, Market 1: ({market_1_end}/{market_1_start} - 1) * {bet_1_1} = {market_1_return}")
+    manual_results['market_returns']['d1_e1_m1'] = market_1_return
+
+    # Event 1, Market 2: Not active on day 1, so no return
+    print("Event 1, Market 2: Not active on day 1, no return calculated")
+    manual_results['market_returns']['d1_e1_m2'] = 0.0  # No trade possible
+
+    # Event 2, Market 3: 0.5 (day 1) → 0.0 (day 15), bet = -0.4 (negative)
+    # For negative bets, prices are inverted: (1-price)
+    market_3_start = 0.5  # day 1 price
+    market_3_end = 0.0    # final price day 15
+    bet_2_3 = 0.4  # absolute value of bet
+    # Inverted prices: start = 1-0.5 = 0.5, end = 1-0.0 = 1.0
+    inverted_start = 1 - market_3_start  # 0.5
+    inverted_end = 1 - market_3_end      # 1.0
+    market_3_return = (inverted_end / inverted_start - 1) * bet_2_3
+    print(f"Event 2, Market 3 (negative): inverted ({inverted_end}/{inverted_start} - 1) * {bet_2_3} = {market_3_return}")
+    manual_results['market_returns']['d1_e2_m3'] = market_3_return
+
+    # Event 3, Market nonexistent: No price data, no return
+    print("Event 3, Market nonexistent: No price data, no return")
+    manual_results['market_returns']['d1_e3_nonexistent'] = 0.0
+
+    # Decision 2 (Day 3): Events 1, 2, 4
+    print("\n** DECISION 2 (2025-08-03) **")
+
+    # Event 1, Market 1: 0.4 (day 3) → 0.8 (day 9), bet = 0.4
+    market_1_start_d3 = 0.4
+    market_1_end_d3 = 0.8
+    bet_d2_1_1 = 0.4
+    market_1_return_d3 = (market_1_end_d3 / market_1_start_d3 - 1) * bet_d2_1_1
+    print(f"Event 1, Market 1: ({market_1_end_d3}/{market_1_start_d3} - 1) * {bet_d2_1_1} = {market_1_return_d3}")
+    manual_results['market_returns']['d3_e1_m1'] = market_1_return_d3
+
+    # Event 1, Market 3: 0.4 (day 3) → 0.0 (day 15), bet = 0.2
+    market_3_start_d3 = 0.4
+    market_3_end_d3 = 0.0
+    bet_d2_1_3 = 0.2
+    market_3_return_d3 = (market_3_end_d3 / market_3_start_d3 - 1) * bet_d2_1_3
+    print(f"Event 1, Market 3: ({market_3_end_d3}/{market_3_start_d3} - 1) * {bet_d2_1_3} = {market_3_return_d3}")
+    manual_results['market_returns']['d3_e1_m3'] = market_3_return_d3
+
+    # Event 2, Market 2: bet = 0.0, so no return
+    print("Event 2, Market 2: Zero bet, no return")
+    manual_results['market_returns']['d3_e2_m2'] = 0.0
+
+    # Event 4, Market 4: Not active on day 3, no return
+    print("Event 4, Market 4: Not active on day 3, no return")
+    manual_results['market_returns']['d3_e4_m4'] = 0.0
+
+    # Decision 3 (Day 7): Events 1, 2, 5, 6
+    print("\n** DECISION 3 (2025-08-07) **")
+
+    # Event 1, Market 1: 0.8 (day 7) → 0.8 (day 9), bet = 0.1
+    market_1_start_d7 = 0.8
+    market_1_end_d7 = 0.8
+    bet_d3_1_1 = 0.1
+    market_1_return_d7 = (market_1_end_d7 / market_1_start_d7 - 1) * bet_d3_1_1
+    print(f"Event 1, Market 1: ({market_1_end_d7}/{market_1_start_d7} - 1) * {bet_d3_1_1} = {market_1_return_d7}")
+    manual_results['market_returns']['d7_e1_m1'] = market_1_return_d7
+
+    # Event 2, Market 3: 0.2 (day 7) → 0.0 (day 15), bet = -0.3 (negative)
+    market_3_start_d7 = 0.2
+    market_3_end_d7 = 0.0
+    bet_d3_2_3 = 0.3
+    inverted_start_d7 = 1 - market_3_start_d7  # 0.8
+    inverted_end_d7 = 1 - market_3_end_d7      # 1.0
+    market_3_return_d7 = (inverted_end_d7 / inverted_start_d7 - 1) * bet_d3_2_3
+    print(f"Event 2, Market 3 (negative): inverted ({inverted_end_d7}/{inverted_start_d7} - 1) * {bet_d3_2_3} = {market_3_return_d7}")
+    manual_results['market_returns']['d7_e2_m3'] = market_3_return_d7
+
+    # Event 5, Market 5: Not active on day 7, no return
+    print("Event 5, Market 5: Not active on day 7, no return")
+    manual_results['market_returns']['d7_e5_m5'] = 0.0
+
+    # Event 6, Market 6: Not active on day 7, no return
+    print("Event 6, Market 6: Not active on day 7, no return")
+    manual_results['market_returns']['d7_e6_m6'] = 0.0
+
+    # Decision 4 (Day 9): Events 5, 6
+    print("\n** DECISION 4 (2025-08-09) **")
+
+    # Event 5, Market 5: 0.01 (day 9) → 0.64 (day 15), bet = 0.8
+    market_5_start_d9 = 0.01
+    market_5_end_d9 = 0.64
+    bet_d4_5_5 = 0.8
+    market_5_return_d9 = (market_5_end_d9 / market_5_start_d9 - 1) * bet_d4_5_5
+    print(f"Event 5, Market 5: ({market_5_end_d9}/{market_5_start_d9} - 1) * {bet_d4_5_5} = {market_5_return_d9}")
+    manual_results['market_returns']['d9_e5_m5'] = market_5_return_d9
+
+    # Event 6, Market 6: Not active on day 9, no return
+    print("Event 6, Market 6: Not active on day 9, no return")
+    manual_results['market_returns']['d9_e6_m6'] = 0.0
+
+    print("\n--- STEP 2: EVENT-LEVEL AGGREGATION ---")
+
+    # Aggregate market returns within each event (sum within event)
+    # Decision 1
+    event_1_d1_return = manual_results['market_returns']['d1_e1_m1'] + manual_results['market_returns']['d1_e1_m2']
+    event_2_d1_return = manual_results['market_returns']['d1_e2_m3']
+    event_3_d1_return = manual_results['market_returns']['d1_e3_nonexistent']
+
+    print(f"Decision 1 - Event 1 return: {manual_results['market_returns']['d1_e1_m1']} + {manual_results['market_returns']['d1_e1_m2']} = {event_1_d1_return}")
+    print(f"Decision 1 - Event 2 return: {event_2_d1_return}")
+    print(f"Decision 1 - Event 3 return: {event_3_d1_return}")
+
+    manual_results['event_returns']['d1_e1'] = event_1_d1_return
+    manual_results['event_returns']['d1_e2'] = event_2_d1_return
+    manual_results['event_returns']['d1_e3'] = event_3_d1_return
+
+    # Decision 2
+    event_1_d2_return = manual_results['market_returns']['d3_e1_m1'] + manual_results['market_returns']['d3_e1_m3']
+    event_2_d2_return = manual_results['market_returns']['d3_e2_m2']
+    event_4_d2_return = manual_results['market_returns']['d3_e4_m4']
+
+    print(f"Decision 2 - Event 1 return: {manual_results['market_returns']['d3_e1_m1']} + {manual_results['market_returns']['d3_e1_m3']} = {event_1_d2_return}")
+    print(f"Decision 2 - Event 2 return: {event_2_d2_return}")
+    print(f"Decision 2 - Event 4 return: {event_4_d2_return}")
+
+    manual_results['event_returns']['d2_e1'] = event_1_d2_return
+    manual_results['event_returns']['d2_e2'] = event_2_d2_return
+    manual_results['event_returns']['d2_e4'] = event_4_d2_return
+
+    # Decision 3
+    event_1_d3_return = manual_results['market_returns']['d7_e1_m1']
+    event_2_d3_return = manual_results['market_returns']['d7_e2_m3']
+    event_5_d3_return = manual_results['market_returns']['d7_e5_m5']
+    event_6_d3_return = manual_results['market_returns']['d7_e6_m6']
+
+    print(f"Decision 3 - Event 1 return: {event_1_d3_return}")
+    print(f"Decision 3 - Event 2 return: {event_2_d3_return}")
+    print(f"Decision 3 - Event 5 return: {event_5_d3_return}")
+    print(f"Decision 3 - Event 6 return: {event_6_d3_return}")
+
+    manual_results['event_returns']['d3_e1'] = event_1_d3_return
+    manual_results['event_returns']['d3_e2'] = event_2_d3_return
+    manual_results['event_returns']['d3_e5'] = event_5_d3_return
+    manual_results['event_returns']['d3_e6'] = event_6_d3_return
+
+    # Decision 4
+    event_5_d4_return = manual_results['market_returns']['d9_e5_m5']
+    event_6_d4_return = manual_results['market_returns']['d9_e6_m6']
+
+    print(f"Decision 4 - Event 5 return: {event_5_d4_return}")
+    print(f"Decision 4 - Event 6 return: {event_6_d4_return}")
+
+    manual_results['event_returns']['d4_e5'] = event_5_d4_return
+    manual_results['event_returns']['d4_e6'] = event_6_d4_return
+
+    print("\n--- STEP 3: PORTFOLIO PNL CALCULATION ---")
+
+    # Calculate portfolio value over time
+    # Start with 1.0, add returns as they realize
+    portfolio_history = [1.0]  # Day 0 (baseline)
+
+    # For simplicity, assume all returns realize at the end of their respective periods
+    # This is a simplified calculation - the actual code might use different timing
+
+    total_profit_from_all_events = sum(manual_results['event_returns'].values())
+    final_portfolio_value = 1.0 + total_profit_from_all_events
+
+    print(f"Sum of all event returns: {total_profit_from_all_events}")
+    print(f"Expected final portfolio value: 1.0 + {total_profit_from_all_events} = {final_portfolio_value}")
+    print(f"Expected final profit: {total_profit_from_all_events}")
+
+    manual_results['expected_final_profit'] = total_profit_from_all_events
+
+    print("\n--- STEP 4: BRIER SCORE CALCULATION ---")
+
+    # Calculate Brier scores for all predictions with outcomes
+    brier_calculations = []
+
+    # Decision 1
+    # Market 1: predicted 0.7, actual 0.8
+    brier_d1_m1 = (0.8 - 0.7) ** 2
+    brier_calculations.append(('d1_m1', 0.8, 0.7, brier_d1_m1))
+
+    # Market 3: predicted 0.3, actual 0.0
+    brier_d1_m3 = (0.0 - 0.3) ** 2
+    brier_calculations.append(('d1_m3', 0.0, 0.3, brier_d1_m3))
+
+    # Decision 2
+    # Market 1: predicted 0.8, actual 0.8
+    brier_d2_m1 = (0.8 - 0.8) ** 2
+    brier_calculations.append(('d2_m1', 0.8, 0.8, brier_d2_m1))
+
+    # Market 3: predicted 0.6, actual 0.0
+    brier_d2_m3 = (0.0 - 0.6) ** 2
+    brier_calculations.append(('d2_m3', 0.0, 0.6, brier_d2_m3))
+
+    # Decision 3
+    # Market 1: predicted 0.8, actual 0.8
+    brier_d3_m1 = (0.8 - 0.8) ** 2
+    brier_calculations.append(('d3_m1', 0.8, 0.8, brier_d3_m1))
+
+    # Market 3: predicted 0.7, actual 0.0
+    brier_d3_m3 = (0.0 - 0.7) ** 2
+    brier_calculations.append(('d3_m3', 0.0, 0.7, brier_d3_m3))
+
+    # Decision 4
+    # Market 5: predicted 0.95, actual 0.64
+    brier_d4_m5 = (0.64 - 0.95) ** 2
+    brier_calculations.append(('d4_m5', 0.64, 0.95, brier_d4_m5))
+
+    for name, actual, predicted, brier in brier_calculations:
+        print(f"{name}: ({actual} - {predicted})² = {brier}")
+
+    # Average Brier score
+    all_brier_scores = [b[3] for b in brier_calculations]
+    expected_brier = sum(all_brier_scores) / len(all_brier_scores)
+    print(f"Expected average Brier score: {sum(all_brier_scores)} / {len(all_brier_scores)} = {expected_brier}")
+
+    manual_results['expected_brier_score'] = expected_brier
+    manual_results['brier_scores'] = brier_calculations
+
+    print("\n--- STEP 5: TRADE COUNT ---")
+
+    # Count non-zero bets on markets that have price data
+    trades = 0
+    trade_details = []
+
+    # Decision 1
+    if manual_results['market_returns']['d1_e1_m1'] != 0:  # Market 1 has data
+        trades += 1
+        trade_details.append('d1_m1')
+    # Market 2 doesn't have data on day 1
+    if manual_results['market_returns']['d1_e2_m3'] != 0:  # Market 3 has data
+        trades += 1
+        trade_details.append('d1_m3')
+    # Nonexistent market doesn't count
+
+    # Decision 2
+    if manual_results['market_returns']['d3_e1_m1'] != 0:  # Market 1 has data
+        trades += 1
+        trade_details.append('d2_m1')
+    if manual_results['market_returns']['d3_e1_m3'] != 0:  # Market 3 has data
+        trades += 1
+        trade_details.append('d2_m3')
+    # Zero bet doesn't count
+    # Market 4 doesn't have data on day 3
+
+    # Decision 3
+    if manual_results['market_returns']['d7_e1_m1'] != 0:  # Market 1 has data
+        trades += 1
+        trade_details.append('d3_m1')
+    if manual_results['market_returns']['d7_e2_m3'] != 0:  # Market 3 has data
+        trades += 1
+        trade_details.append('d3_m3')
+    # Markets 5 and 6 don't have data on day 7
+
+    # Decision 4
+    if manual_results['market_returns']['d9_e5_m5'] != 0:  # Market 5 has data
+        trades += 1
+        trade_details.append('d4_m5')
+    # Market 6 doesn't have data on day 9
+
+    print(f"Expected trade count: {trades}")
+    print(f"Trade details: {trade_details}")
+
+    manual_results['trade_count'] = trades
+
+    print("\n--- STEP 6: AVERAGE RETURNS BY TIME HORIZON ---")
+
+    # For this simplified calculation, assume all returns are "all-time" returns
+    # In reality, the time horizon calculations would be more complex
+
+    all_event_returns = list(manual_results['event_returns'].values())
+    non_zero_returns = [r for r in all_event_returns if r != 0]
+
+    if non_zero_returns:
+        avg_return = sum(non_zero_returns) / len(non_zero_returns)
+    else:
+        avg_return = 0.0
+
+    print(f"Non-zero event returns: {non_zero_returns}")
+    print(f"Expected average return: {sum(non_zero_returns)} / {len(non_zero_returns)} = {avg_return}")
+
+    manual_results['expected_avg_returns'] = {
+        'all_time_return': avg_return,
+        # Other time horizons would require more detailed calculation
+    }
+
+    print("="*80)
+    return manual_results
+
+
+def test_manual_vs_actual_comparison():
+    """
+    Compare manually calculated expected values with actual _compute_profits output.
+    """
+    print("\n" + "="*80)
+    print("COMPARING MANUAL CALCULATIONS VS ACTUAL RESULTS")
+    print("="*80)
+
+    # Get manual expectations
+    manual_results = calculate_manual_expectations()
+
+    # Get actual results
+    prices_df, model_decisions = create_complex_sample_data()
+    enriched_decisions, model_performances = _compute_profits(
+        prices_df=prices_df,
+        model_decisions=model_decisions,
+        recompute_bets_with_kelly_criterion=False,
+    )
+
+    actual_performance = model_performances["complex_test_model"]
+
+    print("\n--- COMPARISON RESULTS ---")
+
+    # Final profit comparison
+    print(f"Final Profit:")
+    print(f"  Manual expectation: {manual_results['expected_final_profit']:.6f}")
+    print(f"  Actual result:      {actual_performance.final_profit:.6f}")
+    print(f"  Difference:         {abs(actual_performance.final_profit - manual_results['expected_final_profit']):.6f}")
+
+    # Trade count comparison
+    print(f"\nTrade Count:")
+    print(f"  Manual expectation: {manual_results['trade_count']}")
+    print(f"  Actual result:      {actual_performance.trades_count}")
+    print(f"  Match: {'✓' if manual_results['trade_count'] == actual_performance.trades_count else '✗'}")
+
+    # Brier score comparison
+    print(f"\nBrier Score:")
+    print(f"  Manual expectation: {manual_results['expected_brier_score']:.6f}")
+    print(f"  Actual result:      {actual_performance.final_brier_score:.6f}")
+    print(f"  Difference:         {abs(actual_performance.final_brier_score - manual_results['expected_brier_score']):.6f}")
+
+    # Average returns comparison (all-time)
+    if 'all_time_return' in manual_results['expected_avg_returns']:
+        print(f"\nAverage All-Time Return:")
+        print(f"  Manual expectation: {manual_results['expected_avg_returns']['all_time_return']:.6f}")
+        print(f"  Actual result:      {actual_performance.average_returns.all_time_return:.6f}")
+        print(f"  Difference:         {abs(actual_performance.average_returns.all_time_return - manual_results['expected_avg_returns']['all_time_return']):.6f}")
+
+    print("\n--- DETAILED MARKET RETURN ANALYSIS ---")
+
+    # Analyze individual market returns from enriched decisions
+    for i, decision in enumerate(enriched_decisions):
+        print(f"\nDecision {i+1} ({decision.target_date}):")
+        for event in decision.event_investment_decisions:
+            print(f"  Event {event.event_id}:")
+            for market in event.market_investment_decisions:
+                if market.returns:
+                    print(f"    Market {market.market_id}: all-time return = {market.returns.all_time_return:.6f}")
+                else:
+                    print(f"    Market {market.market_id}: no returns calculated")
+
+    print("\n--- SUMMARY ---")
+
+    # Define tolerance for numerical comparisons
+    tolerance = 1e-6
+
+    issues_found = []
+
+    if abs(actual_performance.final_profit - manual_results['expected_final_profit']) > tolerance:
+        issues_found.append("Final profit mismatch")
+
+    if actual_performance.trades_count != manual_results['trade_count']:
+        issues_found.append("Trade count mismatch")
+
+    if abs(actual_performance.final_brier_score - manual_results['expected_brier_score']) > tolerance:
+        issues_found.append("Brier score mismatch")
+
+    if issues_found:
+        print(f"🚨 ISSUES FOUND: {', '.join(issues_found)}")
+        print("The _compute_profits function has numerical errors that need investigation.")
+    else:
+        print("✅ All calculations match expected values within tolerance!")
+
+    print("="*80)
+
+    return manual_results, actual_performance, issues_found
+
+
 if __name__ == "__main__":
-    # Test the data creation function
-    test_complex_sample_data()
+    # Run comprehensive manual verification
+    test_manual_vs_actual_comparison()
