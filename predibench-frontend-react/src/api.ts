@@ -8,10 +8,9 @@ export interface DecisionReturns {
 }
 
 export interface DecisionSharpe {
-  one_day_sharpe: number
-  two_day_sharpe: number
-  seven_day_sharpe: number
-  all_time_sharpe: number
+  one_day_annualized_sharpe: number
+  two_day_annualized_sharpe: number
+  seven_day_annualized_sharpe: number
 }
 
 export interface LeaderboardEntry {

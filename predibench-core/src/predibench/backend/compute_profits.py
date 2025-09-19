@@ -382,18 +382,18 @@ def compute_performance_per_model(
 
         # Calculate Sharpe ratios using expectation and volatility of returns
         sharpe = DecisionSharpe(
-            one_day_sharpe=calculate_sharpe_from_returns(
+            one_day_annualized_sharpe=calculate_sharpe_from_returns(
                 all_event_returns["one_day_return"]
-            ),
-            two_day_sharpe=calculate_sharpe_from_returns(
+            )
+            * np.sqrt(252),
+            two_day_annualized_sharpe=calculate_sharpe_from_returns(
                 all_event_returns["two_day_return"]
-            ),
-            seven_day_sharpe=calculate_sharpe_from_returns(
+            )
+            * np.sqrt(156),
+            seven_day_annualized_sharpe=calculate_sharpe_from_returns(
                 all_event_returns["seven_day_return"]
-            ),
-            all_time_sharpe=calculate_sharpe_from_returns(
-                all_event_returns["all_time_return"]
-            ),
+            )
+            * np.sqrt(52),
         )
 
         model_performances[model_id] = ModelPerformanceBackend(
