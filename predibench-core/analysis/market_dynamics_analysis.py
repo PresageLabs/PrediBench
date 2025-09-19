@@ -292,18 +292,27 @@ def create_price_adjustment_visualization(price_volatility_df: pd.DataFrame) -> 
 
 
 def get_model_color(model_name: str, model_index: int) -> str:
-    """Get consistent color for model based on performance tier."""
-    if "Sonar Deep Research" in model_name:
-        return "#2E8B57"  # Dark green for best performer
+    """Get consistent color for model with high contrast for comparisons."""
+    # High contrast colors for key comparisons
+    if "GPT-5 Mini" in model_name:
+        return "#FF0000"  # Bright red for GPT-5 Mini
+    elif "GPT-5" in model_name:
+        return "#0000FF"  # Bright blue for GPT-5
+    elif "GPT-OSS 120B" in model_name:
+        return "#00FF00"  # Bright green for GPT-OSS 120B
+    elif "Sonar Deep Research" in model_name:
+        return "#800080"  # Purple for Sonar Deep Research
     elif any(name in model_name for name in ["Gemini 2.5 Flash"]):
-        return "#4169E1"  # Royal blue for top performers
-    elif any(name in model_name for name in ["GPT-OSS", "Qwen3 235B", "GPT-5", "GPT-4.1"]):
-        return "#FF6347"  # Tomato red for good performers
+        return "#FF8C00"  # Dark orange for Gemini Flash
+    elif any(name in model_name for name in ["GPT-4.1"]):
+        return "#FF1493"  # Deep pink for GPT-4.1
+    elif any(name in model_name for name in ["Qwen3 235B"]):
+        return "#32CD32"  # Lime green for Qwen3 235B
     elif any(name in model_name for name in ["Claude", "Grok", "DeepSeek", "Gemini 2.5 Pro"]):
-        return "#FF8C00"  # Dark orange for average performers
+        return "#FFA500"  # Orange for Claude/Grok/DeepSeek/Gemini Pro
     else:
-        # Use distinct colors for remaining models to avoid confusion
-        additional_colors = ["#9932CC", "#FF1493", "#00CED1", "#32CD32", "#FF4500"]
+        # High contrast colors for remaining models
+        additional_colors = ["#800000", "#008080", "#000080", "#808000", "#8B4513"]
         return additional_colors[model_index % len(additional_colors)]
 
 
@@ -958,6 +967,262 @@ def create_brier_vs_7day_returns_chart(bet_edge_df: pd.DataFrame, backend_data) 
     return fig
 
 
+def create_bet_amount_vs_confidence_chart_single_model(bet_edge_df: pd.DataFrame, model_name: str, edge_threshold: float = 0.05) -> go.Figure:
+    """Create scatter plot showing absolute bet amount vs confidence for a single model."""
+    fig = go.Figure()
+
+    if bet_edge_df.empty:
+        fig.add_annotation(text="No betting data found",
+                          xref="paper", yref="paper", x=0.5, y=0.5)
+        apply_template(fig, width=600, height=500)
+        return fig
+
+    # Filter by edge threshold and selected model
+    filtered_df = bet_edge_df[
+        (bet_edge_df["abs_edge"] > edge_threshold) &
+        (bet_edge_df["model_name"] == model_name)
+    ]
+
+    if filtered_df.empty:
+        fig.add_annotation(text=f"No data for {model_name} with |edge| > {edge_threshold}",
+                          xref="paper", yref="paper", x=0.5, y=0.5)
+        apply_template(fig, width=600, height=500)
+        return fig
+
+    color = get_model_color(model_name, 0)
+
+    fig.add_trace(
+        go.Scatter(
+            x=filtered_df["confidence"],
+            y=filtered_df["bet_amount"].abs(),
+            mode="markers",
+            name=f"{model_name} (n={len(filtered_df)})",
+            marker=dict(
+                color=color,
+                size=8,
+                opacity=0.7
+            ),
+            text=[f"Model: {model_name}<br>Confidence: {conf}<br>Bet: {bet:.3f}<br>Edge: {edge:.3f}"
+                  for conf, bet, edge in zip(
+                      filtered_df["confidence"],
+                      filtered_df["bet_amount"],
+                      filtered_df["edge"]
+                  )],
+            hovertemplate="%{text}<extra></extra>"
+        )
+    )
+
+    # Add reference lines and formatting
+    fig.update_layout(
+        xaxis_title="Confidence Level",
+        yaxis_title="Absolute Bet Amount",
+        showlegend=True
+    )
+
+    apply_template(fig, width=600, height=500)
+    return fig
+
+
+def create_probability_calibration_chart_single_model(bet_edge_df: pd.DataFrame, model_name: str) -> go.Figure:
+    """Create scatter plot comparing estimated probabilities vs market prices for a single model."""
+    fig = go.Figure()
+
+    if bet_edge_df.empty:
+        fig.add_annotation(text="No betting data found",
+                          xref="paper", yref="paper", x=0.5, y=0.5)
+        apply_template(fig, width=600, height=500)
+        return fig
+
+    # Filter by selected model
+    filtered_df = bet_edge_df[bet_edge_df["model_name"] == model_name]
+
+    if filtered_df.empty:
+        fig.add_annotation(text=f"No data for {model_name}",
+                          xref="paper", yref="paper", x=0.5, y=0.5)
+        apply_template(fig, width=600, height=500)
+        return fig
+
+    color = get_model_color(model_name, 0)
+
+    fig.add_trace(
+        go.Scatter(
+            x=filtered_df["market_price"],
+            y=filtered_df["estimated_prob"],
+            mode="markers",
+            name=f"{model_name} (n={len(filtered_df)})",
+            marker=dict(
+                color=color,
+                size=8,
+                opacity=0.7
+            ),
+            text=[f"Model: {model_name}<br>Market: {market:.3f}<br>Estimated: {est:.3f}<br>Edge: {edge:.3f}<br>Confidence: {conf}"
+                  for market, est, edge, conf in zip(
+                      filtered_df["market_price"],
+                      filtered_df["estimated_prob"],
+                      filtered_df["edge"],
+                      filtered_df["confidence"]
+                  )],
+            hovertemplate="%{text}<extra></extra>"
+        )
+    )
+
+    # Add perfect calibration line (diagonal)
+    fig.add_trace(
+        go.Scatter(
+            x=[0, 1],
+            y=[0, 1],
+            mode="lines",
+            name="Perfect Calibration",
+            line=dict(color="gray", dash="dash"),
+            showlegend=True
+        )
+    )
+
+    fig.update_layout(
+        xaxis_title="Market Price",
+        yaxis_title="Model Estimated Probability",
+        xaxis=dict(range=[0, 1]),
+        yaxis=dict(range=[0, 1]),
+        showlegend=True
+    )
+
+    apply_template(fig, width=600, height=500)
+    return fig
+
+
+def create_bet_amount_vs_confidence_chart_filtered(bet_edge_df: pd.DataFrame, models: List[str], edge_threshold: float = 0.05) -> go.Figure:
+    """Create scatter plot showing absolute bet amount vs confidence for specific models."""
+    fig = go.Figure()
+
+    if bet_edge_df.empty:
+        fig.add_annotation(text="No betting data found",
+                          xref="paper", yref="paper", x=0.5, y=0.5)
+        apply_template(fig, width=800, height=600)
+        return fig
+
+    # Filter by edge threshold and selected models
+    filtered_df = bet_edge_df[
+        (bet_edge_df["abs_edge"] > edge_threshold) &
+        (bet_edge_df["model_name"].isin(models))
+    ]
+
+    if filtered_df.empty:
+        fig.add_annotation(text=f"No data for selected models with |edge| > {edge_threshold}",
+                          xref="paper", yref="paper", x=0.5, y=0.5)
+        apply_template(fig, width=800, height=600)
+        return fig
+
+    for i, model_name in enumerate(models):
+        model_data = filtered_df[filtered_df["model_name"] == model_name]
+        if len(model_data) == 0:
+            continue
+
+        color = get_model_color(model_name, i)
+
+        fig.add_trace(
+            go.Scatter(
+                x=model_data["confidence"],
+                y=model_data["bet_amount"].abs(),
+                mode="markers",
+                name=f"{model_name} (n={len(model_data)})",
+                marker=dict(
+                    color=color,
+                    size=6,
+                    opacity=0.6
+                ),
+                text=[f"Model: {model_name}<br>Confidence: {conf}<br>Bet: {bet:.3f}<br>Edge: {edge:.3f}"
+                      for conf, bet, edge in zip(
+                          model_data["confidence"],
+                          model_data["bet_amount"],
+                          model_data["edge"]
+                      )],
+                hovertemplate="%{text}<extra></extra>"
+            )
+        )
+
+    # Add reference lines and formatting
+    fig.update_layout(
+        xaxis_title="Confidence Level",
+        yaxis_title="Absolute Bet Amount",
+        showlegend=True
+    )
+
+    apply_template(fig, width=800, height=600)
+    return fig
+
+
+def create_probability_calibration_chart_filtered(bet_edge_df: pd.DataFrame, models: List[str]) -> go.Figure:
+    """Create scatter plot comparing estimated probabilities vs market prices for specific models."""
+    fig = go.Figure()
+
+    if bet_edge_df.empty:
+        fig.add_annotation(text="No betting data found",
+                          xref="paper", yref="paper", x=0.5, y=0.5)
+        apply_template(fig, width=800, height=600)
+        return fig
+
+    # Filter by selected models
+    filtered_df = bet_edge_df[bet_edge_df["model_name"].isin(models)]
+
+    if filtered_df.empty:
+        fig.add_annotation(text="No data for selected models",
+                          xref="paper", yref="paper", x=0.5, y=0.5)
+        apply_template(fig, width=800, height=600)
+        return fig
+
+    for i, model_name in enumerate(models):
+        model_data = filtered_df[filtered_df["model_name"] == model_name]
+        if len(model_data) == 0:
+            continue
+
+        color = get_model_color(model_name, i)
+
+        fig.add_trace(
+            go.Scatter(
+                x=model_data["market_price"],
+                y=model_data["estimated_prob"],
+                mode="markers",
+                name=f"{model_name} (n={len(model_data)})",
+                marker=dict(
+                    color=color,
+                    size=6,
+                    opacity=0.7
+                ),
+                text=[f"Model: {model_name}<br>Market: {market:.3f}<br>Estimated: {est:.3f}<br>Edge: {edge:.3f}<br>Confidence: {conf}"
+                      for market, est, edge, conf in zip(
+                          model_data["market_price"],
+                          model_data["estimated_prob"],
+                          model_data["edge"],
+                          model_data["confidence"]
+                      )],
+                hovertemplate="%{text}<extra></extra>"
+            )
+        )
+
+    # Add perfect calibration line (diagonal)
+    fig.add_trace(
+        go.Scatter(
+            x=[0, 1],
+            y=[0, 1],
+            mode="lines",
+            name="Perfect Calibration",
+            line=dict(color="gray", dash="dash"),
+            showlegend=True
+        )
+    )
+
+    fig.update_layout(
+        xaxis_title="Market Price",
+        yaxis_title="Model Estimated Probability",
+        xaxis=dict(range=[0, 1]),
+        yaxis=dict(range=[0, 1]),
+        showlegend=True
+    )
+
+    apply_template(fig, width=800, height=600)
+    return fig
+
+
 def create_bet_amount_vs_confidence_chart(bet_edge_df: pd.DataFrame, edge_threshold: float = 0.05) -> go.Figure:
     """Create scatter plot showing absolute bet amount vs confidence by model, filtered by edge threshold."""
     fig = go.Figure()
@@ -1480,6 +1745,32 @@ def main():
         with open(frontend_json_dir / "decision_correlation_matrix.json", "w") as f:
             f.write(fig_correlation_matrix.to_json())
         print("Saved decision_correlation_matrix.html and .json (local + frontend)")
+
+        # 10. Individual Bet Amount vs Confidence Charts for Side-by-Side Display
+        # GPT-5 chart
+        fig_bet_confidence_gpt5 = create_bet_amount_vs_confidence_chart_single_model(bet_edge_df, "GPT-5", edge_threshold)
+        with open(frontend_json_dir / "bet_amount_vs_confidence_gpt5.json", "w") as f:
+            f.write(fig_bet_confidence_gpt5.to_json())
+        print("Saved bet_amount_vs_confidence_gpt5.json (frontend)")
+
+        # GPT-5 Mini chart
+        fig_bet_confidence_gpt5_mini = create_bet_amount_vs_confidence_chart_single_model(bet_edge_df, "GPT-5 Mini", edge_threshold)
+        with open(frontend_json_dir / "bet_amount_vs_confidence_gpt5_mini.json", "w") as f:
+            f.write(fig_bet_confidence_gpt5_mini.to_json())
+        print("Saved bet_amount_vs_confidence_gpt5_mini.json (frontend)")
+
+        # 11. Individual Probability Calibration Charts for Side-by-Side Display
+        # GPT-5 chart
+        fig_prob_cal_gpt5 = create_probability_calibration_chart_single_model(bet_edge_df, "GPT-5")
+        with open(frontend_json_dir / "probability_calibration_gpt5.json", "w") as f:
+            f.write(fig_prob_cal_gpt5.to_json())
+        print("Saved probability_calibration_gpt5.json (frontend)")
+
+        # GPT-OSS 120B chart
+        fig_prob_cal_gpt_oss = create_probability_calibration_chart_single_model(bet_edge_df, "GPT-OSS 120B")
+        with open(frontend_json_dir / "probability_calibration_gpt_oss_120b.json", "w") as f:
+            f.write(fig_prob_cal_gpt_oss.to_json())
+        print("Saved probability_calibration_gpt_oss_120b.json (frontend)")
 
         # Print summary statistics
         overall_consistency = bet_edge_df["consistent"].mean()

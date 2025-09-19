@@ -13,6 +13,10 @@ export function AboutPage() {
   const [consistencyRates, setConsistencyRates] = useState<PlotlyFigure | null>(null)
   const [calibrationTrends, setCalibrationTrends] = useState<PlotlyFigure | null>(null)
   const [correlationMatrix, setCorrelationMatrix] = useState<PlotlyFigure | null>(null)
+  const [betAmountGpt5, setBetAmountGpt5] = useState<PlotlyFigure | null>(null)
+  const [betAmountGpt5Mini, setBetAmountGpt5Mini] = useState<PlotlyFigure | null>(null)
+  const [probabilityGpt5, setProbabilityGpt5] = useState<PlotlyFigure | null>(null)
+  const [probabilityGptOss120b, setProbabilityGptOss120b] = useState<PlotlyFigure | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -27,28 +31,59 @@ export function AboutPage() {
     }
   }
 
+
   useEffect(() => {
     const loadFigures = async () => {
       try {
-        const [consistencyRes, calibrationRes, correlationRes] = await Promise.all([
+        const [
+          consistencyRes,
+          calibrationRes,
+          correlationRes,
+          betAmountGpt5Res,
+          betAmountGpt5MiniRes,
+          probGpt5Res,
+          probGptOss120bRes
+        ] = await Promise.all([
           fetch('/market_dynamics/consistency_rates.json'),
           fetch('/market_dynamics/calibration_trends.json'),
-          fetch('/market_dynamics/decision_correlation_matrix.json')
+          fetch('/market_dynamics/decision_correlation_matrix.json'),
+          fetch('/market_dynamics/bet_amount_vs_confidence_gpt5.json'),
+          fetch('/market_dynamics/bet_amount_vs_confidence_gpt5_mini.json'),
+          fetch('/market_dynamics/probability_calibration_gpt5.json'),
+          fetch('/market_dynamics/probability_calibration_gpt_oss_120b.json')
         ])
 
-        if (!consistencyRes.ok || !calibrationRes.ok || !correlationRes.ok) {
+        if (!consistencyRes.ok || !calibrationRes.ok || !correlationRes.ok ||
+            !betAmountGpt5Res.ok || !betAmountGpt5MiniRes.ok ||
+            !probGpt5Res.ok || !probGptOss120bRes.ok) {
           throw new Error('Failed to load analytics data')
         }
 
-        const [consistency, calibration, correlation] = await Promise.all([
+        const [
+          consistency,
+          calibration,
+          correlation,
+          betAmountGpt5,
+          betAmountGpt5Mini,
+          probGpt5,
+          probGptOss120b
+        ] = await Promise.all([
           consistencyRes.json(),
           calibrationRes.json(),
-          correlationRes.json()
+          correlationRes.json(),
+          betAmountGpt5Res.json(),
+          betAmountGpt5MiniRes.json(),
+          probGpt5Res.json(),
+          probGptOss120bRes.json()
         ])
 
         setConsistencyRates(consistency)
         setCalibrationTrends(calibration)
         setCorrelationMatrix(correlation)
+        setBetAmountGpt5(betAmountGpt5)
+        setBetAmountGpt5Mini(betAmountGpt5Mini)
+        setProbabilityGpt5(probGpt5)
+        setProbabilityGptOss120b(probGptOss120b)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load analytics')
       } finally {
@@ -282,6 +317,234 @@ export function AboutPage() {
                 config={{ responsive: true, displayModeBar: false }}
                 style={{ width: '100%', height: '600px' }}
               />
+            </div>
+          </div>
+        )}
+
+        {/* Bet Amount vs Confidence - GPT-5 vs GPT-5 Mini Side by Side */}
+        {betAmountGpt5 && betAmountGpt5Mini && (
+          <div className="mb-12 p-6 rounded-lg bg-card border">
+            <h3 className="text-xl font-semibold mb-4">Bet Amount vs Confidence: GPT-5 vs GPT-5 Mini</h3>
+            <p className="text-muted-foreground mb-6">
+              This comparison shows how GPT-5 and GPT-5 Mini correlate their bet amounts with confidence levels.
+              Higher correlation indicates better calibration between internal confidence and betting behavior.
+            </p>
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* GPT-5 Chart */}
+              <div className="w-full overflow-x-auto">
+                <h4 className="text-lg font-medium mb-3 text-center">GPT-5</h4>
+                <Plot
+                  data={betAmountGpt5.data}
+                  layout={{
+                    ...betAmountGpt5.layout,
+                    paper_bgcolor: getChartTheme().bgcolor,
+                    plot_bgcolor: getChartTheme().bgcolor,
+                    font: { color: getChartTheme().textColor },
+                    title: {
+                      text: '',
+                      font: { color: getChartTheme().textColor }
+                    },
+                    legend: {
+                      orientation: 'h',
+                      x: 0.5,
+                      xanchor: 'center',
+                      y: 1.02,
+                      yanchor: 'bottom'
+                    },
+                    width: 600,
+                    height: 500,
+                    xaxis: {
+                      ...betAmountGpt5.layout.xaxis,
+                      gridcolor: getChartTheme().gridColor,
+                      linecolor: getChartTheme().lineColor,
+                      tickcolor: getChartTheme().lineColor,
+                      tickfont: { color: getChartTheme().textColor },
+                      title: {
+                        ...betAmountGpt5.layout.xaxis?.title,
+                        font: { color: getChartTheme().textColor }
+                      }
+                    },
+                    yaxis: {
+                      ...betAmountGpt5.layout.yaxis,
+                      gridcolor: getChartTheme().gridColor,
+                      linecolor: getChartTheme().lineColor,
+                      tickcolor: getChartTheme().lineColor,
+                      tickfont: { color: getChartTheme().textColor },
+                      title: {
+                        ...betAmountGpt5.layout.yaxis?.title,
+                        font: { color: getChartTheme().textColor }
+                      }
+                    }
+                  }}
+                  config={{ responsive: true, displayModeBar: false }}
+                  style={{ width: '100%', height: '500px' }}
+                />
+              </div>
+
+              {/* GPT-5 Mini Chart */}
+              <div className="w-full overflow-x-auto">
+                <h4 className="text-lg font-medium mb-3 text-center">GPT-5 Mini</h4>
+                <Plot
+                  data={betAmountGpt5Mini.data}
+                  layout={{
+                    ...betAmountGpt5Mini.layout,
+                    paper_bgcolor: getChartTheme().bgcolor,
+                    plot_bgcolor: getChartTheme().bgcolor,
+                    font: { color: getChartTheme().textColor },
+                    title: {
+                      text: '',
+                      font: { color: getChartTheme().textColor }
+                    },
+                    legend: {
+                      orientation: 'h',
+                      x: 0.5,
+                      xanchor: 'center',
+                      y: 1.02,
+                      yanchor: 'bottom'
+                    },
+                    width: 600,
+                    height: 500,
+                    xaxis: {
+                      ...betAmountGpt5Mini.layout.xaxis,
+                      gridcolor: getChartTheme().gridColor,
+                      linecolor: getChartTheme().lineColor,
+                      tickcolor: getChartTheme().lineColor,
+                      tickfont: { color: getChartTheme().textColor },
+                      title: {
+                        ...betAmountGpt5Mini.layout.xaxis?.title,
+                        font: { color: getChartTheme().textColor }
+                      }
+                    },
+                    yaxis: {
+                      ...betAmountGpt5Mini.layout.yaxis,
+                      gridcolor: getChartTheme().gridColor,
+                      linecolor: getChartTheme().lineColor,
+                      tickcolor: getChartTheme().lineColor,
+                      tickfont: { color: getChartTheme().textColor },
+                      title: {
+                        ...betAmountGpt5Mini.layout.yaxis?.title,
+                        font: { color: getChartTheme().textColor }
+                      }
+                    }
+                  }}
+                  config={{ responsive: true, displayModeBar: false }}
+                  style={{ width: '100%', height: '500px' }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Probability Calibration - GPT-5 vs GPT-OSS 120B Side by Side */}
+        {probabilityGpt5 && probabilityGptOss120b && (
+          <div className="mb-12 p-6 rounded-lg bg-card border">
+            <h3 className="text-xl font-semibold mb-4">Model Probability Estimates vs Market Prices: GPT-5 vs GPT-OSS 120B</h3>
+            <p className="text-muted-foreground mb-6">
+              This comparison shows how well GPT-5 and GPT-OSS 120B calibrate their probability estimates
+              against actual market prices. Points closer to the diagonal line indicate better calibration.
+            </p>
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* GPT-5 Chart */}
+              <div className="w-full overflow-x-auto">
+                <h4 className="text-lg font-medium mb-3 text-center">GPT-5</h4>
+                <Plot
+                  data={probabilityGpt5.data}
+                  layout={{
+                    ...probabilityGpt5.layout,
+                    paper_bgcolor: getChartTheme().bgcolor,
+                    plot_bgcolor: getChartTheme().bgcolor,
+                    font: { color: getChartTheme().textColor },
+                    title: {
+                      text: '',
+                      font: { color: getChartTheme().textColor }
+                    },
+                    legend: {
+                      orientation: 'h',
+                      x: 0.5,
+                      xanchor: 'center',
+                      y: 1.02,
+                      yanchor: 'bottom'
+                    },
+                    width: 600,
+                    height: 500,
+                    xaxis: {
+                      ...probabilityGpt5.layout.xaxis,
+                      gridcolor: getChartTheme().gridColor,
+                      linecolor: getChartTheme().lineColor,
+                      tickcolor: getChartTheme().lineColor,
+                      tickfont: { color: getChartTheme().textColor },
+                      title: {
+                        ...probabilityGpt5.layout.xaxis?.title,
+                        font: { color: getChartTheme().textColor }
+                      }
+                    },
+                    yaxis: {
+                      ...probabilityGpt5.layout.yaxis,
+                      gridcolor: getChartTheme().gridColor,
+                      linecolor: getChartTheme().lineColor,
+                      tickcolor: getChartTheme().lineColor,
+                      tickfont: { color: getChartTheme().textColor },
+                      title: {
+                        ...probabilityGpt5.layout.yaxis?.title,
+                        font: { color: getChartTheme().textColor }
+                      }
+                    }
+                  }}
+                  config={{ responsive: true, displayModeBar: false }}
+                  style={{ width: '100%', height: '500px' }}
+                />
+              </div>
+
+              {/* GPT-OSS 120B Chart */}
+              <div className="w-full overflow-x-auto">
+                <h4 className="text-lg font-medium mb-3 text-center">GPT-OSS 120B</h4>
+                <Plot
+                  data={probabilityGptOss120b.data}
+                  layout={{
+                    ...probabilityGptOss120b.layout,
+                    paper_bgcolor: getChartTheme().bgcolor,
+                    plot_bgcolor: getChartTheme().bgcolor,
+                    font: { color: getChartTheme().textColor },
+                    title: {
+                      text: '',
+                      font: { color: getChartTheme().textColor }
+                    },
+                    legend: {
+                      orientation: 'h',
+                      x: 0.5,
+                      xanchor: 'center',
+                      y: 1.02,
+                      yanchor: 'bottom'
+                    },
+                    width: 600,
+                    height: 500,
+                    xaxis: {
+                      ...probabilityGptOss120b.layout.xaxis,
+                      gridcolor: getChartTheme().gridColor,
+                      linecolor: getChartTheme().lineColor,
+                      tickcolor: getChartTheme().lineColor,
+                      tickfont: { color: getChartTheme().textColor },
+                      title: {
+                        ...probabilityGptOss120b.layout.xaxis?.title,
+                        font: { color: getChartTheme().textColor }
+                      }
+                    },
+                    yaxis: {
+                      ...probabilityGptOss120b.layout.yaxis,
+                      gridcolor: getChartTheme().gridColor,
+                      linecolor: getChartTheme().lineColor,
+                      tickcolor: getChartTheme().lineColor,
+                      tickfont: { color: getChartTheme().textColor },
+                      title: {
+                        ...probabilityGptOss120b.layout.yaxis?.title,
+                        font: { color: getChartTheme().textColor }
+                      }
+                    }
+                  }}
+                  config={{ responsive: true, displayModeBar: false }}
+                  style={{ width: '100%', height: '500px' }}
+                />
+              </div>
             </div>
           </div>
         )}
