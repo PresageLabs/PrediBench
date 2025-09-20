@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: cd predibench-frontend-react && npm ci && npm run build && cp -r dist/* public/
+      - run: cd predibench-frontend-react && npm ci && npm run build
         env:
           VITE_API_BASE_URL: /api
       - uses: FirebaseExtended/action-hosting-deploy@v0
