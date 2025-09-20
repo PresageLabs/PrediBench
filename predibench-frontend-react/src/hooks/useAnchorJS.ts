@@ -13,8 +13,7 @@ export function useAnchorJS(deps: unknown[] = []) {
         anchors.options = {
           placement: 'right',
           visible: 'hover',
-          // No icon at all
-          icon: '',
+          icon: '#',
         }
         // Remove previous to avoid duplicates, then add
         anchors.remove('h1, h2, h3')

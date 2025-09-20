@@ -465,8 +465,7 @@ def main():
 
     # Create output directory for this study in parent /analyses folder
     study_name = "sources_vs_performance_analysis"
-    repo_root = Path(__file__).resolve().parents[3]
-    output_dir = repo_root / "predibench-frontend-react/public" / study_name
+    output_dir = Path("./analyses") / study_name
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"\nCreating visualizations in {output_dir}...")
@@ -475,31 +474,31 @@ def main():
     print("Creating sources vs Brier score plot...")
     fig1 = create_sources_vs_brier_scatter(df_filtered)
     apply_template(fig1)
-    fig1.write_json(output_dir / "sources_vs_brier_score.json")
+    fig1.write_html(output_dir / "sources_vs_brier_score.html")
 
     # 2. Sources vs Returns
     print("Creating sources vs returns plot...")
     fig2 = create_sources_vs_returns_scatter(df_filtered)
     apply_template(fig2)
-    fig2.write_json(output_dir / "sources_vs_returns.json")
+    fig2.write_html(output_dir / "sources_vs_returns.html")
 
     # 3. Webpage Sources vs Returns
     print("Creating webpage sources vs returns plot...")
     fig3 = create_webpage_sources_vs_returns_scatter(df_filtered)
     apply_template(fig3)
-    fig3.write_json(output_dir / "webpage_sources_vs_returns.json")
+    fig3.write_html(output_dir / "webpage_sources_vs_returns.html")
 
     # 4. Sources breakdown
     print("Creating sources breakdown plot...")
     fig4 = create_sources_breakdown_scatter(df_filtered)
     apply_template(fig4)
-    fig4.write_json(output_dir / "google_vs_webpage_sources.json")
+    fig4.write_html(output_dir / "google_vs_webpage_sources.html")
 
     # 5. Correlation summary table
     print("Creating correlation summary table...")
     fig5 = create_correlation_summary_table(correlations)
     apply_template(fig5)
-    fig5.write_json(output_dir / "correlation_summary.json")
+    fig5.write_html(output_dir / "correlation_summary.html")
 
     print(f"\nAnalysis complete! Files saved to {output_dir}")
     print("Generated files:")

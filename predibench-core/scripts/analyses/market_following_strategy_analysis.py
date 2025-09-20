@@ -235,11 +235,11 @@ def main():
                         "ret_2d": m.returns.two_day_return,
                         "ret_7d": m.returns.seven_day_return,
                         "ret_all": m.returns.all_time_return,
-                        # Brier (guard missing attribute)
-                        "brier_1d": getattr(getattr(m, "brier", None), "one_day_brier", np.nan),
-                        "brier_2d": getattr(getattr(m, "brier", None), "two_day_brier", np.nan),
-                        "brier_7d": getattr(getattr(m, "brier", None), "seven_day_brier", np.nan),
-                        "brier_all": getattr(getattr(m, "brier", None), "all_time_brier", np.nan),
+                        # Brier
+                        "brier_1d": m.brier.one_day_brier if m.brier else np.nan,
+                        "brier_2d": m.brier.two_day_brier if m.brier else np.nan,
+                        "brier_7d": m.brier.seven_day_brier if m.brier else np.nan,
+                        "brier_all": m.brier.all_time_brier if m.brier else np.nan,
                     }
                 )
 
@@ -288,8 +288,7 @@ def main():
     logger.info(f"Baseline aggregate: {agg}")
 
     # Build one composite figure with subplots
-    repo_root = Path(__file__).resolve().parents[3]
-    out_dir = repo_root / "predibench-frontend-react/public/market_following_strategy_analysis"
+    out_dir = Path("analyses/market_following_strategy_analysis")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     composite = make_subplots(
@@ -355,7 +354,7 @@ def main():
         title_text="Market Following Strategy Analysis", showlegend=True
     )
     apply_template(composite, width=1400, height=1000)
-    composite.write_json(str(out_dir / "market_following_strategy_analysis.json"))
+    composite.write_html(str(out_dir / "market_following_strategy_analysis.html"))
 
     logger.info(
         "Exported composite study to analyses/market_following_strategy_analysis.html"
@@ -498,8 +497,8 @@ def main():
     # NOTE: A theory is that “yes on unlikely events” is often overrated, since when people are presented with an event, they tend to overrate its probability
     # This figure is intended to test that thory - the theory seems false.
     apply_template(fig2, width=1400, height=1000)
-    fig2.write_json(
-        str(out_dir / "market_following_strategy_bias_and_unlikely_boxplots.json")
+    fig2.write_html(
+        str(out_dir / "market_following_strategy_bias_and_unlikely_boxplots.html")
     )
 
 

@@ -83,8 +83,8 @@ def create_performance_dataframe(backend_data):
 
     for model_id, performance in backend_data.performance_per_model.items():
         model_key = extract_model_name(model_id)
-        release_date = release_dates.get(model_key)
-        inference_cost = inference_costs.get(model_key)
+        release_date = release_dates[model_key]
+        inference_cost = inference_costs[model_key]
 
         performance_data.append(
             {
@@ -257,10 +257,10 @@ def main():
         .to_string()
     )
 
-    # Create output directory under frontend public at the repo root
-    repo_root = Path(__file__).resolve().parents[3]
+    # Create output directory under absolute <repo_root>/analyses (repo_root is parent of /predibench-core)
+    repo_root = Path(__file__).resolve().parents[2]
     study_name = "model_performance_comprehensive_analysis"
-    output_dir = repo_root / "predibench-frontend-react/public" / study_name
+    output_dir = repo_root / "analyses" / study_name
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"\nCreating visualizations in {output_dir}...")
@@ -269,32 +269,32 @@ def main():
     print("Creating Brier score ranking...")
     fig1 = create_brier_score_ranking(df)
     apply_template(fig1)
-    fig1.write_json(output_dir / "brier_score_ranking.json")
+    fig1.write_html(output_dir / "brier_score_ranking.html")
 
     # 2. Average return ranking
     print("Creating average return ranking...")
     fig2 = create_average_return_ranking(df)
     apply_template(fig2)
-    fig2.write_json(output_dir / "average_return_ranking.json")
+    fig2.write_html(output_dir / "average_return_ranking.html")
 
     # 3. Brier vs Return scatter plot
     print("Creating Brier vs Return scatter plot...")
     fig3 = create_brier_vs_return_scatter(df)
     apply_template(fig3)
-    fig3.write_json(output_dir / "brier_vs_return_scatter.json")
+    fig3.write_html(output_dir / "brier_vs_return_scatter.html")
 
     # 4. Release date and inference cost scatter plot
     print("Creating release date and inference cost analysis...")
     fig4 = create_release_date_inference_cost_scatter(df)
     apply_template(fig4)
-    fig4.write_json(output_dir / "release_date_cost_scatter.json")
+    fig4.write_html(output_dir / "release_date_cost_scatter.html")
 
     print(f"\nAnalysis complete! Files saved to {output_dir}")
     print("Generated files:")
-    print("- brier_score_ranking.json")
-    print("- average_return_ranking.json")
-    print("- brier_vs_return_scatter.json")
-    print("- release_date_cost_scatter.json")
+    print("- brier_score_ranking.html")
+    print("- average_return_ranking.html")
+    print("- brier_vs_return_scatter.html")
+    print("- release_date_cost_scatter.html")
 
 
 if __name__ == "__main__":

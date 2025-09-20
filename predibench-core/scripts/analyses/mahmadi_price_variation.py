@@ -263,11 +263,10 @@ def main():
     apply_template(fig)
     fig.update_layout(width=800, height=600)
 
-    repo_root = Path(__file__).resolve().parents[3]
-    out_dir = repo_root / "predibench-frontend-react/public/market_variation"
+    out_dir = Path("analyses") / "market_variation"
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = (out_dir / "sudden_change.json").resolve()
-    fig.write_json(str(out_path))
+    out_path = (out_dir / "sudden_change.html").resolve()
+    fig.write_html(str(out_path))
 
     logger.info(f"Saved figure to: {out_path}")
     print(str(out_path))
