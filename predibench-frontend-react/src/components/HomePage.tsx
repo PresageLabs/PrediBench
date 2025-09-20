@@ -47,8 +47,6 @@ export function HomePage({ leaderboard, loading = false }: HomePageProps) {
           <MarkdownRenderer content={aboutContent} />
         </div>
       </div>
-
-      {/* Featured Events removed as requested */}
     </div>
   )
 }
