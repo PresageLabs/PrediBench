@@ -246,56 +246,21 @@ def create_seven_day_return_comparison_chart(strategy_df: pd.DataFrame) -> go.Fi
     apply_template(fig, width=1400, height=800)
     return fig
 
-def save_graph_data_as_json(strategy_df: pd.DataFrame) -> None:
-    """Save the graph data as JSON for the frontend."""
+def save_plotly_figure_as_json(strategy_df: pd.DataFrame) -> None:
+    """Save the Plotly figure as JSON for the frontend."""
 
-    # Pivot data for easier processing
-    pivot_df = strategy_df.pivot(index="model_name", columns="strategy_type", values="seven_day_return").reset_index()
-    pivot_df = pivot_df.dropna()
+    # Create the Plotly figure
+    fig = create_seven_day_return_comparison_chart(strategy_df)
 
-    # Calculate differences
-    pivot_df["difference"] = pivot_df["Kelly"] - pivot_df["Original"]
-    pivot_df["improvement"] = pivot_df["difference"] > 0
+    # Save to frontend public directory in market_dynamics folder
+    output_dir = FRONTEND_PUBLIC_PATH / "market_dynamics"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "bet_strategy_comparison.json"
 
-    # Sort by original performance (best to worst)
-    pivot_df = pivot_df.sort_values("Original", ascending=False)
+    # Save as Plotly figure JSON
+    fig.write_json(output_path)
 
-    # Create JSON data structure
-    graph_data = {
-        "title": "7-Day Return: Original vs Kelly-Derived Bet Amounts",
-        "subtitle": f"Analysis of {len(pivot_df)} models comparing betting strategies",
-        "models": [],
-        "metadata": {
-            "total_models": len(pivot_df),
-            "models_improved_with_kelly": int((pivot_df["improvement"]).sum()),
-            "models_better_with_original": int((~pivot_df["improvement"]).sum()),
-            "average_original_return": float(pivot_df["Original"].mean()),
-            "average_kelly_return": float(pivot_df["Kelly"].mean()),
-            "average_improvement": float(pivot_df["difference"].mean()),
-            "generated_at": pd.Timestamp.now().isoformat()
-        }
-    }
-
-    # Add model data
-    for _, row in pivot_df.iterrows():
-        model_data = {
-            "name": row["model_name"],
-            "original_return": float(row["Original"]),
-            "kelly_return": float(row["Kelly"]),
-            "difference": float(row["difference"]),
-            "improvement_percentage": float(row["difference"] * 100),
-            "kelly_better": bool(row["improvement"]),
-            "rank_by_original": int(pivot_df.index[pivot_df["model_name"] == row["model_name"]].tolist()[0] + 1)
-        }
-        graph_data["models"].append(model_data)
-
-    # Save to frontend public directory
-    output_path = FRONTEND_PUBLIC_PATH / "bet_strategy_comparison.json"
-
-    with open(output_path, 'w') as f:
-        json.dump(graph_data, f, indent=2)
-
-    print(f"Graph data saved as JSON: {output_path}")
+    print(f"Plotly figure saved as JSON: {output_path}")
 
 def main():
     """Main analysis function."""
@@ -320,9 +285,9 @@ def main():
     fig_7day = create_seven_day_return_comparison_chart(strategy_df)
     fig_7day.write_html(output_dir / "seven_day_return_comparison.html")
 
-    # Save graph data as JSON for frontend
-    print("Saving graph data as JSON for frontend...")
-    save_graph_data_as_json(strategy_df)
+    # Save Plotly figure as JSON for frontend
+    print("Saving Plotly figure as JSON for frontend...")
+    save_plotly_figure_as_json(strategy_df)
 
     # Print summary statistics for 7-day return only
     print("\n=== ANALYSIS SUMMARY ===")

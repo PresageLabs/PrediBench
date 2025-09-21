@@ -169,19 +169,19 @@ def create_readable_individual_analysis():
     for model_name in combined_fed_df['model'].unique():
         model_data = combined_fed_df[combined_fed_df['model'] == model_name]
 
-        # Create 4x3 grid: 4 markets (rows) x 3 metrics (columns)
+        # Create 4x2 grid: 4 markets (rows) x 2 metrics (columns)
         fig = make_subplots(
-            rows=4, cols=3,
+            rows=4, cols=2,
             subplot_titles=[
-                'Estimated Probability', 'Bet Amount', 'Confidence',
-                '', '', '',  # Empty titles for remaining rows
-                '', '', '',
-                '', '', ''
+                'Estimated Probability', 'Bet Amount',
+                '', '',  # Empty titles for remaining rows
+                '', '',
+                '', ''
             ],
-            vertical_spacing=0.08,
-            horizontal_spacing=0.15,
+            vertical_spacing=0.15,
+            horizontal_spacing=0.20,
             row_titles=[MARKET_PRICES[market]["short_name"] for market in markets],
-            specs=[[{"type": "xy"} for _ in range(3)] for _ in range(4)]
+            specs=[[{"type": "xy"} for _ in range(2)] for _ in range(4)]
         )
 
         # Market colors
@@ -289,28 +289,13 @@ def create_readable_individual_analysis():
                 row=market_idx + 1, col=2
             )
 
-            # Column 3: Confidence with individual points
-            fig.add_trace(
-                go.Box(
-                    y=market_subset['confidence'],
-                    name=MARKET_PRICES[market]["short_name"],
-                    marker_color=color,
-                    showlegend=False,
-                    boxpoints='all',
-                    jitter=0.3,
-                    pointpos=0,
-                    width=0.6,
-                    opacity=0.7
-                ),
-                row=market_idx + 1, col=3
-            )
 
         # Update layout
         fig.update_layout(
-            height=800,
-            width=1200,
+            height=1200,
+            width=1800,
             showlegend=False,
-            font=dict(size=10)
+            font=dict(size=12)
         )
 
         # Set axis ranges and remove tick labels for cleaner look
@@ -322,19 +307,17 @@ def create_readable_individual_analysis():
             # Bet amount column: auto range
             fig.update_xaxes(showticklabels=False, row=market_idx + 1, col=2)
 
-            # Confidence column: 0-10 range
-            fig.update_yaxes(range=[0, 10.5], row=market_idx + 1, col=3)
-            fig.update_xaxes(showticklabels=False, row=market_idx + 1, col=3)
-
         # Apply template
-        apply_template(fig, width=1200, height=800)
-        fig.update_layout(width=1400, height=900)
+        apply_template(fig, width=1800, height=1200)
+        fig.update_layout(width=2000, height=1400)
 
         safe_model_name = model_name.replace(' ', '_').replace('/', '-')
         fig.write_html(output_path / f"fed_readable_{safe_model_name}.html")
 
         # Save JSON to frontend public path
-        fig.write_json(FRONTEND_PUBLIC_PATH / f"fed_readable_{safe_model_name}.json")
+        fed_json_path = Path("/Users/charlesazam/charloupioupiou/market-bench/predibench-frontend-react/public/32_run_results_FED")
+        fed_json_path.mkdir(parents=True, exist_ok=True)
+        fig.write_json(fed_json_path / f"fed_readable_{safe_model_name}.json")
 
         logger.info(f"Readable Fed analysis saved for {model_name}")
 
@@ -364,17 +347,16 @@ def create_readable_comparative_analysis():
     short_names = [MARKET_PRICES[market]["short_name"] for market in markets]
 
     fig = make_subplots(
-        rows=3, cols=4,
-        subplot_titles=short_names + [''] * 8,  # Only first row gets titles
-        vertical_spacing=0.12,
-        horizontal_spacing=0.08,
-        specs=[[{"type": "xy"} for _ in range(4)] for _ in range(3)]
+        rows=2, cols=4,
+        subplot_titles=short_names,  # Only first row gets titles
+        vertical_spacing=0.20,
+        horizontal_spacing=0.10,
+        specs=[[{"type": "xy"} for _ in range(4)] for _ in range(2)]
     )
 
     # Add y-axis titles on the left side
     fig.update_yaxes(title_text="Estimated Probability", row=1, col=1)
     fig.update_yaxes(title_text="Bet Amount", row=2, col=1)
-    fig.update_yaxes(title_text="Confidence", row=3, col=1)
 
     model_colors = {
         'QWEN 480B': '#1f77b4',
@@ -421,21 +403,6 @@ def create_readable_comparative_analysis():
                 row=2, col=col_idx + 1
             )
 
-            # Row 3: Confidence
-            fig.add_trace(
-                go.Box(
-                    y=model_subset['confidence'],
-                    name=model_name,
-                    marker_color=color,
-                    showlegend=False,
-                    opacity=0.8,
-                    boxpoints='all',  # Show all individual points
-                    jitter=0.3,
-                    pointpos=0,
-                    width=0.4
-                ),
-                row=3, col=col_idx + 1
-            )
 
         # Add market price lines to probability plots (row 1)
         if market in MARKET_PRICES:
@@ -455,30 +422,40 @@ def create_readable_comparative_analysis():
 
     # Update layout
     fig.update_layout(
-        height=750,
-        width=1200,
+        height=1200,
+        width=2200,
         showlegend=True,
-        legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=0)
+        legend=dict(
+            orientation="v",
+            yanchor="top",
+            y=0.98,
+            xanchor="left",
+            x=-0.12,
+            bgcolor="rgba(255,255,255,0.8)",
+            bordercolor="rgba(0,0,0,0.1)",
+            borderwidth=1
+        )
     )
 
     # Set consistent y-axis ranges
     for col in range(1, 5):  # 4 markets
         fig.update_yaxes(range=[0, 1.05], row=1, col=col)  # Probability
-        fig.update_yaxes(range=[0, 10.5], row=3, col=col)  # Confidence
         # Bet amounts keep auto range
 
     # Remove x-axis labels for cleaner look
-    for row in range(1, 4):
+    for row in range(1, 3):
         for col in range(1, 5):
             fig.update_xaxes(showticklabels=False, row=row, col=col)
 
     # Apply template
-    apply_template(fig, width=1200, height=750)
-    fig.update_layout(width=1400, height=850)
+    apply_template(fig, width=2200, height=1200)
+    fig.update_layout(width=2400, height=1400)
     fig.write_html(output_path / "fed_readable_comparative.html")
 
     # Save JSON to frontend public path
-    fig.write_json(FRONTEND_PUBLIC_PATH / "fed_readable_comparative.json")
+    fed_json_path = Path("/Users/charlesazam/charloupioupiou/market-bench/predibench-frontend-react/public/32_run_results_FED")
+    fed_json_path.mkdir(parents=True, exist_ok=True)
+    fig.write_json(fed_json_path / "fed_readable_comparative.json")
 
     logger.info("Readable comparative Fed analysis saved")
 
@@ -577,10 +554,19 @@ def create_returns_analysis():
 
     # Update layout
     fig.update_layout(
-        height=400,
-        width=1200,
+        height=800,
+        width=2000,
         showlegend=True,
-        legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=0)
+        legend=dict(
+            orientation="v",
+            yanchor="top",
+            y=0.98,
+            xanchor="left",
+            x=-0.10,
+            bgcolor="rgba(255,255,255,0.8)",
+            bordercolor="rgba(0,0,0,0.1)",
+            borderwidth=1
+        )
     )
 
     # Update axis labels
@@ -591,12 +577,14 @@ def create_returns_analysis():
     fig.update_xaxes(title_text="Market", row=1, col=2)
 
     # Apply template
-    apply_template(fig, width=1200, height=400)
-    fig.update_layout(width=1400, height=500)
+    apply_template(fig, width=2000, height=800)
+    fig.update_layout(width=2200, height=900)
     fig.write_html(output_path / "fed_returns_analysis.html")
 
     # Save JSON to frontend public path
-    fig.write_json(FRONTEND_PUBLIC_PATH / "fed_returns_analysis.json")
+    fed_json_path = Path("/Users/charlesazam/charloupioupiou/market-bench/predibench-frontend-react/public/32_run_results_FED")
+    fed_json_path.mkdir(parents=True, exist_ok=True)
+    fig.write_json(fed_json_path / "fed_returns_analysis.json")
 
     logger.info("Fed returns analysis saved")
 

@@ -69,7 +69,33 @@ Also, news can suddenly change the price of some markets, like the news of [Zohr
 
 Since news can have such a strong effe
 
-### Model performance
+### Model Performance
+
+
+Models provide both probability estimates and corresponding bet amounts for each market. This analysis compares the performance of original model bet amounts versus Kelly criterion-optimized amounts, which theoretically maximize expected growth based on probability estimates and available capital.
+
+{caption="Kelly vs Original Betting Strategy - Comparison of 7-day returns using original bet amounts versus Kelly criterion-derived amounts", path="market_dynamics/bet_strategy_comparison.json"}
+
+Interestingly, most models outperformed Kelly criterion optimization when using their original bet amounts, suggesting that models incorporate risk management considerations beyond pure mathematical optimization. Notable exceptions include the DeepSeek family and Gemini Pro, which benefited from Kelly optimization, indicating different internal betting strategies.
+
+In other words **models are good at predicting, they are also good at betting**.
+
+### Model Consistency
+
+#### Model Decision Distribution Analysis
+
+To understand how different models make betting decisions, we analyzed the distribution of model choices across 32 runs on ![Federal Reserve interest rate predictions](https://polymarket.com/event/fed-decision-in-october?tid=1758495631699) for the models Qwen3 Coder 480B and GPT-OSS 120B. This analysis reveals the consistency and strategy patterns of each model when faced with the same prediction markets.
+
+{caption="Fed Event: Model Comparison - Distribution of estimated probabilities, bet amounts, and confidence levels across models", path="32_run_results_FED/fed_readable_comparative.json"}
+
+The probability distribution reveals significant uncertainty in model predictions, with wide variance around market prices. This uncertainty translates into conservative betting behavior, explaining why the bet amount distribution median approaches zero - models hedge against their own uncertainty by making smaller bets.
+
+#### Returns Analysis
+
+The following analysis computes returns distribution after a week of market evolution. Despite the conservative betting approach, both models achieved positive mean returns, though with substantial variance reflecting the inherent uncertainty in prediction markets.
+
+{caption="Fed Event: Returns Analysis - Profitability distribution and market-specific performance", path="32_run_results_FED/fed_returns_analysis.json"}
+
 
 ### Importance of retrieving sources
 
