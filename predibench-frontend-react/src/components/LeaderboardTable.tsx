@@ -373,8 +373,8 @@ export function LeaderboardTable({
                                   getSharpeForHorizon(model.sharpe, sharpeTimeHorizon),
                                   model.trades_count
                                 ) === 'significant'
-                                  ? 'text-green-600'
-                                  : 'text-gray-500'
+                                  ? 'text-green-600 dark:text-green-400'
+                                  : 'text-gray-600 dark:text-gray-500'
                               }
                             >
                               {`${getSharpeForHorizon(model.sharpe, sharpeTimeHorizon) >= 0 ? '+' : ''}${getSharpeForHorizon(model.sharpe, sharpeTimeHorizon).toFixed(3)}`}
