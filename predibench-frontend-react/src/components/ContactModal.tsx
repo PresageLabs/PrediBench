@@ -1,4 +1,4 @@
-import { Mail, MessageCircle, Send, X } from 'lucide-react'
+import { Check, Loader2, Mail, MessageCircle, Send, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from './ui/button'
 
@@ -12,6 +12,7 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
   const [message, setMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false)
 
   useEffect(() => {
     if (!isOpen) {
@@ -20,6 +21,7 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
         setSubmitted(false)
         setEmail('')
         setMessage('')
+        setShowSuccessAnimation(false)
       }, 300)
     }
   }, [isOpen])
@@ -57,6 +59,8 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
       }
 
       setSubmitted(true)
+      setShowSuccessAnimation(true)
+      setTimeout(() => setShowSuccessAnimation(false), 2000)
     } catch (error) {
       console.error('Error submitting form:', error)
     } finally {
@@ -70,15 +74,18 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity animate-in fade-in duration-200"
         onClick={onClose}
       />
 
       {/* Modal */}
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
         <div
-          className="bg-card border border-border rounded-lg shadow-xl w-full max-w-md transform transition-all"
+          className="bg-card border border-border rounded-lg shadow-xl w-full max-w-md transform transition-all animate-in zoom-in-95 slide-in-from-bottom-3 duration-300"
           onClick={(e) => e.stopPropagation()}
+          style={{
+            animation: showSuccessAnimation ? 'pulse 0.5s ease-in-out' : undefined
+          }}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-border">
@@ -105,11 +112,11 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
             {submitted ? (
               <div className="text-center py-8">
                 <div className="mb-4">
-                  <div className="mx-auto w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
-                    <Send className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  <div className={`mx-auto w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center transition-all duration-500 ${showSuccessAnimation ? 'scale-110' : 'scale-100'}`}>
+                    <Check className={`w-6 h-6 text-green-600 dark:text-green-400 transition-all duration-700 ${showSuccessAnimation ? 'scale-125 rotate-12' : 'scale-100 rotate-0'}`} />
                   </div>
                 </div>
-                <h3 className="text-lg font-medium mb-2">Message Sent!</h3>
+                <h3 className={`text-lg font-medium mb-2 transition-all duration-500 ${showSuccessAnimation ? 'scale-105' : 'scale-100'}`}>Message Sent!</h3>
                 <p className="text-sm text-muted-foreground mb-6">
                   Thank you for reaching out. We'll get back to you as soon as possible.
                 </p>
@@ -174,15 +181,17 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
                   <Button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex-1"
+                    className="flex-1 relative overflow-hidden transition-all duration-200"
                   >
-                    {isSubmitting ? (
-                      <>Sending...</>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4 mr-2" />
-                        Send Message
-                      </>
+                    <span className={`flex items-center justify-center transition-all duration-300 ${isSubmitting ? 'opacity-0 scale-50' : 'opacity-100 scale-100'}`}>
+                      <Send className="w-4 h-4 mr-2" />
+                      Send Message
+                    </span>
+                    {isSubmitting && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        <span>Sending...</span>
+                      </div>
                     )}
                   </Button>
                 </div>
@@ -197,10 +206,17 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
 
 export function FloatingContactButton({ onClick }: { onClick: () => void }) {
   const [isHovered, setIsHovered] = useState(false)
+  const [isClicked, setIsClicked] = useState(false)
+
+  const handleClick = () => {
+    setIsClicked(true)
+    setTimeout(() => setIsClicked(false), 300)
+    onClick()
+  }
 
   return (
     <button
-      onClick={onClick}
+      onClick={handleClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className="fixed bottom-6 right-6 z-30 group"
@@ -211,12 +227,19 @@ export function FloatingContactButton({ onClick }: { onClick: () => void }) {
         <div className="absolute inset-0 rounded-full bg-primary animate-ping opacity-25" />
 
         {/* Main button */}
-        <div className="relative flex items-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-full shadow-lg hover:shadow-xl transform transition-all hover:scale-105">
-          <MessageCircle className="w-5 h-5" />
-          <span className={`font-medium transition-all ${isHovered ? 'max-w-[100px] opacity-100' : 'max-w-0 opacity-0'} overflow-hidden whitespace-nowrap`}>
+        <div
+          className={`relative flex items-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-full shadow-lg hover:shadow-xl transform transition-all duration-200 hover:scale-105 ${isClicked ? 'scale-95' : ''}`}
+        >
+          <MessageCircle className={`w-5 h-5 transition-transform duration-200 ${isClicked ? 'rotate-12 scale-110' : ''}`} />
+          <span className={`font-medium transition-all duration-300 ${isHovered ? 'max-w-[100px] opacity-100' : 'max-w-0 opacity-0'} overflow-hidden whitespace-nowrap`}>
             Contact
           </span>
         </div>
+
+        {/* Click ripple effect */}
+        {isClicked && (
+          <div className="absolute inset-0 rounded-full animate-ping bg-primary/30" />
+        )}
       </div>
     </button>
   )
