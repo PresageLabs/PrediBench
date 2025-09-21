@@ -254,19 +254,15 @@ def main():
     df = window_ts.rename("price").to_frame()
     df = df.reset_index().rename(columns={"index": "datetime"})
 
-    title = (
-        "Polymarket price for Zohran Mamdani — "
-        f"{start_utc.date()} to {end_utc.date()} (UTC)"
-    )
-    fig = px.line(df, x="datetime", y="price", title=title, markers=True)
+    fig = px.line(df, x="datetime", y="price", markers=True)
     fig.update_layout(xaxis_title="UTC time", yaxis_title="Price (Yes)")
     apply_template(fig)
     fig.update_layout(width=800, height=600)
 
     repo_root = Path(__file__).resolve().parents[3]
-    out_dir = repo_root / "predibench-frontend-react/public/market_variation"
+    out_dir = repo_root / "predibench-frontend-react/public/sudden_price_change"
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = (out_dir / "sudden_change.json").resolve()
+    out_path = (out_dir / "nyc_election_mahmadi.json").resolve()
     fig.write_json(str(out_path))
 
     logger.info(f"Saved figure to: {out_path}")

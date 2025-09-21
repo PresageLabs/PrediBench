@@ -183,7 +183,6 @@ def create_sources_vs_brier_scatter(df):
         )
 
     fig.update_layout(
-        title="Mean Total Sources per Model vs Brier Score",
         xaxis_title="Mean Total Sources Count",
         yaxis_title="Brier Score (Lower is Better)",
         height=600,
@@ -243,7 +242,6 @@ def create_sources_vs_returns_scatter(df):
         )
 
     fig.update_layout(
-        title="Mean Total Sources per Model vs Average Returns (7-day)",
         xaxis_title="Mean Total Sources Count",
         yaxis_title="Average Return (%)",
         height=600,
@@ -362,7 +360,6 @@ def create_sources_breakdown_scatter(df):
     )
 
     fig.update_layout(
-        title="Mean Google Sources vs Mean Webpage Sources (Colored by Performance)",
         xaxis_title="Mean Google Sources Count",
         yaxis_title="Mean Webpage Sources Count",
         height=600,
@@ -412,7 +409,7 @@ def create_correlation_summary_table(correlations):
         ]
     )
 
-    fig.update_layout(title="Correlation Analysis Summary", height=400, width=800)
+    fig.update_layout(height=400, width=800)
 
     return fig
 

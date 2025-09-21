@@ -131,7 +131,6 @@ def create_brier_score_ranking(df):
     )
 
     fig.update_layout(
-        title="Ranked Brier Scores (Lower is Better)",
         xaxis_title="Model",
         yaxis_title="Brier Score",
         xaxis_tickangle=45,
@@ -161,7 +160,6 @@ def create_average_return_ranking(df):
     )
 
     fig.update_layout(
-        title="Ranked Average Returns (7-day)",
         xaxis_title="Model",
         yaxis_title="Average Return (%)",
         xaxis_tickangle=45,
@@ -196,7 +194,6 @@ def create_brier_vs_return_scatter(df):
     )
 
     fig.update_layout(
-        title="Brier Score vs Average Return (7-day)",
         xaxis_title="Brier Score (Lower is Better)",
         yaxis_title="Average Return - 7 day (%)",
         height=600,
@@ -233,7 +230,6 @@ def create_release_date_inference_cost_scatter(df):
     )
 
     fig.update_layout(
-        title="Average Return by Release Date and Inference Cost",
         xaxis_title="Release Date",
         yaxis_title="Inference Cost per 1M tokens ($)",
         height=600,
@@ -253,8 +249,9 @@ def main():
     print(f"Analyzing {len(df)} models...")
     print("\nModel summary:")
     print(
-        df[["pretty_name", "final_brier_score", "average_return_7d", "trades_count"]]
-        .to_string()
+        df[
+            ["pretty_name", "final_brier_score", "average_return_7d", "trades_count"]
+        ].to_string()
     )
 
     # Create output directory under frontend public at the repo root

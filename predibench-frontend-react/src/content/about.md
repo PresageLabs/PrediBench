@@ -65,17 +65,9 @@ For the sake of simplicity, the average returns and annualized Sharpe are calcul
 
 Also, news can suddenly change the price of some markets, like the news of [Zohran Mahmadi winning the Democratic primary](https://x.com/GlobeEyeNews/status/1937760643261825210) elicited a 40% change of the rate for his election over less than one hour.
 
-![image.png](About%20Page%2025e8d6bd102f80ce8f3be27e7ed42698/image%201.png)
+{caption="On June 25, 2025, the market for Zohran mahmadi becoming Mayor of NYC jumped up - but it took one hour." path="sudden_price_change/nyc_election_mahmadi.json"}
 
-Since news strongly affect market estimates, these estimates mostly get more precise towards the event’s end, as can be measured by their strongly decreasing Brier scores.
-
-![image.png](About%20Page%2025e8d6bd102f80ce8f3be27e7ed42698/image%202.png)
-
-As one moves away from the resolution date of an event, market predictions lose in relevance : they start to be markedly more relevant only 3 days before the event’s end.
-
-We could attribute this late change in market estimates to the impact of unexpected news. It could be news of another event that hastened the resolution of the target event, or even a non-news : the fact that nothing happened until shortly before the deadline can be an information per se.
-
- will be expected to progressively decline in relevance. This graph also suggests that positions should not be held for more than a few days.
+Since news can have such a strong effe
 
 ### Model performance
 
@@ -83,7 +75,7 @@ We could attribute this late change in market estimates to the impact of unexpec
 
 Average returns grows with the count of webpages visited - Perplexity’s Sonar-Deep-Research is not shown on this graph, visited over 16 webpages on average - which also reinforces the hypothesis that visiting more sources leads to success.
 
-![image.png](About%20Page%2025e8d6bd102f80ce8f3be27e7ed42698/image%203.png)
+{caption="Performance seems correlated with the count of pages visited" path="sources_vs_performance_analysis/webpage_sources_vs_returns.json"}
 
 ### Predicted odds
 
