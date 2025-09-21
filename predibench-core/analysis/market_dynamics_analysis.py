@@ -23,7 +23,7 @@ from plotly.subplots import make_subplots
 from predibench.backend.data_loader import get_data_for_backend
 from predibench.utils import apply_template
 from predibench.common import FRONTEND_PUBLIC_PATH
-
+from predibench.utils import get_model_color
 
 def analyze_price_volatility_around_events(backend_data) -> Dict:
     """Analyze price movements around significant events."""
@@ -291,29 +291,6 @@ def create_price_adjustment_visualization(price_volatility_df: pd.DataFrame) -> 
     return fig
 
 
-def get_model_color(model_name: str, model_index: int) -> str:
-    """Get consistent color for model with high contrast for comparisons."""
-    # High contrast colors for key comparisons
-    if "GPT-5 Mini" in model_name:
-        return "#FF0000"  # Bright red for GPT-5 Mini
-    elif "GPT-5" in model_name:
-        return "#0000FF"  # Bright blue for GPT-5
-    elif "GPT-OSS 120B" in model_name:
-        return "#00FF00"  # Bright green for GPT-OSS 120B
-    elif "Sonar Deep Research" in model_name:
-        return "#800080"  # Purple for Sonar Deep Research
-    elif any(name in model_name for name in ["Gemini 2.5 Flash"]):
-        return "#FF8C00"  # Dark orange for Gemini Flash
-    elif any(name in model_name for name in ["GPT-4.1"]):
-        return "#FF1493"  # Deep pink for GPT-4.1
-    elif any(name in model_name for name in ["Qwen3 235B"]):
-        return "#32CD32"  # Lime green for Qwen3 235B
-    elif any(name in model_name for name in ["Claude", "Grok", "DeepSeek", "Gemini 2.5 Pro"]):
-        return "#FFA500"  # Orange for Claude/Grok/DeepSeek/Gemini Pro
-    else:
-        # High contrast colors for remaining models
-        additional_colors = ["#800000", "#008080", "#000080", "#808000", "#8B4513"]
-        return additional_colors[model_index % len(additional_colors)]
 
 
 def create_edge_vs_bet_scatter(bet_edge_df: pd.DataFrame) -> go.Figure:
