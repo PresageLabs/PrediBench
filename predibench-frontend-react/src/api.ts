@@ -188,6 +188,9 @@ class ApiService {
   async getLeaderboard(): Promise<LeaderboardEntry[]> {
     const response = await this.fetchWithTimeout(`${API_BASE_URL}/leaderboard`)
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error('Too many requests. Please try again in a few moments.')
+      }
       throw new Error(`HTTP error! status: ${response.status}`)
     }
     return await response.json()
@@ -208,6 +211,9 @@ class ApiService {
     const url = `${API_BASE_URL}/events${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
     const response = await this.fetchWithTimeout(url)
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error('Too many requests. Please try again in a few moments.')
+      }
       throw new Error(`HTTP error! status: ${response.status}`)
     }
     return await response.json()
@@ -216,6 +222,9 @@ class ApiService {
   async getPredictionDates(): Promise<string[]> {
     const response = await this.fetchWithTimeout(`${API_BASE_URL}/prediction_dates`)
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error('Too many requests. Please try again in a few moments.')
+      }
       throw new Error(`HTTP error! status: ${response.status}`)
     }
     return await response.json()
@@ -224,6 +233,9 @@ class ApiService {
   async getModelResults(): Promise<ModelInvestmentDecision[]> {
     const response = await this.fetchWithTimeout(`${API_BASE_URL}/model_results`)
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error('Too many requests. Please try again in a few moments.')
+      }
       throw new Error(`HTTP error! status: ${response.status}`)
     }
     return await response.json()
@@ -232,6 +244,9 @@ class ApiService {
   async getModelResultsById(modelId: string): Promise<ModelInvestmentDecision[]> {
     const response = await this.fetchWithTimeout(`${API_BASE_URL}/model_results/by_id?model_id=${encodeURIComponent(modelId)}`)
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error('Too many requests. Please try again in a few moments.')
+      }
       throw new Error(`HTTP error! status: ${response.status}`)
     }
     return await response.json()
@@ -240,6 +255,9 @@ class ApiService {
   async getModelResultsByDate(predictionDate: string): Promise<ModelInvestmentDecision[]> {
     const response = await this.fetchWithTimeout(`${API_BASE_URL}/model_results/by_date?prediction_date=${encodeURIComponent(predictionDate)}`)
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error('Too many requests. Please try again in a few moments.')
+      }
       throw new Error(`HTTP error! status: ${response.status}`)
     }
     return await response.json()
@@ -248,6 +266,9 @@ class ApiService {
   async getModelResultsByIdAndDate(modelId: string, predictionDate: string): Promise<ModelInvestmentDecision> {
     const response = await this.fetchWithTimeout(`${API_BASE_URL}/model_results/by_id_and_date?model_id=${encodeURIComponent(modelId)}&prediction_date=${encodeURIComponent(predictionDate)}`)
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error('Too many requests. Please try again in a few moments.')
+      }
       throw new Error(`HTTP error! status: ${response.status}`)
     }
     return await response.json()
@@ -256,6 +277,9 @@ class ApiService {
   async getModelResultsByEvent(eventId: string): Promise<ModelInvestmentDecision[]> {
     const response = await this.fetchWithTimeout(`${API_BASE_URL}/model_results/by_event?event_id=${encodeURIComponent(eventId)}`)
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error('Too many requests. Please try again in a few moments.')
+      }
       throw new Error(`HTTP error! status: ${response.status}`)
     }
     return await response.json()
@@ -264,6 +288,9 @@ class ApiService {
   async getPerformance(): Promise<ModelPerformance[]> {
     const response = await this.fetchWithTimeout(`${API_BASE_URL}/performance`)
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error('Too many requests. Please try again in a few moments.')
+      }
       throw new Error(`HTTP error! status: ${response.status}`)
     }
     return await response.json()
@@ -272,6 +299,9 @@ class ApiService {
   async getPerformanceByModel(modelId: string): Promise<ModelPerformance> {
     const response = await this.fetchWithTimeout(`${API_BASE_URL}/performance/by_model?model_id=${encodeURIComponent(modelId)}`)
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error('Too many requests. Please try again in a few moments.')
+      }
       throw new Error(`HTTP error! status: ${response.status}`)
     }
     return await response.json()
@@ -280,6 +310,9 @@ class ApiService {
   async getEventDetails(eventId: string): Promise<Event> {
     const response = await this.fetchWithTimeout(`${API_BASE_URL}/events/by_id?event_id=${encodeURIComponent(eventId)}`)
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error('Too many requests. Please try again in a few moments.')
+      }
       throw new Error(`HTTP error! status: ${response.status}`)
     }
     return await response.json()
@@ -292,6 +325,9 @@ class ApiService {
       return null
     }
     if (!response.ok) {
+      if (response.status === 429) {
+        throw new Error('Too many requests. Please try again in a few moments.')
+      }
       throw new Error(`HTTP error! status: ${response.status}`)
     }
     // Do not rely on response.text() logging here; read JSON body

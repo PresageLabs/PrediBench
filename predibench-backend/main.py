@@ -9,8 +9,11 @@ from apscheduler.schedulers.background import (
 from apscheduler.triggers.cron import (
     CronTrigger,  # allows us to specify a recurring time for execution
 )
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from pydantic import BaseModel
 from predibench.agent.models import ModelInvestmentDecisions
 from predibench.backend.data_loader import (
@@ -90,7 +93,16 @@ scheduler = BackgroundScheduler()
 trigger = CronTrigger(minute=0)  # every hour
 scheduler.add_job(update_cache, trigger)
 scheduler.start()
+
+# Initialize rate limiter
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["100 per minute", "1000 per hour"]
+)
+
 app = FastAPI(title="Polymarket LLM Benchmark API", version="1.0.0")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS for local development only
 app.add_middleware(
@@ -262,7 +274,8 @@ def get_decision_details_by_model_and_event_endpoint(
 
 
 @app.post("/api/contact")
-def submit_contact_form(submission: ContactFormSubmission):
+@limiter.limit("5 per hour")
+def submit_contact_form(request: Request, submission: ContactFormSubmission):
     """Save contact form submission to storage"""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     contact_data = {

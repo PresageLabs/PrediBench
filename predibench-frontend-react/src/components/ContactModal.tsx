@@ -12,6 +12,7 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
   const [message, setMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isOpen) {
@@ -20,6 +21,7 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
         setSubmitted(false)
         setEmail('')
         setMessage('')
+        setError(null)
       }, 300)
     }
   }, [isOpen])
@@ -39,6 +41,7 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
+    setError(null)
 
     try {
       const response = await fetch('/api/contact', {
@@ -53,12 +56,16 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
       })
 
       if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error('You have submitted too many messages. Please try again later.')
+        }
         throw new Error('Failed to submit contact form')
       }
 
       setSubmitted(true)
     } catch (error) {
       console.error('Error submitting form:', error)
+      setError(error instanceof Error ? error.message : 'An error occurred. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -162,6 +169,11 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
                     placeholder="Tell us what's on your mind..."
                   />
                 </div>
+                {error && (
+                  <div className="p-3 rounded-md bg-destructive/10 border border-destructive/20">
+                    <p className="text-sm text-destructive">{error}</p>
+                  </div>
+                )}
                 <div className="flex gap-3">
                   <Button
                     type="button"
