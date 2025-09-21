@@ -32,7 +32,8 @@ dependencies = [
     "scipy>=1.15.3",
     "scrapfly-sdk>=0.8.23",
     "seaborn>=0.13.2",
-    "smolagents @ git+https://github.com/huggingface/smolagents.git@main",
+    "slowapi>=0.1.9",
+    "smolagents @ git+https://github.com/huggingface/smolagents.git@06cfa27051837fd41830b79ac4338e7f4cf0edd9",
     "tenacity>=9.1.2",
     "typer>=0.16.0",
 ]

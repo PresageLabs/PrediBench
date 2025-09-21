@@ -9,8 +9,12 @@ from apscheduler.schedulers.background import (
 from apscheduler.triggers.cron import (
     CronTrigger,  # allows us to specify a recurring time for execution
 )
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from pydantic import BaseModel
 from predibench.agent.models import ModelInvestmentDecisions
 from predibench.backend.data_loader import (
     get_data_for_backend,
@@ -33,6 +37,11 @@ print("Successfully imported predibench modules")
 CACHED_DATA: list[
     BackendData
 ] = []  # A list is a common way to introduce a global variable
+
+
+class ContactFormSubmission(BaseModel):
+    email: str
+    message: str
 
 
 def load_backend() -> BackendData:
@@ -84,7 +93,16 @@ scheduler = BackgroundScheduler()
 trigger = CronTrigger(minute=0)  # every hour
 scheduler.add_job(update_cache, trigger)
 scheduler.start()
+
+# Initialize rate limiter
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["100 per minute", "1000 per hour"]
+)
+
 app = FastAPI(title="Polymarket LLM Benchmark API", version="1.0.0")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS for local development only
 app.add_middleware(
@@ -253,6 +271,26 @@ def get_decision_details_by_model_and_event_endpoint(
 ):
     """Get decision details for a specific model and event"""
     return load_event_decision_details_from_bucket(model_id, event_id, target_date)
+
+
+@app.post("/api/contact")
+@limiter.limit("5 per hour")
+def submit_contact_form(request: Request, submission: ContactFormSubmission):
+    """Save contact form submission to storage"""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    contact_data = {
+        "email": submission.email,
+        "message": submission.message,
+        "timestamp": datetime.now().isoformat(),
+    }
+
+    email_safe = submission.email.replace("@", "_at_").replace(".", "_")
+    filename = f"reach_out/{email_safe}_{timestamp}.json"
+    file_path = DATA_PATH / filename
+
+    write_to_storage(file_path, json.dumps(contact_data, indent=2))
+
+    return {"status": "success", "message": "Contact form submitted successfully"}
 
 
 if __name__ == "__main__":

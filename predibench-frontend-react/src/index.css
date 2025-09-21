@@ -62,3 +62,24 @@
 }
 
 /* removed custom slider-theming; revert to default accent-color styling */
+
+/* Make heading itself clickable via invisible anchor overlay */
+h1, h2, h3 {
+  position: relative;
+}
+h1 .anchorjs-link, h2 .anchorjs-link, h3 .anchorjs-link {
+  position: absolute;
+  inset: 0;
+  display: block;
+  text-decoration: none;
+  color: transparent !important; /* no icon/color */
+  background: transparent !important;
+  margin: 0 !important;
+  z-index: 1; /* keep above heading text for clicks */
+}
+
+/* Dim headings on hover */
+h1:hover, h2:hover, h3:hover {
+  color: hsl(var(--muted-foreground));
+  transition: color 0.15s ease-in-out;
+}

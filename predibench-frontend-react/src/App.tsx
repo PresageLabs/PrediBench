@@ -12,6 +12,7 @@ import { LeaderboardPage } from './components/LeaderboardPage'
 import { ModelsPage } from './components/ModelsPage'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useAnalytics } from './hooks/useAnalytics'
+import { useAnchorJS } from './hooks/useAnchorJS'
 
 function AppContent() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
@@ -49,14 +50,41 @@ function AppContent() {
     trackPageView(getCurrentPage())
   }, [location, trackPageView])
 
+  // Apply anchor-js to headings whenever route or content changes
+  useAnchorJS([location, loading])
+
   // Hash scroll support (e.g., /#intro)
   useEffect(() => {
     if (!location.hash) return
-    const id = location.hash.slice(1)
+    const raw = location.hash.slice(1)
+    const id = raw
     let attempts = 0
     const maxAttempts = 20
+    const norm = (s: string) => s.trim().toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+    const tryFind = (): HTMLElement | null => {
+      // 1) Exact id
+      const exact = document.getElementById(id)
+      if (exact) return exact
+      // 2) Slugified id (e.g., "About" -> "about")
+      const slug = norm(id)
+      if (slug) {
+        const bySlug = document.getElementById(slug)
+        if (bySlug) return bySlug
+        // 3) id starts with slug- (e.g., about-predibench)
+        const prefixed = document.querySelector<HTMLElement>(`[id^="${CSS.escape(slug)}-"]`)
+        if (prefixed) return prefixed
+      }
+      // 4) Match heading text startsWith raw (case-insensitive)
+      const headers = Array.from(document.querySelectorAll<HTMLElement>('h1, h2, h3'))
+      const rawLower = raw.trim().toLowerCase()
+      for (const h of headers) {
+        const text = (h.textContent || '').trim().toLowerCase()
+        if (text.startsWith(rawLower)) return h
+      }
+      return null
+    }
     const tryScroll = () => {
-      const el = document.getElementById(id)
+      const el = tryFind()
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' })
         return

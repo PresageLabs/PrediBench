@@ -1,6 +1,7 @@
 import { BarChart3, Info, Menu, Newspaper, TrendingUpDown, Trophy, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
+import { ContactModal, FloatingContactButton } from './ContactModal'
 import { Footer } from './Footer'
 import { ThemeToggle } from './ui/ThemeToggle'
 
@@ -11,6 +12,7 @@ interface LayoutProps {
 
 export function Layout({ children, currentPage }: LayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false)
 
   const pages = [
     { id: 'leaderboard', name: 'Leaderboard', href: '/leaderboard', icon: Trophy },
@@ -109,6 +111,15 @@ export function Layout({ children, currentPage }: LayoutProps) {
 
       {/* Footer */}
       <Footer />
+
+      {/* Floating Contact Button */}
+      <FloatingContactButton onClick={() => setIsContactModalOpen(true)} />
+
+      {/* Contact Modal */}
+      <ContactModal
+        isOpen={isContactModalOpen}
+        onClose={() => setIsContactModalOpen(false)}
+      />
     </div>
   )
 }
