@@ -264,7 +264,6 @@ export function MarkdownRenderer({ content, className }: Props) {
       const indentation = (ulMatch ? ulMatch[1] : olMatch![1]).length
       const item = (ulMatch ? ulMatch[3] || ulMatch[2] : olMatch![3]).trim()
       const originalNumber = olMatch ? olMatch[2] : undefined
-      const type: 'ul' | 'ol' = ulMatch ? 'ul' : 'ol'
       const level = Math.floor(indentation / 4) // 4 spaces = 1 level
 
       // Special handling for mixed ordered and unordered lists
@@ -500,7 +499,7 @@ export function MarkdownRenderer({ content, className }: Props) {
     return finalParts.length > 0 ? finalParts : [text]
   }
 
-  const renderListItems = (items: ListItem[], keyPrefix: string, isOrdered: boolean = false): React.ReactNode[] => {
+  const renderListItems = (items: ListItem[], keyPrefix: string): React.ReactNode[] => {
     return items.map((item, idx) => (
       <li key={`${keyPrefix}-${idx}`} style={item.number ? { listStyleType: 'none' } : undefined}>
         <div className="flex">
@@ -511,7 +510,7 @@ export function MarkdownRenderer({ content, className }: Props) {
             {renderInline(item.text, `${keyPrefix}-${idx}`)}
             {item.children && item.children.length > 0 && (
               <ul className="list-disc pl-6 space-y-1 mt-1" style={{ color: 'hsl(var(--content-foreground))' }}>
-                {renderListItems(item.children, `${keyPrefix}-${idx}-child`, false)}
+                {renderListItems(item.children, `${keyPrefix}-${idx}-child`)}
               </ul>
             )}
           </div>
@@ -549,13 +548,13 @@ export function MarkdownRenderer({ content, className }: Props) {
           case 'ul':
             return (
               <ul key={idx} className="list-disc pl-6 space-y-1 mb-4" style={{ color: 'hsl(var(--content-foreground))' }}>
-                {renderListItems(b.items, `ul-${idx}`, false)}
+                {renderListItems(b.items, `ul-${idx}`)}
               </ul>
             )
           case 'ol':
             return (
               <ol key={idx} className="list-none pl-6 space-y-1 mb-4" style={{ color: 'hsl(var(--content-foreground))' }}>
-                {renderListItems(b.items, `ol-${idx}`, true)}
+                {renderListItems(b.items, `ol-${idx}`)}
               </ol>
             )
           case 'code':
