@@ -1,41 +1,38 @@
-> Can AI predict the future?
+## PrediBench: Testing AI models on prediction markets
 
 AI models shine on within-distribution tasks, thus cracking standardized math or medicine exams ; but what about predicting the future, the realm of out-of-distribution events ?
 
-We decided to put test this forecasting ability : this yields Predibench.
+We decided to put test this forecasting ability: **Every day, we let AI models bet 1$ on top events from [Polymarket](https://polymarket.com/).**
 
-**Every day, we let AI models bet 1$ on top events from [Polymarket](https://polymarket.com/).**
+Tracking the profits on different metrics then yields PrediBench, and the above leaderboard.
 
-Tracking the profits on different metrics then yields the above leaderboard.
-
-This benchmark **cannot be overfitted**: since the test events are real-time prediction markets following real-world events, there’s no chance that models have seen the test set in training.
-It is also **generalist** in nature, since the questions picked from Polymarket cover a wide range of newsworthy topic, from economics to pop culture.
+- By nature, benchmark **cannot be overfitted**: since the test events are real-time prediction markets following real-world events, there’s no chance that models have seen the test set in training.
+- It is also **generalist**, since the questions picked from Polymarket cover a wide range of newsworthy topic, from economics to pop culture.
 
 We publish the entirety of this work in open source: code, data, experiments, to let the community iterate on it.
 
-## Why Predibench
+## Motivation
 
 Prediction is a difficult science. We believe that in the future, AI models are poised to possess a superhuman ability to predict the future.
 
 Why could that be? Because the ingredients of foresight are on the way to being mastered by AI models.
 
-Amongst the example of striking prediction ability shown by individuals in history, what these individuals had in common was a combination of profound knowledge and of well-applied, bold judgement (NOTE: forward-thinking?)
+Amongst the example of striking prediction ability shown by individuals in history, what these individuals had in common was a combination of profound knowledge and of well-applied, bold judgement (one could define "judgement" as a combination of critical thinking, probabilistic reasoning, and causality understanding). (NOTE: forward-thinking?)
 
-In 1919, French historian Jacques Bainville predicted that the Treaty of Versailles that had just closed the World war, would have dire consequences[^consequences_politiques]. Far from the optimism of his contemporaneous at the time, he announced an upcoming war. He announced that a powerful and revengeful social republic of Germany would raise again to power. That it would annex Austria, and the Sudeten german-speaking minorities. He announced the alliance of Russia and Germany, their siding together against Poland. He warned of the alliance of Italy.
+In 1919, French historian Jacques Bainville predicted that the Treaty of Versailles that had just closed the World war, would have dire consequences[^consequences_politiques]. Far from the optimism of his contemporaneous at the time, he announced an upcoming war. He foretold that a powerful and revengeful social republic of Germany would raise again to power. That it would annex Austria, and the Sudeten german-speaking minorities. He predicted the alliance of Russia and Germany, their siding together against Poland. He warned of the alliance of Italy.
 
-When the Second World War broke out, two decades later, it followed the exact steps he had predicted.
+When the Second World War broke out, two decades later, the first years followed the exact steps he had predicted.
 
-Bainville’s stunning prescience was not a product of chance: it was a mechanical application of his immense knowledge of European geopolitics and of his bold judgement, that defied the views of his time.
+> Bainville’s stunning prescience was not a product of chance: it was a mechanical application of his immense knowledge of European geopolitics and of his bold judgement, that defied the views of his time.
 
-Knowledge is used to gather heuristics : from a-priori data, cause A implies consequence B. Judgement, loosely defined as a combination of critical thinking, probabilistic reasoning, and causality understanding, then allows to weigh and combine these different heuristics to assess the outcome’s probability distribution.
+Knowledge allowed him to draw from history a myriad of situations similar to his present, where each situation's unfolding provided heuristics that could apply again. His good judgement then allowed to weigh and combine these different historical heuristics to assess the probability distribution of different outcomes in the future. 
 
-Knowledge and judgement are key elements that AI models.
-
+**Knowledge provides the building blocks, judgement assembles them.** On both knowlege and judgement, recent progress has been massive for AI models:
 
 - **Knowledge:** Leading models already know more in most areas of science than PhD students specialized in these areas [^GPQA]. These models possess a knowledge of both superhuman breadth and depth.
-- **Judgement:** models have historically been struggling with causality and critical thinking, but recent progress has brought them nearly up to human skill (SOURCE)
+- **Judgement:** models have historically been struggling with causality and critical thinking, but recent progress has brought them nearly up to human skill[^gold_IMO].
 
-So this benchmark is here to put a measurement on current prediction ability of AI systems.
+Thus we expect AI models to become good forecasters: we built PrediBench to put this intuition to the test.
 
 ## Methods
 
@@ -47,7 +44,7 @@ Then on regular decision dates (thrice per week for the first month), each model
 - Event Choice Strategy : We focus on the **top 10 trending Polymarket events**, ranked by one-week trading volume.
     - To avoid stagnant bets, we only pick markets that **end within two months**.
     - By rotating through fast-moving, high-attention markets, our leaderboard stays dynamic and captures the **real pulse of prediction markets**.
-    - We also **exclude crypto events**: their extreme volatility goes against our goal of testing reasoning from fundamentals.
+    - We also **exclude crypto events**, since their high volatility goes against our goal of testing reasoning from fundamentals.
 
 The agent run can go as follows:
 
@@ -61,14 +58,11 @@ Placing a negative bet means that the agents bet the sum of money on the negativ
 
 We evaluate models over several metrics, emphasizing different aspect of investment choices:
 
-- **Average returns measures profitability :** each bet’s return is computed over several time horizons : how much did this bet return after 1 day, 2 days, 7 days ? These returns are averaged over all events to yield an average return per model, per each time horizon
-- **Brier Score measures probability estimates:** upon generating their betting decision, models are prompted to also provide a probability estimate of the “Yes” outcome. This can be used to compute the cost function of error against the realised outcome : the Mean Squared Error between estimated probabilities and actual outcome is called the Brier Score : possible scores range from 0 (best) to 1 (worst).
-- **Annualised Sharpe measures volatility risk:** when using AI models for financial choices, the volatility of returns is an important aspect. The [Sharpe ratio](https://en.wikipedia.org/wiki/Sharpe_ratio) allows to downweigh the average of a series of returns by its volatility, thus factoring in a measure of the risk taken by undergoing the investment. In our case, we calculate the Sharpe ratio for different holding horizons : 1 day, 2 days, 7 days. We annualize it to represent what these strategies would represent over an entire year.
+- **Average returns** measures profitability: each bet’s return is computed over several time horizons : how much did this bet return after 1 day, 2 days, 7 days ? These returns are averaged over all events to yield an average return per model, per each time horizon
+- **Brier Score** measures probability estimates: upon generating their betting decision, models are prompted to also provide a probability estimate of the “Yes” outcome. This can be used to compute the cost function of error against the realised outcome : the Mean Squared Error between estimated probabilities and actual outcome is called the Brier Score. Possible scores range from 0 (best) to 1 (worst).
+- **Annualised Sharpe** measures volatility risk: when using AI models for financial choices, the volatility of returns is an important aspect. The [Sharpe ratio](https://en.wikipedia.org/wiki/Sharpe_ratio) allows to downweigh the average of a series of returns by its volatility, thus factoring in a measure of the risk taken by undergoing the investment. In our case, we calculate the Sharpe ratio for different holding horizons : 1 day, 2 days, 7 days. We annualize it to represent what these strategies would represent over an entire year.
 
-<aside>
-⚠️
-For the sake of simplicity, the average returns and annualized Sharpe are calculated on real market prices, but they eschew some important, complex parts of an investment pipeline: brokerage fees, bid-ask spread… This pipeline would certainly not be profitable under real investment conditions.
-</aside>
+> Word of caution: Although these performance metrics are calculated on real market prices, they eschew some important parts of an investment pipeline, such as the bid-ask sprea, for ths sake of simplicity. This pipeline would certainly not be viable in its current state under real investment conditions.
 
 ## Results
 
@@ -118,7 +112,7 @@ Average returns grows with the count of webpages visited - Perplexity’s Sonar-
 
 ### Predicted odds
 
-A basic ability of models should be to provide consistent bet and probability estimates - if the model estimates an event to be more probable (resp less) than the market prices it, it should place its bet on the Yes (resp No).
+A basic ability of models should be to provide consistent bet and probability estimates - if the model estimates an event to be more probable (resp. less) than the market prices it, it should place its bet on the Yes (resp. No).
 
 To measure this we measure the criterion of **bet-edge consistency**. When noting "edge" the difference of model's estimated probability minus the market prices, the bet is considered consistent if:
 - **No bet is placed**: the model can always decide to place no bet.
@@ -128,20 +122,14 @@ We find that this bet-edge consistency correlates well with the general strength
 
 {caption="Bet-Edge Consistency by Model - Models with higher consistency rates between their betting decisions and estimated market edge tend to perform better", path="market_dynamics/consistency_rates.json"}
 
-And this translates into returns, the 7 day average return is correlated with the consistency rate.
-
-{caption="Consistency vs Returns - Strong positive correlation between bet-edge consistency and 7-day average returns across models", path="market_dynamics/consistency_vs_7day_returns.json"}
-
 ## Next steps
 
-Since this work aimed to evaluate the current prediction ability of models, 
+- Each [model decision](https://predibench.com/decision/gpt-5/42659/2025-09-17) can be commented via [giscus](https://giscus.app/), and the comments will appear directly under the repo's [discussions page](https://github.com/clairvoyance-tech/PrediBench/discussions): we invite you to hop in and provide feedback!
+- Do contact us about anything : contact form.
 
-Each event decision can be commented via [giscus](https://giscus.app/), and the comments will appear directly under the repo's [discussions page](https://github.com/clairvoyance-tech/PrediBench/discussions): we invite the community to hop in and help us annotate model decisions.
+In the next months, we plan to push the boundary of AI models prediction capabilities. This is going to be called [Clairvoyance AI](https://clairvoyance-ai.co).
 
-In the next months, we plan to push the boundary of AI mdoels prediction capabilities. This is going to be called Clairvoyance AI.
-
-
-### Citation
+## Citation
 
 ```bibtex
 @Misc{predibench,
@@ -152,8 +140,11 @@ In the next months, we plan to push the boundary of AI mdoels prediction capabil
 }
 ```
 
+## Bibliography
 
-[^consequences_politiques] Bainville, J. (1919). Les conséquences politiques de la paix. Full text: https://classiques.uqam.ca/classiques/bainville_jacques/consequences_pol_paix/consequences_pol_paix.pdf
+[^consequences_politiques]: Bainville, J. (1919). Les conséquences politiques de la paix. [Full text here.](https://classiques.uqam.ca/classiques/bainville_jacques/consequences_pol_paix/consequences_pol_paix.pdf)
 
 
-[^GPQA] Rein, D., Hou, B. L., Stickland, A. C., Petty, J., Pang, R. Y., Dirani, J., Michael, J., & Bowman, S. R. (2023). GPQA : A Graduate-Level Google-Proof Q&A Benchmark (No. arXiv:2311.12022). arXiv. https://doi.org/10.48550/arXiv.2311.12022
+[^GPQA]: Rein, D., Hou, B. L., Stickland, A. C., Petty, J., Pang, R. Y., Dirani, J., Michael, J., & Bowman, S. R. (2023). GPQA : A Graduate-Level Google-Proof Q&A Benchmark (No. arXiv:2311.12022). arXiv. https://doi.org/10.48550/arXiv.2311.12022
+
+[^gold_IMO]: The recent progresses in math exemplifies this vast improvement of causal thinking: [Gemini with Deep Think achieves gold-medal standard at the International Mathematical Olympiad](https://deepmind.google/discover/blog/advanced-version-of-gemini-with-deep-think-officially-achieves-gold-medal-standard-at-the-international-mathematical-olympiad/)

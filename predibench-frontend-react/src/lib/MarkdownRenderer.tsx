@@ -14,6 +14,7 @@ type Props = {
 // - Inline code `code`
 // - Bold **text** and italic *text*
 // - Links [text](url)
+// - Footnotes [^id] and footnote definitions [^id]: content
 // This avoids adding a new dependency while keeping content readable.
 export function MarkdownRenderer({ content, className }: Props) {
   const lines = content.replace(/\r\n?/g, '\n').split('\n')
@@ -26,8 +27,23 @@ export function MarkdownRenderer({ content, className }: Props) {
     | { type: 'ol'; items: string[] }
     | { type: 'code'; text: string }
     | { type: 'plotly'; caption: string; path: string; secondPath?: string }
+    | { type: 'footnote'; id: string; text: string }
 
   const blocks: Block[] = []
+  // Pre-scan for footnotes before processing other blocks
+  const footnotes: { [id: string]: string } = {}
+  lines.forEach(line => {
+    const footnoteMatch = line.match(/^\[\^([^\]]+)\]:\s*(.*)$/)
+    if (footnoteMatch) {
+      footnotes[footnoteMatch[1]] = footnoteMatch[2].trim()
+    }
+  })
+
+  // Debug: Log found footnotes for about.md
+  if (content.includes('consequences_politiques') || content.includes('GPQA')) {
+    console.log('About.md footnotes found:', Object.keys(footnotes))
+  }
+
   let i = 0
   let inCode = false
   let codeBuffer: string[] = []
@@ -134,6 +150,15 @@ export function MarkdownRenderer({ content, className }: Props) {
       continue
     }
 
+    // Footnote definitions (skip since we already processed them)
+    const footnoteMatch = line.match(/^\[\^([^\]]+)\]:\s*(.*)$/)
+    if (footnoteMatch) {
+      flushParagraph()
+      flushList()
+      i++
+      continue
+    }
+
     // Lists
     const ulMatch = line.match(/^\s*[-*]\s+(.*)$/)
     const olMatch = line.match(/^\s*\d+\.\s+(.*)$/)
@@ -161,61 +186,183 @@ export function MarkdownRenderer({ content, className }: Props) {
   flushList()
   if (inCode) flushCode()
 
+  // Add footnotes as a bibliography section if any exist
+  if (Object.keys(footnotes).length > 0) {
+    Object.entries(footnotes).forEach(([id, text]) => {
+      blocks.push({ type: 'footnote', id, text })
+    })
+  }
+
   const renderInline = (text: string, keyPrefix: string) => {
-    // Links
+    // Process bold first, then everything else inside it
+    const strongRegex = /\*\*(.*?)\*\*/g
+    const parts: React.ReactNode[] = []
+    let lastIndex = 0
+    let strongMatch: RegExpExecArray | null
+    let strongCount = 0
+
+    while ((strongMatch = strongRegex.exec(text))) {
+      // Add text before the bold
+      if (strongMatch.index > lastIndex) {
+        const beforeText = text.slice(lastIndex, strongMatch.index)
+        parts.push(...processNonBoldText(beforeText, `${keyPrefix}-before-${strongCount}`))
+      }
+
+      // Process the bold content
+      const boldContent = strongMatch[1]
+      const boldProcessed = processNonBoldText(boldContent, `${keyPrefix}-bold-${strongCount}`)
+      parts.push(
+        <strong key={`${keyPrefix}-strong-${strongCount}`}>{boldProcessed}</strong>
+      )
+
+      lastIndex = strongMatch.index + strongMatch[0].length
+      strongCount++
+    }
+
+    // Add remaining text after the last bold
+    if (lastIndex < text.length) {
+      const afterText = text.slice(lastIndex)
+      parts.push(...processNonBoldText(afterText, `${keyPrefix}-after`))
+    }
+
+    return parts.length > 0 ? parts : [text]
+  }
+
+  const processNonBoldText = (text: string, keyPrefix: string): React.ReactNode[] => {
     const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g
+    const footnoteRefRegex = /\[\^([^\]]+)\]/g
     const codeRegex = /`([^`]+)`/g
-    const strongRegex = /\*\*([^*]+)\*\*/g
     const emRegex = /\*([^*]+)\*/g
 
-    // Process progressively to avoid nesting conflicts. We'll split into tokens.
-    // Start with links
+    // First process footnote references (before links to avoid conflicts)
     let parts: React.ReactNode[] = []
     let lastIndex = 0
-    let m: RegExpExecArray | null
-    while ((m = linkRegex.exec(text))) {
-      if (m.index > lastIndex) parts.push(text.slice(lastIndex, m.index))
+    let footnoteMatch: RegExpExecArray | null
+    let footnoteCount = 0
+
+    while ((footnoteMatch = footnoteRefRegex.exec(text))) {
+      if (footnoteMatch.index > lastIndex) {
+        parts.push(text.slice(lastIndex, footnoteMatch.index))
+      }
+      const refId = footnoteMatch[1]
+      // Get the footnote number based on the order of appearance in the footnotes object
+      const footnoteKeys = Object.keys(footnotes)
+      const footnoteIndex = footnoteKeys.indexOf(refId)
+      const footnoteNumber = footnoteIndex >= 0 ? footnoteIndex + 1 : footnoteCount + 1
       parts.push(
-        <a key={`${keyPrefix}-link-${parts.length}`} href={m[2]} className="underline hover:no-underline" target={m[2].startsWith('/') ? undefined : '_blank'} rel="noreferrer">
-          {m[1]}
+        <a key={`${keyPrefix}-footnote-${footnoteCount}`} href={`#footnote-${refId}`} className="text-primary hover:text-primary/80 text-sm align-super no-underline" onClick={(e) => {
+          e.preventDefault()
+          const element = document.getElementById(`footnote-${refId}`)
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }
+        }}>
+          [{footnoteNumber}]
         </a>
       )
-      lastIndex = m.index + m[0].length
+      lastIndex = footnoteMatch.index + footnoteMatch[0].length
+      footnoteCount++
     }
-    if (lastIndex < text.length) parts.push(text.slice(lastIndex))
+    if (lastIndex < text.length) {
+      parts.push(text.slice(lastIndex))
+    }
 
-    const applyRegex = (nodes: React.ReactNode[], regex: RegExp, render: (match: string, i: number) => React.ReactNode) => {
-      const out: React.ReactNode[] = []
-      nodes.forEach((node) => {
-        if (typeof node !== 'string') {
-          out.push(node)
+    // Then process links on the parts
+    const linkProcessedParts: React.ReactNode[] = []
+    parts.forEach((part, idx) => {
+      if (typeof part !== 'string') {
+        linkProcessedParts.push(part)
+        return
+      }
+
+      let linkParts: React.ReactNode[] = []
+      let linkLastIndex = 0
+      let linkMatch: RegExpExecArray | null
+      let linkCount = 0
+      linkRegex.lastIndex = 0
+
+      while ((linkMatch = linkRegex.exec(part))) {
+        if (linkMatch.index > linkLastIndex) {
+          linkParts.push(part.slice(linkLastIndex, linkMatch.index))
+        }
+        linkParts.push(
+          <a key={`${keyPrefix}-link-${idx}-${linkCount}`} href={linkMatch[2]} className="underline hover:no-underline" target={linkMatch[2].startsWith('/') ? undefined : '_blank'} rel="noreferrer">
+            {linkMatch[1]}
+          </a>
+        )
+        linkLastIndex = linkMatch.index + linkMatch[0].length
+        linkCount++
+      }
+      if (linkLastIndex < part.length) {
+        linkParts.push(part.slice(linkLastIndex))
+      }
+
+      linkProcessedParts.push(...linkParts)
+    })
+
+    parts = linkProcessedParts
+
+    // Then process code and italic on the string parts
+    const finalParts: React.ReactNode[] = []
+    parts.forEach((part, idx) => {
+      if (typeof part !== 'string') {
+        finalParts.push(part)
+        return
+      }
+
+      // Process code
+      const codeProcessed: React.ReactNode[] = []
+      let codeLastIndex = 0
+      let codeMatch: RegExpExecArray | null
+      let codeCount = 0
+      codeRegex.lastIndex = 0
+
+      while ((codeMatch = codeRegex.exec(part))) {
+        if (codeMatch.index > codeLastIndex) {
+          codeProcessed.push(part.slice(codeLastIndex, codeMatch.index))
+        }
+        codeProcessed.push(
+          <code key={`${keyPrefix}-code-${idx}-${codeCount}`} className="bg-muted px-1 py-0.5 rounded text-xs">{codeMatch[1]}</code>
+        )
+        codeLastIndex = codeMatch.index + codeMatch[0].length
+        codeCount++
+      }
+      if (codeLastIndex < part.length) {
+        codeProcessed.push(part.slice(codeLastIndex))
+      }
+
+      // Process italic on the results
+      codeProcessed.forEach((codePart, codeIdx) => {
+        if (typeof codePart !== 'string') {
+          finalParts.push(codePart)
           return
         }
-        let last = 0
-        let mm: RegExpExecArray | null
-        let count = 0
-        while ((mm = regex.exec(node))) {
-          if (mm.index > last) out.push(node.slice(last, mm.index))
-          out.push(render(mm[1], count++))
-          last = mm.index + mm[0].length
+
+        const italicProcessed: React.ReactNode[] = []
+        let italicLastIndex = 0
+        let italicMatch: RegExpExecArray | null
+        let italicCount = 0
+        emRegex.lastIndex = 0
+
+        while ((italicMatch = emRegex.exec(codePart))) {
+          if (italicMatch.index > italicLastIndex) {
+            italicProcessed.push(codePart.slice(italicLastIndex, italicMatch.index))
+          }
+          italicProcessed.push(
+            <em key={`${keyPrefix}-em-${idx}-${codeIdx}-${italicCount}`}>{italicMatch[1]}</em>
+          )
+          italicLastIndex = italicMatch.index + italicMatch[0].length
+          italicCount++
         }
-        if (last < node.length) out.push(node.slice(last))
+        if (italicLastIndex < codePart.length) {
+          italicProcessed.push(codePart.slice(italicLastIndex))
+        }
+
+        finalParts.push(...italicProcessed)
       })
-      return out
-    }
+    })
 
-    // Inline code, bold, italic
-    parts = applyRegex(parts, codeRegex, (match, i) => (
-      <code key={`${keyPrefix}-code-${i}`} className="bg-muted px-1 py-0.5 rounded text-xs">{match}</code>
-    ))
-    parts = applyRegex(parts, strongRegex, (match, i) => (
-      <strong key={`${keyPrefix}-strong-${i}`}>{match}</strong>
-    ))
-    parts = applyRegex(parts, emRegex, (match, i) => (
-      <em key={`${keyPrefix}-em-${i}`}>{match}</em>
-    ))
-
-    return parts
+    return finalParts.length > 0 ? finalParts : [text]
   }
 
   return (
@@ -269,6 +416,34 @@ export function MarkdownRenderer({ content, className }: Props) {
           case 'plotly':
             return (
               <PlotlyCard key={idx} caption={b.caption} path={b.path} secondPath={b.secondPath} />
+            )
+          case 'footnote':
+            // Calculate footnote number based on position in the footnotes object
+            const footnoteKeys = Object.keys(footnotes)
+            const footnoteIndex = footnoteKeys.indexOf(b.id)
+            const footnoteNumber = footnoteIndex + 1
+            return (
+              <div key={idx} id={`footnote-${b.id}`} className="mb-3 p-3 bg-muted/30 rounded border-l-4 border-primary">
+                <div className="flex items-start gap-2">
+                  <span className="text-primary font-medium text-sm mt-0.5">[{footnoteNumber}]</span>
+                  <div className="flex-1">
+                    <span className="text-sm" style={{ color: 'hsl(var(--content-foreground))' }}>
+                      {renderInline(b.text, `footnote-${idx}`)}
+                    </span>
+                    <button
+                      onClick={() => {
+                        const referenceElement = document.querySelector(`a[href="#footnote-${b.id}"]`)
+                        if (referenceElement) {
+                          referenceElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                        }
+                      }}
+                      className="ml-2 text-primary hover:text-primary/80 text-xs underline"
+                    >
+                      ↑
+                    </button>
+                  </div>
+                </div>
+              </div>
             )
           default:
             return null

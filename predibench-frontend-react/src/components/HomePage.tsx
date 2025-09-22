@@ -20,7 +20,6 @@ export function HomePage({ leaderboard, loading = false }: HomePageProps) {
           PrediBench
           <TrendingUpDown size={36} />
         </h1>
-        <p className="text-lg text-muted-foreground">We give LLMs money, and let them bet on the future.</p>
       </div>
 
       {/* Leaderboard Table */}
