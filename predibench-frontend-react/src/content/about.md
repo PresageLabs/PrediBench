@@ -47,9 +47,89 @@ Then on regular decision dates (thrice per week for the first month), each model
     - By rotating through fast-moving, high-attention markets, our leaderboard stays dynamic and captures the **real pulse of prediction markets**.
     - We also **exclude crypto events**, since their high volatility goes against our goal of testing reasoning from fundamentals.
 
-The agent run can go as follows:
+### Example Agent Run
 
-You can follow a real example of agent run [at this link](https://predibench.com/decision/gpt-5/42659/2025-09-17).
+Here's how an AI agent analyzes and decides on a prediction market event:
+
+{agent_example}
+
+::step:: Step 1 - Market Analysis
+timing: 2.3s
+tokens: ↗ 1.2K ↘ 850
+model: I need to analyze the 2025 Nobel Peace Prize prediction market. Current prices show Yulia Navalnaya at 11.5%, Sudan's Emergency Response Rooms at 15.5%, and Donald Trump at 5.1%. Let me search for recent developments that might influence the Nobel committee's decision.
+tool: web_search
+args: query: "2025 Nobel Peace Prize favorites candidates prediction humanitarian work peace efforts"
+output: Found 12 relevant articles:
+• Norwegian Nobel Institute announces shortlist review process begins September 2025
+• Sudan Emergency Response Rooms gain international recognition for humanitarian efforts
+• Yulia Navalnaya continues advocacy for Russian democracy from exile
+• Climate activists and humanitarian organizations highlighted as potential winners
+
+::step:: Step 2 - Deep Research
+timing: 4.1s
+tokens: ↗ 3.5K ↘ 2.1K
+model: The Sudan Emergency Response Rooms have gained significant traction recently. Let me investigate their humanitarian impact and international recognition more thoroughly.
+tool: visit_webpage
+args: url: "https://www.un.org/press/en/2025/sc15234.doc.htm"
+output: UN Security Council statement (September 2025):
+• Emergency Response Rooms credited with saving over 50,000 lives in Sudan
+• Grassroots network of 8,000+ volunteers providing humanitarian aid
+• International community praises their non-partisan approach
+• Similar to past Peace Prize winners focusing on humanitarian crisis response
+
+::step:: Step 3 - Historical Analysis
+timing: 3.2s
+tokens: ↗ 2.8K ↘ 1.9K
+model: Let me analyze historical patterns of Nobel Peace Prize awards to better calibrate my predictions.
+tool: web_search
+args: query: "Nobel Peace Prize history humanitarian organizations grassroots movements winners patterns"
+output: Historical patterns identified:
+• 23% of prizes awarded to humanitarian organizations (1901-2024)
+• Recent trend favoring grassroots movements (2020-2024)
+• Committee often recognizes ongoing crisis response efforts
+• Timing: Active humanitarian crises increase likelihood by ~40%
+
+::step:: Step 4 - Final Decision
+timing: 1.5s
+tokens: ↗ 1.5K ↘ 950
+model: Based on my analysis: Sudan's Emergency Response Rooms are undervalued at 15.5% (estimate: 25-30%). Yulia Navalnaya fairly priced at 11.5%. Historical patterns favor active humanitarian response over political figures. Allocating $0.40 to Sudan's Emergency Response Rooms (positive bet), $0.20 against Donald Trump (negative bet), keeping $0.40 unallocated for risk management. Now calling final_answer tool to return structured output.
+tool: final_answer
+args: market_decisions=[{"market_id": "560873", "rationale": "Sudan's Emergency Response Rooms show strong humanitarian impact...", "odds": 0.28, "confidence": 7, "bet": 0.40}, {"market_id": "560856", "rationale": "Donald Trump unlikely to win given current geopolitical climate...", "odds": 0.02, "confidence": 8, "bet": -0.20}], unallocated_capital=0.40
+output: FINAL STRUCTURED OUTPUT:
+{
+  "market_investment_decisions": [
+    {
+      "market_id": "560873",
+      "rationale": "Sudan's Emergency Response Rooms show strong humanitarian impact with growing international recognition, fitting historical Nobel patterns. Market undervalues their chances given recent UN endorsements.",
+      "odds": 0.28,
+      "confidence": 7,
+      "bet": 0.40
+    },
+    {
+      "market_id": "560856",
+      "rationale": "Donald Trump unlikely to win given current geopolitical climate and Nobel committee's historical preferences for humanitarian work over political figures.",
+      "odds": 0.02,
+      "confidence": 8,
+      "bet": -0.20
+    }
+  ],
+  "unallocated_capital": 0.40,
+  "summary": "Betting FOR Sudan's Emergency Response Rooms (+$0.40) and AGAINST Donald Trump (-$0.20), keeping $0.40 unallocated for risk management."
+}
+
+{/agent_example}
+
+#### How the Agent Works
+
+The agents use the **[smolagents](https://github.com/huggingface/smolagents)** framework with two main tools:
+
+- **`web_search`**: Performs Google searches to gather current information about events, candidates, and market trends
+- **`visit_webpage`**: Retrieves and analyzes specific web pages for detailed information, official statements, and primary sources
+- **`final_answer`**: Returns a structured JSON output with betting decisions, including market IDs, rationale, odds estimates, confidence levels, and bet amounts
+
+Each agent must allocate exactly $1 across all markets, with positive bets indicating "Yes" positions and negative bets indicating "No" positions. The `unallocated_capital` represents funds kept in reserve for risk management. The final structured output ensures consistent, machine-readable decisions that can be tracked and evaluated over time.
+
+You can explore more real agent decisions with full logs [on our platform](https://predibench.com/decisions).
 
 Each market has two mutually exclusive, discrete outcomes. An overwhelming majority of outcome couples are "Yes vs No", exceptions being for instance the two opponents of a sports match. Let us place ourselves in the “Yes vs No” alternative.
 

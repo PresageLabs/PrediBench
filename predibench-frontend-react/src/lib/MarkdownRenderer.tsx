@@ -1,5 +1,6 @@
 import React from 'react'
 import PlotlyCard from '../components/ui/PlotlyCard'
+import { AgentExample } from '../components/ui/AgentExample'
 
 type Props = {
   content: string
@@ -28,6 +29,7 @@ export function MarkdownRenderer({ content, className }: Props) {
     | { type: 'code'; text: string }
     | { type: 'plotly'; caption: string; path: string; secondPath?: string }
     | { type: 'footnote'; id: string; text: string }
+    | { type: 'agent_example'; steps: any[] }
 
   type ListItem = {
     text: string
@@ -143,6 +145,67 @@ export function MarkdownRenderer({ content, className }: Props) {
       flushParagraph()
       flushList()
       const inner = embedMatch[1]
+
+      // Check for agent_example type
+      if (inner.startsWith('agent_example')) {
+        // This marks the beginning of an agent example section
+        // Collect all content until we find the end marker
+        const steps: any[] = []
+        i++
+
+        while (i < lines.length) {
+          const currentLine = lines[i].trim()
+
+          // Check for end of agent example
+          if (currentLine === '{/agent_example}') {
+            blocks.push({ type: 'agent_example', steps })
+            i++
+            break
+          }
+
+          // Parse step markers
+          if (currentLine.startsWith('::step::')) {
+            const stepData: any = {}
+            stepData.title = currentLine.replace('::step::', '').trim()
+            i++
+
+            // Collect step details
+            while (i < lines.length && !lines[i].trim().startsWith('::') && lines[i].trim() !== '{/agent_example}') {
+              const line = lines[i].trim()
+              if (line.startsWith('timing:')) {
+                stepData.timing = line.replace('timing:', '').trim()
+              } else if (line.startsWith('tokens:')) {
+                stepData.tokens = line.replace('tokens:', '').trim()
+              } else if (line.startsWith('model:')) {
+                stepData.modelOutput = line.replace('model:', '').trim()
+              } else if (line.startsWith('tool:')) {
+                stepData.tool = line.replace('tool:', '').trim()
+              } else if (line.startsWith('args:')) {
+                stepData.toolArgs = line.replace('args:', '').trim()
+              } else if (line.startsWith('output:')) {
+                // Collect multi-line output
+                let output = line.replace('output:', '').trim()
+                i++
+                while (i < lines.length && !lines[i].trim().startsWith('::') &&
+                       !lines[i].trim().startsWith('timing:') && !lines[i].trim().startsWith('tokens:') &&
+                       !lines[i].trim().startsWith('model:') && !lines[i].trim().startsWith('tool:') &&
+                       !lines[i].trim().startsWith('args:') && lines[i].trim() !== '{/agent_example}') {
+                  output += '\n' + lines[i]
+                  i++
+                }
+                i-- // Back up one line
+                stepData.output = output
+              }
+              i++
+            }
+            steps.push(stepData)
+            continue
+          }
+          i++
+        }
+        continue
+      }
+
       // capture caption="..."
       const capMatch = inner.match(/caption\s*=\s*"([^"]+)"/)
       // capture path=... (quoted or unquoted, until comma or end)
@@ -503,6 +566,8 @@ export function MarkdownRenderer({ content, className }: Props) {
                 </div>
               </div>
             )
+          case 'agent_example':
+            return <AgentExample key={idx} steps={b.steps} />
           default:
             return null
         }
