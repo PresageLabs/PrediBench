@@ -21,6 +21,7 @@ export function MarkdownRenderer({ content, className }: Props) {
   type Block =
     | { type: 'heading'; level: number; text: string }
     | { type: 'paragraph'; text: string }
+    | { type: 'blockquote'; text: string }
     | { type: 'ul'; items: string[] }
     | { type: 'ol'; items: string[] }
     | { type: 'code'; text: string }
@@ -118,6 +119,17 @@ export function MarkdownRenderer({ content, className }: Props) {
       const level = headingMatch[1].length
       const text = headingMatch[2].trim()
       blocks.push({ type: 'heading', level, text })
+      i++
+      continue
+    }
+
+    // Blockquotes
+    const blockquoteMatch = line.match(/^\s*>\s+(.*)$/)
+    if (blockquoteMatch) {
+      flushParagraph()
+      flushList()
+      const text = blockquoteMatch[1].trim()
+      blocks.push({ type: 'blockquote', text })
       i++
       continue
     }
@@ -222,13 +234,19 @@ export function MarkdownRenderer({ content, className }: Props) {
           }
           case 'paragraph':
             return (
-              <p key={idx} className="text-muted-foreground leading-7 mb-4">
+              <p key={idx} className="leading-7 mb-4" style={{ color: 'hsl(var(--content-foreground))' }}>
                 {renderInline(b.text, `p-${idx}`)}
               </p>
             )
+          case 'blockquote':
+            return (
+              <blockquote key={idx} className="text-center text-lg italic mb-6 mx-auto max-w-2xl" style={{ color: 'hsl(var(--content-foreground))' }}>
+                {renderInline(b.text, `bq-${idx}`)}
+              </blockquote>
+            )
           case 'ul':
             return (
-              <ul key={idx} className="list-disc pl-6 space-y-1 mb-4">
+              <ul key={idx} className="list-disc pl-6 space-y-1 mb-4" style={{ color: 'hsl(var(--content-foreground))' }}>
                 {b.items.map((it, i2) => (
                   <li key={i2}>{renderInline(it, `ul-${idx}-${i2}`)}</li>
                 ))}
@@ -236,7 +254,7 @@ export function MarkdownRenderer({ content, className }: Props) {
             )
           case 'ol':
             return (
-              <ol key={idx} className="list-decimal pl-6 space-y-1 mb-4">
+              <ol key={idx} className="list-decimal pl-6 space-y-1 mb-4" style={{ color: 'hsl(var(--content-foreground))' }}>
                 {b.items.map((it, i2) => (
                   <li key={i2}>{renderInline(it, `ol-${idx}-${i2}`)}</li>
                 ))}

@@ -31,7 +31,15 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
       }
     }
     const sortedDates = Array.from(allDates).sort((a, b) => a.localeCompare(b))
-    if (!cancelled) setPredictionDates(sortedDates)
+    if (!cancelled) {
+      setPredictionDates(sortedDates)
+
+      // Set default to September 3rd if available
+      const september3Index = sortedDates.findIndex(date => date.startsWith('2025-09-03'))
+      if (september3Index !== -1) {
+        setCutoffIndex(september3Index)
+      }
+    }
     return () => { cancelled = true }
   }, [leaderboard])
 

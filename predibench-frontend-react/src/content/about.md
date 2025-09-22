@@ -1,30 +1,29 @@
-***Can AI predict the future?***
+> Can AI predict the future?
 
 AI models shine on within-distribution tasks, thus cracking standardized math or medicine exams ; but what about predicting the future, the realm of out-of-distribution events ?
 
 We decided to put test this forecasting ability : this yields Predibench.
 
-> Every day, we let AI models bet 1$ on some top Polymarket events.
+**Every day, we let AI models bet 1$ on top events from [Polymarket](https://polymarket.com/).**
 
-Then, we can track the profit and additional metrics such as the Brier score.
+Tracking the profits on different metrics then yields the above leaderboard.
 
 This benchmark **cannot be overfitted**: since the test events are real-time prediction markets following real-world events, there’s no chance that models have seen the test set in training.
-It is also **generalist** in nature: the questions picked from Polymarket are very broad in nature, ranging from economics to celebrities.
-Finally, it evaluates LLMs agentic abilities : they can retrieve information from the Web.
+It is also **generalist** in nature, since the questions picked from Polymarket cover a wide range of newsworthy topic, from economics to pop culture.
 
-We make this work entirely open source: code, data, experiments, to let the community iterate on it.
+We publish the entirety of this work in open source: code, data, experiments, to let the community iterate on it.
 
-## Intro
+## Why Predibench
 
-Prediction is a difficult science. We believe that in the future, AI models can possess a superhuman ability to predict the future.
+Prediction is a difficult science. We believe that in the future, AI models are poised to possess a superhuman ability to predict the future.
 
-What does it take to predict the future? Or at least, to propose reliable estimates of probabilites? 
+Why could that be? Because the ingredients of foresight are on the way to being mastered by AI models.
+
 Amongst the example of striking prediction ability shown by individuals in history, what these individuals had in common was a combination of profound knowledge and of well-applied, bold judgement (NOTE: forward-thinking?)
 
-In 1919, major French historian Jacques Bainville predicted that the Treaty of Versailles would have dire consequences[^consequences_politiques]. Far from the optimism of his contemporaneous at the time, he announced an upcoming war : he announced that a powerful and revengeful social republic of Germany would raise again to power.
-He predicted that German would annex Austria, and the Sudeten german-speaking minorities. He announced the alliance of Russia and Germany, their siding together against Poland, and the alliance of Italy and Germany.
+In 1919, French historian Jacques Bainville predicted that the Treaty of Versailles that had just closed the World war, would have dire consequences[^consequences_politiques]. Far from the optimism of his contemporaneous at the time, he announced an upcoming war. He announced that a powerful and revengeful social republic of Germany would raise again to power. That it would annex Austria, and the Sudeten german-speaking minorities. He announced the alliance of Russia and Germany, their siding together against Poland. He warned of the alliance of Italy.
 
-When the Second World War broke out, two decades later, it followed the exact steps predicted by Bainville. In 1940, 4 years after Bainville's death, France was defeated, as he had feared.
+When the Second World War broke out, two decades later, it followed the exact steps he had predicted.
 
 Bainville’s stunning prescience was not a product of chance: it was a mechanical application of his immense knowledge of European geopolitics and of his bold judgement, that defied the views of his time.
 
@@ -33,14 +32,14 @@ Knowledge is used to gather heuristics : from a-priori data, cause A implies con
 Knowledge and judgement are key elements that AI models.
 
 
-- Knowledge : Leading models already know more in most areas of science than PhD students specialized in these areas. These models possess a knowledge of both superhuman breadth and depth.
-- Judgement : models have historically been struggling with causality and critical thinking, but recent progress has brought them nearly up to human skill (SOURCE)
+- **Knowledge:** Leading models already know more in most areas of science than PhD students specialized in these areas [^GPQA]. These models possess a knowledge of both superhuman breadth and depth.
+- **Judgement:** models have historically been struggling with causality and critical thinking, but recent progress has brought them nearly up to human skill (SOURCE)
 
 So this benchmark is here to put a measurement on current prediction ability of AI systems.
 
 ## Methods
 
-- Agents Framework: All models ran under a **shared [smolagents](https://github.com/huggingface/smolagents) setup**. We defaulted to **CodeAgent** (multi-tool calls) but switched to **ToolCallingAgent** when it reduced errors. In practice: **OpenAI** (esp. GPT-5 Mini, GPT-OSS 120B) and **DeepSeek** models ****worked best with ToolCalling, while **Gemini** models were stronger with CodeAgent. **DeepResearch models** used their **own native framework** instead of ours. 
+- Agents Framework: All models ran under a **shared [smolagents](https://github.com/huggingface/smolagents) setup**. We defaulted to **CodeAgent** but switched to **ToolCallingAgent** when it reduced errors. In practice: **OpenAI** and **DeepSeek** models worked best with ToolCalling, while **Gemini** models were stronger with CodeAgent. **DeepResearch models** used their own native framework. 
 This hybrid setup let us maximize performance across models while keeping the evaluation pipeline consistent.
 
 Then on regular decision dates (thrice per week for the first month), each model is provided with a list of featured events on which to place bets.
@@ -54,7 +53,7 @@ The agent run can go as follows:
 
 You can follow a real example of agent run [at this link](https://predibench.com/decision/gpt-5/42659/2025-09-17).
 
-Each market has two mutually exclusive, discrete outcomes : an overwhelming majority of outcome couples are Yes vs No, but sometimes it varies, such as two opponents of a sports match. Let us place ourselves in the “Yes vs No” choice.
+Each market has two mutually exclusive, discrete outcomes. An overwhelming majority of outcome couples are "Yes vs No", exceptions being for instance the two opponents of a sports match. Let us place ourselves in the “Yes vs No” alternative.
 
 Placing a negative bet means that the agents bet the sum of money on the negative outcome. Some bets can have outsized returns : for instance, if the “Yes” on an event is priced at 91% and the agent bets against the market, effectively buying the same amount of “no shares”, the upside is huge : for instance, the “Yes” market price dropping to 73% would triple the stake.
 
@@ -62,13 +61,13 @@ Placing a negative bet means that the agents bet the sum of money on the negativ
 
 We evaluate models over several metrics, emphasizing different aspect of investment choices:
 
-- **Average returns - profitability :** each bet’s return is computed over several time horizons : how much did this bet return after 1 day, 2 days, 7 days ? These returns are averaged over all events to yield an average return per model, per each time horizon
-- **Brier Score - probability estimates:** upon generating their betting decision, models are prompted to also provide a probability estimate of the “Yes” outcome. This can be used to compute the cost function of error against the realised outcome : the Mean Squared Error between estimated probabilities and actual outcome is called the Brier Score : possible scores range from 0 (best) to 1 (worst).
-- **Annualised Sharpe - volatility risk:** when using AI models for financial choices, the volatility of returns is an important aspect. The [Sharpe ratio](https://en.wikipedia.org/wiki/Sharpe_ratio) allows to downweigh the average of a series of returns by its volatility, thus factoring in a measure of the risk taken by undergoing the investment. In our case, we calculate the Sharpe ratio for different holding horizons : 1 day, 2 days, 7 days. More detail on Sharpe [here](https://www.reddit.com/r/quant/comments/pe7wyt/introducing_sharpe_ratios_why_investing_is_not/).
+- **Average returns measures profitability :** each bet’s return is computed over several time horizons : how much did this bet return after 1 day, 2 days, 7 days ? These returns are averaged over all events to yield an average return per model, per each time horizon
+- **Brier Score measures probability estimates:** upon generating their betting decision, models are prompted to also provide a probability estimate of the “Yes” outcome. This can be used to compute the cost function of error against the realised outcome : the Mean Squared Error between estimated probabilities and actual outcome is called the Brier Score : possible scores range from 0 (best) to 1 (worst).
+- **Annualised Sharpe measures volatility risk:** when using AI models for financial choices, the volatility of returns is an important aspect. The [Sharpe ratio](https://en.wikipedia.org/wiki/Sharpe_ratio) allows to downweigh the average of a series of returns by its volatility, thus factoring in a measure of the risk taken by undergoing the investment. In our case, we calculate the Sharpe ratio for different holding horizons : 1 day, 2 days, 7 days. We annualize it to represent what these strategies would represent over an entire year.
 
 <aside>
 ⚠️
-For the sake of simplicity, the average returns and annualized Sharpe are calculated on real market prices, but they eschew some important, complex parts of an investment pipeline: brokerage fees, bid-ask spread…
+For the sake of simplicity, the average returns and annualized Sharpe are calculated on real market prices, but they eschew some important, complex parts of an investment pipeline: brokerage fees, bid-ask spread… This pipeline would certainly not be profitable under real investment conditions.
 </aside>
 
 ## Results
@@ -83,11 +82,11 @@ For the sake of simplicity, the average returns and annualized Sharpe are calcul
 
 ### Market behaviour
 
-News can suddenly change the price of some markets, like the news of [Zohran Mahmadi winning the Democratic primary](https://x.com/GlobeEyeNews/status/1937760643261825210) elicited a 40% change of the rate for his election over less than one hour.
+News can have a sudden and massive impact on prediction markets, like when the news of [Zohran Mahmadi winning the Democratic primary](https://x.com/GlobeEyeNews/status/1937760643261825210) elicited a 40% change of the rate for his election over less than one hour.
 
 {caption="On June 25, 2025, the market for Zohran mahmadi becoming Mayor of NYC jumped up - but the transition took one full hour." path="sudden_price_change/nyc_election_mahmadi.json"}
 
-Since news can have such a strong effect, we expect the mutual information
+Given this potentially strong effect of news, we expect the information to decay quite quickly through time, leading us to limit the holding period of bets to at most 7 days.
 
 ### Model Performance
 
@@ -109,13 +108,6 @@ To understand how different models make betting decisions, we analyzed the distr
 {caption="Fed Event: Model Comparison - Distribution of estimated probabilities, bet amounts, and confidence levels across models", path="32_run_results_FED/fed_readable_comparative.json"}
 
 The probability distribution reveals significant uncertainty in model predictions, with wide variance around market prices. This uncertainty translates into conservative betting behavior, explaining why the bet amount distribution median approaches zero - models hedge against their own uncertainty by making smaller bets.
-
-
-#### Returns Analysis
-
-The following analysis computes returns distribution after a week of market evolution. Despite the conservative betting approach, both models achieved positive mean returns, though with substantial variance reflecting the inherent uncertainty in prediction markets.
-
-{caption="Fed Event: Returns Analysis - Profitability distribution and market-specific performance", path="32_run_results_FED/fed_returns_analysis.json"}
 
 
 ### Importance of retrieving sources
@@ -163,3 +155,5 @@ In the next months, we plan to push the boundary of AI mdoels prediction capabil
 
 [^consequences_politiques] Bainville, J. (1919). Les conséquences politiques de la paix. Full text: https://classiques.uqam.ca/classiques/bainville_jacques/consequences_pol_paix/consequences_pol_paix.pdf
 
+
+[^GPQA] Rein, D., Hou, B. L., Stickland, A. C., Petty, J., Pang, R. Y., Dirani, J., Michael, J., & Bowman, S. R. (2023). GPQA : A Graduate-Level Google-Proof Q&A Benchmark (No. arXiv:2311.12022). arXiv. https://doi.org/10.48550/arXiv.2311.12022

@@ -38,14 +38,8 @@ export function HomePage({ leaderboard, loading = false }: HomePageProps) {
       </div>
 
       {/* Intro Section (moved from About page) */}
-      <div className="mb-16" id="intro">
-        <div className="text-center mb-8">
-          <div className="w-full h-px bg-border mb-8"></div>
-          <h2 className="text-2xl font-bold">Intro</h2>
-        </div>
-        <div className="max-w-3xl mx-auto">
-          <MarkdownRenderer content={aboutContent} />
-        </div>
+      <div className="mb-16 max-w-3xl mx-auto" id="about">
+        <MarkdownRenderer content={aboutContent} />
       </div>
     </div>
   )
