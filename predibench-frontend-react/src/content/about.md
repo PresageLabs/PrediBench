@@ -245,17 +245,6 @@ Average returns and Brier score tend to correlate well with general performance,
 {caption="Brier Score vs LMSys Arena score", path=model_performance_comprehensive_analysis/performance_vs_arena_score_brier.json}
 
 
-
-### Model Consistency
-
-
-To understand how different models make betting decisions, we analyzed the distribution of model choices across 32 runs to predict the [Federal Reserve interest rates](https://polymarket.com/event/fed-decision-in-october?tid=1758495631699), for the models Qwen3-Coder-480B and GPT-OSS-120B. This analysis reveals the consistency and strategy patterns of each model.
-
-{caption="Fed Event: Model Comparison - Distribution of estimated probabilities, bet amounts, and confidence levels across models", path="32_run_results_FED/fed_readable_comparative.json"}
-
-The probability distribution reveals significant uncertainty in model predictions, with wide variance around market prices. This uncertainty translates into conservative betting behavior, explaining why the bet amount distribution median approaches zero - models hedge against their own uncertainty by making smaller bets.
-
-
 ### Research depth: counting visits
 
 Our agents were given two tools: a general GoogleSearch that returns a list of links and their snippet texts, and a VisitWebpage tool to visit individual webpages.
