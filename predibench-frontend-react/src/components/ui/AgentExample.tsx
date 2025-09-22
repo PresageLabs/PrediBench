@@ -22,22 +22,46 @@ export function AgentExample({ steps }: AgentExampleProps) {
           <div className="w-2 h-2 bg-blue-500 rounded-full mr-2" />
           <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Task</span>
         </div>
-        <div className="text-sm text-gray-700 dark:text-gray-300 space-y-2">
+        <div className="text-sm text-gray-700 dark:text-gray-300 space-y-3">
           <p>
             <strong>You are an expert prediction-market analyst.</strong> You have been given an amount of USD $1.0 to allocate on the following event from the prediction market Polymarket.
           </p>
-          <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded font-mono text-xs">
-            <div className="mb-2"><strong>Event Details:</strong></div>
+
+          <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded font-mono text-xs space-y-2">
+            <div><strong>Event Details:</strong></div>
             <div>• Date: September 17, 2025</div>
             <div>• Title: Nobel Peace Prize Winner 2025</div>
+            <div>• Description: This market will resolve according to the winner of the 2025 Nobel Peace Prize, as announced by the Norwegian Nobel Committee.</div>
+            <div className="mt-2 text-gray-600 dark:text-gray-400">
+              Resolution Rules: If Trump, Zelensky, Musk, Pope Leo XIII, or Navalnaya are among recipients, resolve to highest-ranked. If joint award between individual and organization, favor individual. Alphabetical ordering for same types.
+            </div>
             <div>• Available Markets: 19 markets</div>
-            <div className="mt-2 text-gray-500">... [Market data with price histories for Trump (0.043), Sudan's ERR (0.175), Yulia Navalnaya (0.07), UNRWA (0.065), etc.] ...</div>
           </div>
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 p-2 rounded text-xs">
-            <strong>Guidelines:</strong> Use web search to gather up-to-date information. Be critical of sources. Only place bets when you estimate markets are mispriced.
+
+          <div className="bg-blue-100 dark:bg-blue-800/20 p-3 rounded text-xs space-y-1">
+            <div><strong>Sample Market Data:</strong></div>
+            <div>📊 <strong>Trump:</strong> 0.043 (down from 0.095 in August)</div>
+            <div>📊 <strong>Sudan's Emergency Response Rooms:</strong> 0.175 (up from 0.070)</div>
+            <div>📊 <strong>Yulia Navalnaya:</strong> 0.070</div>
+            <div>📊 <strong>UNRWA:</strong> 0.065</div>
+            <div>📊 <strong>Doctors Without Borders:</strong> 0.055</div>
+            <div className="text-gray-500">... plus 14 other markets with price histories</div>
           </div>
-          <div className="bg-green-50 dark:bg-green-900/20 p-2 rounded text-xs">
-            <strong>Capital Rules:</strong> Allocate exactly $1.0 across markets. For each market provide: market_id, rationale, odds estimate (0-1), confidence (0-10), and bet amount (-1 to 1).
+
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded text-xs space-y-1">
+            <div><strong>Analysis Guidelines:</strong></div>
+            <div>• Use web search to gather up-to-date information about this event</div>
+            <div>• Be critical of any sources, and be cautious of sensationalized headlines</div>
+            <div>• If results appear to indicate the event's outcome directly, double-check they don't refer to another event</div>
+            <div>• Only place a bet when you estimate that the market is mispriced</div>
+          </div>
+
+          <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded text-xs space-y-1">
+            <div><strong>Capital Allocation Rules:</strong></div>
+            <div>• You have exactly 1.0 dollars to allocate</div>
+            <div>• For EACH market, specify: market_id, rationale, odds (0-1), confidence (0-10), bet (-1 to 1)</div>
+            <div>• Negative bet = buy second outcome ("No"), positive = first outcome ("Yes")</div>
+            <div>• Sum of |bets| + unallocated_capital must equal 1.0</div>
           </div>
         </div>
       </div>
