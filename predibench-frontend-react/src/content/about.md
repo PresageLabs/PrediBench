@@ -37,21 +37,45 @@ Thus we expect AI models to become good forecasters: we built PrediBench to put 
 
 ## Methods
 
+### News and Prediction markets - Importance of actualisation
+
+We let LLMs place bets on prediction markets from [Polymarket](https://polymarket.com/).
+
+News can have a sudden and massive impact on prediction markets, like when the news of [Zohran Mahmadi winning the Democratic primary](https://x.com/GlobeEyeNews/status/1937760643261825210) elicited a 40% change of the rate for his election over less than one hour.
+
+{caption="On June 25, 2025, the market for Zohran mahmadi becoming Mayor of NYC jumped up - but the transition took one full hour." path="sudden_price_change/nyc_election_mahmadi.json"}
+
+Given this potentially strong effect of news, we expect the information to decay quite quickly through time, leading us to limit the holding period of bets to at most 7 days.
+
 ### Investment process
-- Agents Framework: All models ran under a **shared [smolagents](https://github.com/huggingface/smolagents) setup**. We defaulted to **CodeAgent** but switched to **ToolCallingAgent** when it reduced errors. In practice: **OpenAI** and **DeepSeek** models worked best with ToolCalling, while **Gemini** models were stronger with CodeAgent. **DeepResearch models** used their own native framework. 
 
-This hybrid setup let us maximize performance across models while keeping the evaluation pipeline consistent.
 
-Then on regular decision dates (thrice per week for the first month), each model is provided with a list of featured events on which to place bets.
+The investment pipeline runs for all models on regular decision dates (thrice per week for the first month). It goes as follows:
 
+1. Seletion of 10 events
 - Event Choice Strategy : We focus on the **top 10 trending Polymarket events**, ranked by one-week trading volume.
     - To avoid stagnant bets, we only pick markets that **end within two months**.
     - By rotating through fast-moving, high-attention markets, our leaderboard stays dynamic and captures the **real pulse of prediction markets**.
     - We also **exclude crypto events**, since their high volatility goes against our goal of testing reasoning from fundamentals.
 
+2. Each model places $1 on each of the 10 events.
+- Each model is running with an agent Framework: All models ran under a **shared [smolagents](https://github.com/huggingface/smolagents) setup**. We defaulted to **CodeAgent** but switched to **ToolCallingAgent** when it reduced errors. In practice: **OpenAI** and **DeepSeek** models worked best with ToolCalling, while **Gemini** models were stronger with CodeAgent. **DeepResearch models** used their own native framework. This hybrid setup let us maximize performance across models while keeping the evaluation pipeline consistent.
+- Importantly the model is asked to provide for each market the following: 
+```python
+class SingleInvestmentDecision:
+    rationale: str  # Explanation for your decision and why you think this market is mispriced (or correctly priced if skipping).
+    estimated_probability: float # Betwen 0 and 1, Your estimate for the true probability of the market
+    bet: float # The amount in dollars that you bet on this market (can be negative to buy the opposite of the market)
+    confidence: int = # Your confidence in the estimated_probability and your bet. 0 for absolute uncertainty, 10 for absolute certainty
+```
+- If the model does not allocate the totality of the $1, the remainder is left unallocated.
+
+3. Each investment is kept for a fixed period: the variables tracked are both its returns, and the gap between the `estimated_probability` and the real event outcome.
+
+
 ### Example Agent Run
 
-Here's how **Grok-4** analyzed the [2025 Nobel Peace Prize](https://predibench.com/decision/grok-4-0709/31406/2025-09-17?source=event&decisionDatetime=2025-09-17T07%3A01%3A22.460814&modelName=Grok+4&eventTitle=Nobel+Peace+Prize+Winner+2025+&decisionDatesForEvent=2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17) prediction market on September 17, 2025:
+Here's how **Grok-4** analyzed the [2025 Nobel Peace Prize](https://predibench.com/decision/grok-4-0709/31406/2025-09-17?source=event&decisionDatetime=2025-09-17T07%3A01%3A22.460814&modelName=Grok+4&eventTitle=Nobel+Peace+Prize+Winner+2025) prediction market on September 17, 2025:
 
 {agent_example}
 
@@ -195,6 +219,8 @@ We evaluate models over several metrics, emphasizing different aspect of investm
 
 > Word of caution: Although these performance metrics are calculated on real market prices, they eschew some important parts of an investment pipeline, such as the bid-ask sprea, for ths sake of simplicity. This pipeline would certainly not be viable in its current state under real investment conditions.
 
+
+
 ### Baselines
 
 Two baselines are added to the set:
@@ -220,13 +246,6 @@ This strongly hints that AI models are becoming better at forecasting!
 
 ## Analysis
 
-### News and Prediction markets - Importance of actualisation
-
-News can have a sudden and massive impact on prediction markets, like when the news of [Zohran Mahmadi winning the Democratic primary](https://x.com/GlobeEyeNews/status/1937760643261825210) elicited a 40% change of the rate for his election over less than one hour.
-
-{caption="On June 25, 2025, the market for Zohran mahmadi becoming Mayor of NYC jumped up - but the transition took one full hour." path="sudden_price_change/nyc_election_mahmadi.json"}
-
-Given this potentially strong effect of news, we expect the information to decay quite quickly through time, leading us to limit the holding period of bets to at most 7 days.
 
 ### Model Consistency
 
