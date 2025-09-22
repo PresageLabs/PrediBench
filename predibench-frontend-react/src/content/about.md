@@ -63,9 +63,9 @@ For the sake of simplicity, the average returns and annualized Sharpe are calcul
 
 ### Market behaviour
 
-Also, news can suddenly change the price of some markets, like the news of [Zohran Mahmadi winning the Democratic primary](https://x.com/GlobeEyeNews/status/1937760643261825210) elicited a 40% change of the rate for his election over less than one hour.
+News can suddenly change the price of some markets, like the news of [Zohran Mahmadi winning the Democratic primary](https://x.com/GlobeEyeNews/status/1937760643261825210) elicited a 40% change of the rate for his election over less than one hour.
 
-{caption="On June 25, 2025, the market for Zohran mahmadi becoming Mayor of NYC jumped up - but it took one hour." path="sudden_price_change/nyc_election_mahmadi.json"}
+{caption="On June 25, 2025, the market for Zohran mahmadi becoming Mayor of NYC jumped up - but the transition took one full hour." path="sudden_price_change/nyc_election_mahmadi.json"}
 
 Since news can have such a strong effe
 

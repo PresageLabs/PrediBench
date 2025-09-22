@@ -30,7 +30,6 @@ dependencies = [
     "pydantic>=2.0.0",
     "pytest>=8.4.1",
     "pywavelets>=1.8.0",
-    "pywidgets",
     "requests>=2.32.4",
     "scipy>=1.15.3",
     "scrapfly-sdk>=0.8.23",
@@ -46,12 +45,6 @@ hello = "predibench:hello"
 
 [tool.hatch.metadata]
 allow-direct-references = true
-
-[tool.uv]
-override-dependencies = [
-    "pykeyboard-input ; sys_platform == 'win32'",
-    "pywin32 ; sys_platform == 'win32'"
-]
 
 [build-system]
 requires = ["hatchling"]

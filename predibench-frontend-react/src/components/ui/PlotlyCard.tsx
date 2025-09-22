@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from './card'
+import { Card, CardCaption, CardContent, CardLegend } from './card'
 // Use the installed plotly.js bundle (no CDN)
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-expect-error - no types provided by the bundle
@@ -197,7 +197,7 @@ export function PlotlyCard({ caption, path, secondPath }: { caption: string; pat
               const w = Math.max(0, Math.round(el.getBoundingClientRect().width))
               const h = Math.max(320, Math.round(w * 0.6))
               Plotly.relayout(el, { width: w, height: h })
-            } catch {}
+            } catch { }
           })
           ro1.observe(containerRef1.current)
         }
@@ -208,7 +208,7 @@ export function PlotlyCard({ caption, path, secondPath }: { caption: string; pat
               const w = Math.max(0, Math.round(el.getBoundingClientRect().width))
               const h = Math.max(320, Math.round(w * 0.6))
               Plotly.relayout(el, { width: w, height: h })
-            } catch {}
+            } catch { }
           })
           ro2.observe(containerRef2.current)
         }
@@ -223,8 +223,8 @@ export function PlotlyCard({ caption, path, secondPath }: { caption: string; pat
 
     return () => {
       cancelled = true
-      try { ro1?.disconnect() } catch {}
-      try { ro2?.disconnect() } catch {}
+      try { ro1?.disconnect() } catch { }
+      try { ro2?.disconnect() } catch { }
       if (plotted1 && containerRef1.current) {
         try { Plotly.purge(containerRef1.current) } catch { /* no-op */ }
       }
@@ -286,9 +286,9 @@ export function PlotlyCard({ caption, path, secondPath }: { caption: string; pat
 
   return (
     <Card className="mb-6">
-      <CardHeader>
-        <CardTitle>{caption}</CardTitle>
-      </CardHeader>
+      <CardLegend>
+        <CardCaption>{caption}</CardCaption>
+      </CardLegend>
       <CardContent>
         {error && <div className="text-red-500 text-sm mb-2">{error}</div>}
         {secondPath ? (

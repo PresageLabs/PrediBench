@@ -51,6 +51,7 @@ def apply_template(
             font=dict(family=BOLD_FONT_FAMILY, size=font_size),
             itemwidth=30,
         ),
+        "margin": dict(l=20, r=20, t=20, b=20),
     }
     if len(annotation_text) > 0:
         layout_updates["annotations"] = [
