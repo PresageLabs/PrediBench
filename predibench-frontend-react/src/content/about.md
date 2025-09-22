@@ -41,6 +41,10 @@ Thus we expect AI models to become good forecasters: we built PrediBench to put 
 
 We let LLMs place bets on prediction markets from [Polymarket](https://polymarket.com/).
 
+Each market has two mutually exclusive, discrete outcomes. An overwhelming majority of outcome couples are "Yes vs No", exceptions being for instance the two opponents of a sports match. Let us place ourselves in the “Yes vs No” alternative.
+
+Placing a negative bet means to bet the sum of money on the negative outcome. Some bets can have outsized returns : for instance, if the “Yes” on an event is priced at 91% and the bet has been placed against the market, effectively buying the same amount of “no shares”, the upside is huge : for instance, the “Yes” market price dropping to 73% would triple the stake.
+
 News can have a sudden and massive impact on prediction markets, like when the news of [Zohran Mahmadi winning the Democratic primary](https://x.com/GlobeEyeNews/status/1937760643261825210) elicited a 40% change of the rate for his election over less than one hour.
 
 {caption="On June 25, 2025, the market for Zohran mahmadi becoming Mayor of NYC jumped up - but the transition took one full hour." path="sudden_price_change/nyc_election_mahmadi.json"}
@@ -73,7 +77,16 @@ class SingleInvestmentDecision:
 3. Each investment is kept for a fixed period: the variables tracked are both its returns, and the gap between the `estimated_probability` and the real event outcome.
 
 
-### Example Agent Run
+### How an Agent Runs
+
+The agents use the **[smolagents](https://github.com/huggingface/smolagents)** framework with two main tools:
+
+- **`web_search`**: Performs Google searches to gather current information about events, candidates, and market trends
+- **`visit_webpage`**: Retrieves and analyzes specific web pages for detailed information, official statements, and primary sources
+- **`final_answer`**: Returns a structured JSON output with betting decisions, including market IDs, rationale, odds estimates, confidence levels, and bet amounts
+
+Each agent must allocate exactly $1 across all markets, with positive bets indicating "Yes" positions and negative bets indicating "No" positions. The `unallocated_capital` represents funds kept in reserve for risk management. The final structured output ensures consistent, machine-readable decisions that can be tracked and evaluated over time.
+
 
 Here's how **Grok-4** analyzed the [2025 Nobel Peace Prize](https://predibench.com/decision/grok-4-0709/31406/2025-09-17?source=event&decisionDatetime=2025-09-17T07%3A01%3A22.460814&modelName=Grok+4&eventTitle=Nobel+Peace+Prize+Winner+2025) prediction market on September 17, 2025:
 
@@ -193,21 +206,7 @@ output: FINAL STRUCTURED OUTPUT:
 
 {/agent_example}
 
-#### How the Agent Works
-
-The agents use the **[smolagents](https://github.com/huggingface/smolagents)** framework with two main tools:
-
-- **`web_search`**: Performs Google searches to gather current information about events, candidates, and market trends
-- **`visit_webpage`**: Retrieves and analyzes specific web pages for detailed information, official statements, and primary sources
-- **`final_answer`**: Returns a structured JSON output with betting decisions, including market IDs, rationale, odds estimates, confidence levels, and bet amounts
-
-Each agent must allocate exactly $1 across all markets, with positive bets indicating "Yes" positions and negative bets indicating "No" positions. The `unallocated_capital` represents funds kept in reserve for risk management. The final structured output ensures consistent, machine-readable decisions that can be tracked and evaluated over time.
-
 You can explore more real agent decisions with full logs [on our platform](https://predibench.com/decisions).
-
-Each market has two mutually exclusive, discrete outcomes. An overwhelming majority of outcome couples are "Yes vs No", exceptions being for instance the two opponents of a sports match. Let us place ourselves in the “Yes vs No” alternative.
-
-Placing a negative bet means that the agents bet the sum of money on the negative outcome. Some bets can have outsized returns : for instance, if the “Yes” on an event is priced at 91% and the agent bets against the market, effectively buying the same amount of “no shares”, the upside is huge : for instance, the “Yes” market price dropping to 73% would triple the stake.
 
 ### Metrics
 

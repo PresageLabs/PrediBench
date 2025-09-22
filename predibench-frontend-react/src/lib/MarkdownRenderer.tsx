@@ -1,6 +1,6 @@
 import React from 'react'
-import PlotlyCard from '../components/ui/PlotlyCard'
 import { AgentExample } from '../components/ui/AgentExample'
+import PlotlyCard from '../components/ui/PlotlyCard'
 
 type Props = {
   content: string
@@ -187,9 +187,9 @@ export function MarkdownRenderer({ content, className }: Props) {
                 let output = line.replace('output:', '').trim()
                 i++
                 while (i < lines.length && !lines[i].trim().startsWith('::') &&
-                       !lines[i].trim().startsWith('timing:') && !lines[i].trim().startsWith('tokens:') &&
-                       !lines[i].trim().startsWith('model:') && !lines[i].trim().startsWith('tool:') &&
-                       !lines[i].trim().startsWith('args:') && lines[i].trim() !== '{/agent_example}') {
+                  !lines[i].trim().startsWith('timing:') && !lines[i].trim().startsWith('tokens:') &&
+                  !lines[i].trim().startsWith('model:') && !lines[i].trim().startsWith('tool:') &&
+                  !lines[i].trim().startsWith('args:') && lines[i].trim() !== '{/agent_example}') {
                   output += '\n' + lines[i]
                   i++
                 }
@@ -265,12 +265,36 @@ export function MarkdownRenderer({ content, className }: Props) {
       const type: 'ul' | 'ol' = ulMatch ? 'ul' : 'ol'
       const level = Math.floor(indentation / 4) // 4 spaces = 1 level
 
-      if (listType && listType !== type) {
-        // switch list type
-        flushList()
+      // Special handling for mixed ordered and unordered lists
+      if (olMatch && level === 0) {
+        // For top-level ordered items, keep the ordered list going
+        if (listType !== 'ol') {
+          // If we were in an unordered list, flush it first
+          if (listType === 'ul') {
+            flushList()
+          }
+          listType = 'ol'
+        }
+      } else if (ulMatch && level === 0 && listType === 'ol') {
+        // Special case: unordered list items following ordered list items
+        // should be treated as nested under the last ordered item
+        // Increase the level to make them nested
+        const adjustedLevel = 1
+        listBuffer.push({ text: item, level: adjustedLevel, children: [] })
+        i++
+        continue
+      } else if (ulMatch && level === 0) {
+        // For standalone top-level unordered items
+        if (listType === 'ol') {
+          flushList()
+        }
+        if (listType !== 'ul') {
+          listType = 'ul'
+        }
+      } else {
+        // For already nested items, don't change the current list type
+        listBuffer.push({ text: item, level, children: [] })
       }
-      listType = type
-      listBuffer.push({ text: item, level, children: [] })
       i++
       continue
     }
@@ -529,9 +553,30 @@ export function MarkdownRenderer({ content, className }: Props) {
               </ol>
             )
           case 'code':
+            const renderCodeWithComments = (codeText: string) => {
+              const lines = codeText.split('\n')
+              return lines.map((line, lineIdx) => {
+                // Check if line contains a Python comment
+                const commentMatch = line.match(/^(\s*)(.*?)(#.*)$/)
+                if (commentMatch) {
+                  const [, indent, beforeComment, comment] = commentMatch
+                  return (
+                    <div key={lineIdx}>
+                      {indent}{beforeComment}
+                      <span className="opacity-70 text-muted-foreground">{comment}</span>
+                    </div>
+                  )
+                } else {
+                  return <div key={lineIdx}>{line}</div>
+                }
+              })
+            }
+
             return (
               <pre key={idx} className="bg-muted rounded-md p-4 overflow-auto text-sm mb-4">
-                <code>{b.text}</code>
+                <code>
+                  {renderCodeWithComments(b.text)}
+                </code>
               </pre>
             )
           case 'plotly':
