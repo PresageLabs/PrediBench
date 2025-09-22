@@ -50,7 +50,7 @@ Then on regular decision dates (thrice per week for the first month), each model
 
 ### Example Agent Run
 
-Here's how an AI agent analyzes and decides on a prediction market event:
+Here's how an AI agent analyzes and decides on a prediction market event ([2025 Nobel Peace Prize](https://predibench.com/events/31406)):
 
 {agent_example}
 
