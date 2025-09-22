@@ -4,18 +4,48 @@ Fed Event Readable Analysis - Clean, Non-overlapping Visualizations
 """
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from predibench.common import (
+    DATA_PATH,
+    FRONTEND_PUBLIC_PATH,
+    PREFIX_MODEL_RESULTS,
+)
 from predibench.logger_config import get_logger
 from predibench.utils import apply_template
 
 logger = get_logger(__name__)
 
-# Configuration
-RESULTS_BASE_PATH = "/Users/charlesazam/charloupioupiou/market-bench/bucket-prod/model_results/2025-09-18"
+
+def _get_latest_results_base_path() -> Path:
+    """Return the latest date folder under bucket-prod/model_results."""
+    base = DATA_PATH / PREFIX_MODEL_RESULTS
+    if not base.exists():
+        logger.error("Results base path does not exist: %s", base)
+        return base
+
+    date_dirs = [d for d in base.iterdir() if d.is_dir()]
+    if not date_dirs:
+        logger.error("No date directories found under: %s", base)
+        return base
+
+    def parse_date(p: Path) -> datetime:
+        try:
+            return datetime.strptime(p.name, "%Y-%m-%d")
+        except Exception:
+            # If non-date directories exist, push them to the beginning
+            return datetime.min
+
+    latest = max(date_dirs, key=parse_date)
+    return latest
+
+
+# Configuration (auto-detected latest results date directory)
+RESULTS_BASE_PATH = _get_latest_results_base_path()
 
 MODELS_CONFIG = {
     "Qwen--Qwen3-Coder-480B-A35B-Instruct": {
@@ -81,7 +111,7 @@ def calculate_returns(bet_amount, decision_price, current_price):
 
 def load_model_data(model_id: str, run_indices: list) -> list:
     """Load all runs for a specific model."""
-    results_path = Path(RESULTS_BASE_PATH)
+    results_path = RESULTS_BASE_PATH
     all_runs = []
 
     for run_idx in run_indices:
@@ -158,9 +188,7 @@ def create_readable_individual_analysis():
     html_out_dir = repo_root / "analyses/fed_event_analysis_readable"
     html_out_dir.mkdir(parents=True, exist_ok=True)
 
-    json_out_dir = (
-        repo_root / "predibench-frontend-react/public/fed_event_analysis_readable"
-    )
+    json_out_dir = FRONTEND_PUBLIC_PATH / "fed_event_analysis_readable"
     json_out_dir.mkdir(parents=True, exist_ok=True)
 
     # Load data for both models
@@ -350,9 +378,7 @@ def create_readable_comparative_analysis():
     html_out_dir = repo_root / "analyses/fed_event_analysis_readable"
     html_out_dir.mkdir(parents=True, exist_ok=True)
 
-    json_out_dir = (
-        repo_root / "predibench-frontend-react/public/fed_event_analysis_readable"
-    )
+    json_out_dir = FRONTEND_PUBLIC_PATH / "fed_event_analysis_readable"
     json_out_dir.mkdir(parents=True, exist_ok=True)
 
     # Load data for both models
@@ -498,9 +524,7 @@ def create_returns_analysis():
     html_out_dir = repo_root / "analyses/fed_event_analysis_readable"
     html_out_dir.mkdir(parents=True, exist_ok=True)
 
-    json_out_dir = (
-        repo_root / "predibench-frontend-react/public/fed_event_analysis_readable"
-    )
+    json_out_dir = FRONTEND_PUBLIC_PATH / "fed_event_analysis_readable"
     json_out_dir.mkdir(parents=True, exist_ok=True)
 
     # Load data for both models

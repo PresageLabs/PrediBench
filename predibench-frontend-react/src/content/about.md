@@ -210,7 +210,7 @@ Let us compare our models and the baselines:
 {caption="Brier Score", path=model_performance_comprehensive_analysis/brier_score_ranking.json}
 
 Few observations from these rankings:
-- Average returns and Brier score tend to correlate well with model general performance, cf below:
+- Average returns and Brier score tend to correlate well with general performance, which we can visualize by comparing Brier scores to model scores on LMSys Arena[^arena].
 
 {caption="Brier Score vs LMSys Arena score", path=model_performance_comprehensive_analysis/performance_vs_arena_score_brier.json}
 
@@ -231,7 +231,7 @@ Given this potentially strong effect of news, we expect the information to decay
 ### Model Consistency
 
 
-To understand how different models make betting decisions, we analyzed the distribution of model choices across 32 runs to predict the ![Federal Reserve interest rates](https://polymarket.com/event/fed-decision-in-october?tid=1758495631699), for the models Qwen3-Coder-480B and GPT-OSS-120B. This analysis reveals the consistency and strategy patterns of each model.
+To understand how different models make betting decisions, we analyzed the distribution of model choices across 32 runs to predict the [Federal Reserve interest rates](https://polymarket.com/event/fed-decision-in-october?tid=1758495631699), for the models Qwen3-Coder-480B and GPT-OSS-120B. This analysis reveals the consistency and strategy patterns of each model.
 
 {caption="Fed Event: Model Comparison - Distribution of estimated probabilities, bet amounts, and confidence levels across models", path="32_run_results_FED/fed_readable_comparative.json"}
 
@@ -247,18 +247,6 @@ It appears that double-checking results increases research quality. Returns grow
 
 {caption="Performance increases as the model visits more pages" path="sources_vs_performance_analysis/webpage_sources_vs_returns.json"}
 
-
-### Predicted odds
-
-A basic ability of models should be to provide consistent bet and probability estimates - if the model estimates an event to be more probable (resp. less) than the market prices it, it should place its bet on the Yes (resp. No).
-
-To measure this we measure the criterion of **bet-edge consistency**. When noting "edge" the difference of model's estimated probability minus the market prices, the bet is considered consistent if:
-- **No bet is placed**: the model can always decide to place no bet.
-- **A bet is placed**: then if the edge is positive, we expect the bet to be positive, and if the edge is negative.
-
-We find that this bet-edge consistency correlates well with the general strength of models.
-
-{caption="Bet-Edge Consistency by Model - Models with higher consistency rates between their betting decisions and estimated market edge tend to perform better", path="market_dynamics/consistency_rates.json"}
 
 ## Next steps
 
@@ -286,3 +274,5 @@ In the next months, we plan to push the boundary of AI models prediction capabil
 [^GPQA]: Rein, D., Hou, B. L., Stickland, A. C., Petty, J., Pang, R. Y., Dirani, J., Michael, J., & Bowman, S. R. (2023). GPQA : A Graduate-Level Google-Proof Q&A Benchmark (No. arXiv:2311.12022). arXiv. https://doi.org/10.48550/arXiv.2311.12022
 
 [^gold_IMO]: The recent progresses in math exemplifies this vast improvement of causal thinking: [Gemini with Deep Think achieves gold-medal standard at the International Mathematical Olympiad](https://deepmind.google/discover/blog/advanced-version-of-gemini-with-deep-think-officially-achieves-gold-medal-standard-at-the-international-mathematical-olympiad/)
+
+[^arena]: Chiang, W.-L., Zheng, L., Sheng, Y., Angelopoulos, A. N., Li, T., Li, D., Zhang, H., Zhu, B., Jordan, M., Gonzalez, J. E., & Stoica, I. (2024). Chatbot Arena : An Open Platform for Evaluating LLMs by Human Preference (No. arXiv:2403.04132). arXiv. https://doi.org/10.48550/arXiv.2403.04132

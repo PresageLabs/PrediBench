@@ -148,12 +148,14 @@ def analyze_bet_vs_edge_consistency(backend_data) -> pd.DataFrame:
 
                 # Determine if bet direction is consistent with edge
                 # More precise consistency check
-                if abs(edge) < 0.01:  # No significant edge
-                    consistent = abs(bet_amount) < 0.05  # Should bet very little
-                elif edge > 0.01:  # Positive edge
-                    consistent = bet_amount > 0.01  # Should bet positive
-                else:  # Negative edge (edge < -0.01)
-                    consistent = bet_amount < -0.01  # Should bet negative
+                if edge > 0.01:
+                    consistent = bet_amount >= 0.0 or bet_amount == 0  # Positive edge
+                if edge < -0.01:
+                    consistent = (
+                        bet_amount <= 0.0 or bet_amount == 0
+                    )  # Should bet negative
+                else:  # abs(edge) < 0.01, No significant edge
+                    consistent = True
 
                 # Kelly criterion optimal bet
                 if market_price > 0 and market_price < 1:
@@ -187,7 +189,7 @@ def analyze_bet_vs_edge_consistency(backend_data) -> pd.DataFrame:
                     {
                         "model_id": decision.model_id,
                         "model_name": decision.model_info.model_pretty_name,
-                        "company": decision.model_info.company,
+                        "company": decision.model_info.company_pretty_name,
                         "provider": decision.model_info.inference_provider,
                         "event_id": event_decision.event_id,
                         "market_id": market_decision.market_id,
@@ -379,14 +381,6 @@ def create_edge_vs_bet_scatter(bet_edge_df: pd.DataFrame) -> go.Figure:
 def create_consistency_rate_chart(bet_edge_df: pd.DataFrame) -> go.Figure:
     """Create bar chart of consistency rates by model."""
     fig = go.Figure()
-
-    if bet_edge_df.empty:
-        fig.add_annotation(
-            text="No betting data found", xref="paper", yref="paper", x=0.5, y=0.5
-        )
-        apply_template(fig, width=1000, height=600)
-        return fig
-
     consistency_by_model = (
         bet_edge_df.groupby("model_name")["consistent"]
         .agg(["mean", "count"])
@@ -419,17 +413,111 @@ def create_consistency_rate_chart(bet_edge_df: pd.DataFrame) -> go.Figure:
         )
     )
 
+    apply_template(fig, width=800, height=max(600, len(consistency_by_model) * 35))
     fig.update_layout(
         xaxis_title="Consistency Rate",
         yaxis_title="Model",
-        height=max(
-            500, len(consistency_by_model) * 35
-        ),  # Increased height for better readability
-        width=1000,  # Increased width for longer model names
         margin=dict(l=200, r=100, t=80, b=60),  # Increased left margin for model names
     )
 
-    apply_template(fig, width=800, height=max(600, len(consistency_by_model) * 35))
+    return fig
+
+
+def create_consistency_vs_average_returns_scatter(
+    bet_edge_df: pd.DataFrame, backend_data
+) -> go.Figure:
+    """Create XY scatter of consistency rate vs 7-day average returns.
+
+    Inspired by create_performance_vs_arena_score_scatter: simple markers+labels,
+    showing each model once with its consistency rate and 7-day average return.
+    """
+    fig = go.Figure()
+
+    if bet_edge_df.empty:
+        fig.add_annotation(
+            text="No betting data found", xref="paper", yref="paper", x=0.5, y=0.5
+        )
+        apply_template(fig, width=900, height=600)
+        return fig
+
+    # Calculate consistency rate by model
+    consistency_by_model = (
+        bet_edge_df.groupby("model_name")["consistent"]
+        .agg(["mean", "count"])
+        .reset_index()
+    )
+    # Only include models with enough data
+    consistency_by_model = consistency_by_model[consistency_by_model["count"] >= 10]
+
+    # Map model_name -> 7-day average return from backend performance
+    model_points: List[Dict] = []
+    for model_name in consistency_by_model["model_name"]:
+        for model_id, performance in backend_data.performance_per_model.items():
+            if performance.model_name == model_name:
+                model_points.append(
+                    {
+                        "model_name": model_name,
+                        "consistency_rate": float(
+                            consistency_by_model.loc[
+                                consistency_by_model["model_name"] == model_name, "mean"
+                            ].iloc[0]
+                        ),
+                        "avg_return_7d": performance.average_returns.seven_day_return,
+                        "n_decisions": int(
+                            consistency_by_model.loc[
+                                consistency_by_model["model_name"] == model_name,
+                                "count",
+                            ].iloc[0]
+                        ),
+                    }
+                )
+                break
+
+    df = pd.DataFrame(model_points)
+
+    if df.empty:
+        fig.add_annotation(
+            text="No performance data found", xref="paper", yref="paper", x=0.5, y=0.5
+        )
+        apply_template(fig, width=900, height=600)
+        return fig
+
+    # Colors per model for visual consistency across charts
+    colors = [get_model_color(name, i) for i, name in enumerate(df["model_name"])]
+
+    fig.add_trace(
+        go.Scatter(
+            x=df["consistency_rate"],
+            y=df["avg_return_7d"],
+            mode="markers+text",
+            text=df["model_name"],
+            textposition="top center",
+            textfont=dict(size=10),
+            marker=dict(size=12, color=colors, opacity=0.85),
+            hovertext=[
+                f"{name}<br>Consistency: {cons:.1%}<br>Avg Return (7d): {ret:.1%}<br>n={n}"
+                for name, cons, ret, n in zip(
+                    df["model_name"],
+                    df["consistency_rate"],
+                    df["avg_return_7d"],
+                    df["n_decisions"],
+                )
+            ],
+            hovertemplate="%{hovertext}<extra></extra>",
+            showlegend=False,
+        )
+    )
+
+    fig.update_layout(
+        xaxis_title="Bet-Edge Consistency Rate",
+        yaxis_title="7-Day Average Return",
+        height=600,
+        width=900,
+        xaxis=dict(tickformat=".0%"),
+        yaxis=dict(tickformat=".1%"),
+    )
+
+    apply_template(fig, width=900, height=600)
     return fig
 
 
@@ -1783,13 +1871,23 @@ def main():
 
         # 2. Consistency Rate Chart
         fig_consistency = create_consistency_rate_chart(bet_edge_df)
-        fig_consistency.update_layout(width=1200, height=700)  # Better readability
+        fig_consistency.update_layout(width=800, height=600)  # Better readability
         fig_consistency.write_html(output_dir / "consistency_rates.html")
-        with open(output_dir / "consistency_rates.json", "w") as f:
-            f.write(fig_consistency.to_json())
         with open(frontend_json_dir / "consistency_rates.json", "w") as f:
             f.write(fig_consistency.to_json())
         print("Saved consistency_rates.html and .json (local + frontend)")
+
+        # 2b. Consistency Rate vs Average Returns (all-time)
+        fig_consistency_vs_avg = create_consistency_vs_average_returns_scatter(
+            bet_edge_df, backend_data
+        )
+        fig_consistency_vs_avg.update_layout(width=1100, height=700)
+        fig_consistency_vs_avg.write_html(
+            output_dir / "consistency_vs_average_returns.html"
+        )
+        with open(frontend_json_dir / "consistency_vs_average_returns.json", "w") as f:
+            f.write(fig_consistency_vs_avg.to_json())
+        print(f"Saved consistency_vs_average_returns.html under {frontend_json_dir}")
 
         # 3. Kelly Comparison Chart
         fig_kelly = create_kelly_comparison_chart(bet_edge_df)
