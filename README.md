@@ -42,8 +42,6 @@ market-bench/
 │   ├── src/                  # Frontend source code
 │   ├── public/               # Static assets
 │   └── package.json          # Node dependencies
-│
-└── analyses/                 # Data analysis notebooks
 ```
 
 ## Technical Stack
@@ -73,6 +71,9 @@ market-bench/
 - Python 3.13+
 - Node.js 18+
 - Docker (optional, for containerized deployment)
+
+### Environment Variables
+See [ENV_VARIABLES.md](ENV_VARIABLES.md) for a complete guide on configuring all required environment variables.
 
 ### Local Development
 
