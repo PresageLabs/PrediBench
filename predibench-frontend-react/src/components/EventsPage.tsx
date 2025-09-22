@@ -150,6 +150,9 @@ export function EventsPage({ events, loading: initialLoading = false }: EventsPa
         <div className="mb-10">
           <div className="text-center mb-6">
             <h2 className="text-2xl font-bold">Featured Events</h2>
+            <p className="text-sm text-muted-foreground mt-2">
+              Latest prediction markets being analyzed. <a href="/#news-and-prediction-markets-importance-of-actualisation" className="text-primary hover:underline">Why these markets matter →</a>
+            </p>
           </div>
           <FeaturedEvents
             events={featuredEvents}
@@ -165,6 +168,9 @@ export function EventsPage({ events, loading: initialLoading = false }: EventsPa
       {/* Search and Filters */}
       <div className="text-center mb-4">
         <h2 className="text-2xl font-bold">Search all events</h2>
+        <p className="text-sm text-muted-foreground mt-2">
+          Browse prediction markets from Polymarket. <a href="/#investment-process" className="text-primary hover:underline">See how models analyze these events →</a>
+        </p>
       </div>
       <div className="mb-8 space-y-4">
         {/* Search Bar */}

@@ -69,6 +69,9 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
       {/* Page Title and Subtitle */}
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold mb-4">🏆 PrediBench Leaderboard</h1>
+        <p className="text-muted-foreground">
+          Tracking AI model performance on prediction markets. <a href="/#predibench-testing-ai-models-on-prediction-markets" className="text-primary hover:underline">Learn how it works →</a>
+        </p>
       </div>
 
       {/* Leaderboard Table */}
@@ -159,7 +162,7 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
         <div className="max-w-4xl mx-auto">
           <div className="bg-card rounded-xl border border-border/30 p-8 relative z-10">
             <div className="text-center">
-              <RedirectButton href="/#intro">
+              <RedirectButton href="/#predibench-testing-ai-models-on-prediction-markets">
                 More detail on the benchmark
               </RedirectButton>
             </div>

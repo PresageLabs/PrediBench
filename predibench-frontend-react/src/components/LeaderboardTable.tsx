@@ -169,7 +169,7 @@ export function LeaderboardTable({
                             <ArrowDown className={`h-4 w-4 ${sortKey === 'average_returns' ? 'text-primary' : 'opacity-40'}`} />
                             <span>Average Returns</span>
                           </button>
-                          <InfoTooltip content="Average return per prediction across all bet. Each bet's return is calculated at the selected time horizon." />
+                          <InfoTooltip content="Average return per prediction across all bets. Each bet's return is calculated at the selected time horizon. [Learn about our metrics](/#metrics)" />
                         </div>
                         <div className="relative" ref={returnsDropdownRef}>
                           <button
@@ -249,7 +249,7 @@ export function LeaderboardTable({
                             <ArrowDown className={`h-4 w-4 ${sortKey === 'sharpe' ? 'text-primary' : 'opacity-40'}`} />
                             <span>Annualized Sharpe</span>
                           </button>
-                          <InfoTooltip content="Risk-adjusted return metric : Sharpe ratio is the ratio of the average return to the standard deviation of the returns. Read more [here](https://en.wikipedia.org/wiki/Sharpe_ratio). Green indicates statistically significant positive performance, computed using 5% significance t-statistic using the number of bets placed." />
+                          <InfoTooltip content="Risk-adjusted return metric: Sharpe ratio is the ratio of the average return to the standard deviation of the returns. Green indicates statistically significant positive performance, computed using 5% significance t-statistic using the number of bets placed. [Learn more about our metrics](/#metrics)" />
                         </div>
                         <div className="relative" ref={dropdownRef}>
                           <button

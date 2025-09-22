@@ -246,7 +246,12 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     <div className="container mx-auto px-4 py-8">
       {/* Header with title and model selection */}
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold">Model performance</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Model performance</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Detailed analysis of individual model predictions. <a href="/#how-an-agent-runs" className="text-primary hover:underline">Learn how agents work →</a>
+          </p>
+        </div>
 
         <Select.Root value={selectedModelId} onValueChange={handleModelSelect}>
           <Select.Trigger className="inline-flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 min-w-[100px]">
