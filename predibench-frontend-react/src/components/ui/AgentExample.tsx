@@ -22,9 +22,24 @@ export function AgentExample({ steps }: AgentExampleProps) {
           <div className="w-2 h-2 bg-blue-500 rounded-full mr-2" />
           <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Task</span>
         </div>
-        <p className="text-sm text-gray-700 dark:text-gray-300">
-          Analyze prediction market event and determine optimal betting strategy based on current market prices and available information.
-        </p>
+        <div className="text-sm text-gray-700 dark:text-gray-300 space-y-2">
+          <p>
+            <strong>You are an expert prediction-market analyst.</strong> You have been given an amount of USD $1.0 to allocate on the following event from the prediction market Polymarket.
+          </p>
+          <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded font-mono text-xs">
+            <div className="mb-2"><strong>Event Details:</strong></div>
+            <div>• Date: September 17, 2025</div>
+            <div>• Title: Nobel Peace Prize Winner 2025</div>
+            <div>• Available Markets: 19 markets</div>
+            <div className="mt-2 text-gray-500">... [Market data with price histories for Trump (0.043), Sudan's ERR (0.175), Yulia Navalnaya (0.07), UNRWA (0.065), etc.] ...</div>
+          </div>
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 p-2 rounded text-xs">
+            <strong>Guidelines:</strong> Use web search to gather up-to-date information. Be critical of sources. Only place bets when you estimate markets are mispriced.
+          </div>
+          <div className="bg-green-50 dark:bg-green-900/20 p-2 rounded text-xs">
+            <strong>Capital Rules:</strong> Allocate exactly $1.0 across markets. For each market provide: market_id, rationale, odds estimate (0-1), confidence (0-10), and bet amount (-1 to 1).
+          </div>
+        </div>
       </div>
 
       {/* Steps */}
