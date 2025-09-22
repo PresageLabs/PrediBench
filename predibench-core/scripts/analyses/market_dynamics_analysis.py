@@ -429,7 +429,7 @@ def create_consistency_rate_chart(bet_edge_df: pd.DataFrame) -> go.Figure:
         margin=dict(l=200, r=100, t=80, b=60),  # Increased left margin for model names
     )
 
-    apply_template(fig, width=1000, height=max(500, len(consistency_by_model) * 35))
+    apply_template(fig, width=800, height=max(600, len(consistency_by_model) * 35))
     return fig
 
 

@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 import plotly.graph_objects as go
 from predibench.backend.data_loader import get_data_for_backend
-from predibench.utils import apply_template
+from predibench.utils import apply_template, get_model_color
 
 
 def create_model_metadata():
@@ -120,12 +120,17 @@ def create_brier_score_ranking(df):
 
     fig = go.Figure()
 
+    colors = [
+        get_model_color(model_name, i)
+        for i, model_name in enumerate(df_brier["pretty_name"].unique())
+    ]
+
     fig.add_trace(
         go.Bar(
             x=df_brier["pretty_name"],
             y=df_brier["final_brier_score"],
             name="Brier Score",
-            marker_color="lightcoral",
+            marker=dict(color=colors),
             showlegend=False,
         )
     )
@@ -133,10 +138,12 @@ def create_brier_score_ranking(df):
     fig.update_layout(
         xaxis_title="Model",
         yaxis_title="Brier Score",
-        xaxis_tickangle=45,
         height=600,
         width=1000,
+        xaxis_tickangle=45,
     )
+    apply_template(fig)
+    fig.update_layout(margin=dict(b=200, r=70))
 
     return fig
 
@@ -149,12 +156,17 @@ def create_average_return_ranking(df):
 
     fig = go.Figure()
 
+    colors = [
+        get_model_color(model_name, i)
+        for i, model_name in enumerate(df_return["pretty_name"].unique())
+    ]
+
     fig.add_trace(
         go.Bar(
             x=df_return["pretty_name"],
             y=df_return["average_return_7d"],
             name="7-day Average Return",
-            marker_color="lightblue",
+            marker=dict(color=colors),
             showlegend=False,
         )
     )
@@ -166,7 +178,8 @@ def create_average_return_ranking(df):
         height=600,
         width=1000,
     )
-
+    apply_template(fig)
+    fig.update_layout(margin=dict(b=200, r=70))
     return fig
 
 
@@ -199,6 +212,7 @@ def create_brier_vs_return_scatter(df):
         height=600,
         width=800,
     )
+    apply_template(fig)
 
     return fig
 
@@ -235,7 +249,7 @@ def create_release_date_inference_cost_scatter(df):
         height=600,
         width=1000,
     )
-
+    apply_template(fig)
     return fig
 
 
@@ -265,33 +279,22 @@ def main():
     # 1. Brier score ranking
     print("Creating Brier score ranking...")
     fig1 = create_brier_score_ranking(df)
-    apply_template(fig1)
     fig1.write_json(output_dir / "brier_score_ranking.json")
 
     # 2. Average return ranking
     print("Creating average return ranking...")
     fig2 = create_average_return_ranking(df)
-    apply_template(fig2)
     fig2.write_json(output_dir / "average_return_ranking.json")
 
     # 3. Brier vs Return scatter plot
     print("Creating Brier vs Return scatter plot...")
     fig3 = create_brier_vs_return_scatter(df)
-    apply_template(fig3)
     fig3.write_json(output_dir / "brier_vs_return_scatter.json")
 
     # 4. Release date and inference cost scatter plot
     print("Creating release date and inference cost analysis...")
     fig4 = create_release_date_inference_cost_scatter(df)
-    apply_template(fig4)
     fig4.write_json(output_dir / "release_date_cost_scatter.json")
-
-    print(f"\nAnalysis complete! Files saved to {output_dir}")
-    print("Generated files:")
-    print("- brier_score_ranking.json")
-    print("- average_return_ranking.json")
-    print("- brier_vs_return_scatter.json")
-    print("- release_date_cost_scatter.json")
 
 
 if __name__ == "__main__":

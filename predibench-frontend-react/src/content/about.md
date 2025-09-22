@@ -36,6 +36,7 @@ Thus we expect AI models to become good forecasters: we built PrediBench to put 
 
 ## Methods
 
+### Investment process
 - Agents Framework: All models ran under a **shared [smolagents](https://github.com/huggingface/smolagents) setup**. We defaulted to **CodeAgent** but switched to **ToolCallingAgent** when it reduced errors. In practice: **OpenAI** and **DeepSeek** models worked best with ToolCalling, while **Gemini** models were stronger with CodeAgent. **DeepResearch models** used their own native framework. 
 
 This hybrid setup let us maximize performance across models while keeping the evaluation pipeline consistent.
@@ -145,15 +146,25 @@ We evaluate models over several metrics, emphasizing different aspect of investm
 
 > Word of caution: Although these performance metrics are calculated on real market prices, they eschew some important parts of an investment pipeline, such as the bid-ask sprea, for ths sake of simplicity. This pipeline would certainly not be viable in its current state under real investment conditions.
 
+### Baselines
+
+Two baselines are added to the set:
+- **Random baseline** picks a probability and a bet amount at random.
+- **Market baseline** selects on each market the market price for its probability estimate, and always bets in the direction of the most favoured outcome.
+
 ## Results
 
-### Outcome
+Let us compare our models and the baselines:
 
-- Models vs Market baseline on all criteria
+{caption="Average returns (7 days)", path=model_performance_comprehensive_analysis/average_return_ranking.json}
 
-{caption="Return Ranking", path=model_performance_comprehensive_analysis/average_return_ranking.json, second_path=model_performance_comprehensive_analysis/average_return_ranking.json}
+{caption="Brier Score", path=model_performance_comprehensive_analysis/brier_score_ranking.json}
 
-## Experiments
+Few observations from these rankings:
+- Average returns and Brier score tend to correlate well with model general performance.
+- While most models tested are not profitable, half of them beat the market baseline. And the mot recent/powerful ones tend to draw a profit.
+
+## Analysis
 
 ### Market behaviour
 

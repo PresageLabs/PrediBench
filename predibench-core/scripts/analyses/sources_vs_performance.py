@@ -188,7 +188,7 @@ def create_sources_vs_brier_scatter(df):
         height=600,
         width=800,
     )
-
+    apply_template(fig)
     return fig
 
 
@@ -247,7 +247,7 @@ def create_sources_vs_returns_scatter(df):
         height=600,
         width=800,
     )
-
+    apply_template(fig)
     return fig
 
 
@@ -292,29 +292,6 @@ def create_webpage_sources_vs_returns_scatter(df):
         )
     )
 
-    # Add trendline
-    if len(df_no_sonar) > 1:
-        z = np.polyfit(
-            df_no_sonar["mean_webpage_sources"], df_no_sonar["average_return_7d"], 1
-        )
-        p = np.poly1d(z)
-        x_trend = np.linspace(
-            df_no_sonar["mean_webpage_sources"].min(),
-            df_no_sonar["mean_webpage_sources"].max(),
-            100,
-        )
-        y_trend = p(x_trend)
-
-        fig.add_trace(
-            go.Scatter(
-                x=x_trend,
-                y=y_trend,
-                mode="lines",
-                line=dict(color="red", dash="dash"),
-                showlegend=False,
-            )
-        )
-
     fig.update_layout(
         xaxis_title="Mean Visited Webpages",
         yaxis_title="Average Return (%)",
@@ -322,6 +299,7 @@ def create_webpage_sources_vs_returns_scatter(df):
         height=600,
         width=800,
     )
+    apply_template(fig)
 
     return fig
 
@@ -365,7 +343,7 @@ def create_sources_breakdown_scatter(df):
         height=600,
         width=800,
     )
-
+    apply_template(fig)
     return fig
 
 
