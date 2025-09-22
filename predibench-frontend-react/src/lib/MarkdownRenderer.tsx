@@ -1,4 +1,5 @@
 import React from 'react'
+import { AgentExample } from '../components/ui/AgentExample'
 import PlotlyCard from '../components/ui/PlotlyCard'
 
 type Props = {
@@ -14,6 +15,7 @@ type Props = {
 // - Inline code `code`
 // - Bold **text** and italic *text*
 // - Links [text](url)
+// - Footnotes [^id] and footnote definitions [^id]: content
 // This avoids adding a new dependency while keeping content readable.
 export function MarkdownRenderer({ content, className }: Props) {
   const lines = content.replace(/\r\n?/g, '\n').split('\n')
@@ -21,17 +23,41 @@ export function MarkdownRenderer({ content, className }: Props) {
   type Block =
     | { type: 'heading'; level: number; text: string }
     | { type: 'paragraph'; text: string }
-    | { type: 'ul'; items: string[] }
-    | { type: 'ol'; items: string[] }
+    | { type: 'blockquote'; text: string }
+    | { type: 'ul'; items: ListItem[] }
+    | { type: 'ol'; items: ListItem[] }
     | { type: 'code'; text: string }
     | { type: 'plotly'; caption: string; path: string; secondPath?: string }
+    | { type: 'footnote'; id: string; text: string }
+    | { type: 'agent_example'; steps: any[] }
+
+  type ListItem = {
+    text: string
+    level: number
+    number?: string  // For ordered lists, store the original number
+    children?: ListItem[]
+  }
 
   const blocks: Block[] = []
+  // Pre-scan for footnotes before processing other blocks
+  const footnotes: { [id: string]: string } = {}
+  lines.forEach(line => {
+    const footnoteMatch = line.match(/^\[\^([^\]]+)\]:\s*(.*)$/)
+    if (footnoteMatch) {
+      footnotes[footnoteMatch[1]] = footnoteMatch[2].trim()
+    }
+  })
+
+  // Debug: Log found footnotes for about.md
+  if (content.includes('consequences_politiques') || content.includes('GPQA')) {
+    console.log('About.md footnotes found:', Object.keys(footnotes))
+  }
+
   let i = 0
   let inCode = false
   let codeBuffer: string[] = []
   let paraBuffer: string[] = []
-  let listBuffer: string[] = []
+  let listBuffer: ListItem[] = []
   let listType: 'ul' | 'ol' | null = null
 
   const flushParagraph = () => {
@@ -40,9 +66,36 @@ export function MarkdownRenderer({ content, className }: Props) {
       paraBuffer = []
     }
   }
+  const buildNestedList = (items: ListItem[]): ListItem[] => {
+    const result: ListItem[] = []
+    const stack: ListItem[] = []
+
+    for (const item of items) {
+      // Pop from stack until we find the correct parent level
+      while (stack.length > 0 && stack[stack.length - 1].level >= item.level) {
+        stack.pop()
+      }
+
+      if (stack.length === 0) {
+        // Top level item
+        result.push(item)
+        stack.push(item)
+      } else {
+        // Nested item
+        const parent = stack[stack.length - 1]
+        if (!parent.children) parent.children = []
+        parent.children.push(item)
+        stack.push(item)
+      }
+    }
+
+    return result
+  }
+
   const flushList = () => {
     if (listType && listBuffer.length) {
-      blocks.push({ type: listType, items: listBuffer })
+      const nestedItems = buildNestedList(listBuffer)
+      blocks.push({ type: listType, items: nestedItems })
     }
     listType = null
     listBuffer = []
@@ -93,6 +146,67 @@ export function MarkdownRenderer({ content, className }: Props) {
       flushParagraph()
       flushList()
       const inner = embedMatch[1]
+
+      // Check for agent_example type
+      if (inner.startsWith('agent_example')) {
+        // This marks the beginning of an agent example section
+        // Collect all content until we find the end marker
+        const steps: any[] = []
+        i++
+
+        while (i < lines.length) {
+          const currentLine = lines[i].trim()
+
+          // Check for end of agent example
+          if (currentLine === '{/agent_example}') {
+            blocks.push({ type: 'agent_example', steps })
+            i++
+            break
+          }
+
+          // Parse step markers
+          if (currentLine.startsWith('::step::')) {
+            const stepData: any = {}
+            stepData.title = currentLine.replace('::step::', '').trim()
+            i++
+
+            // Collect step details
+            while (i < lines.length && !lines[i].trim().startsWith('::') && lines[i].trim() !== '{/agent_example}') {
+              const line = lines[i].trim()
+              if (line.startsWith('timing:')) {
+                stepData.timing = line.replace('timing:', '').trim()
+              } else if (line.startsWith('tokens:')) {
+                stepData.tokens = line.replace('tokens:', '').trim()
+              } else if (line.startsWith('model:')) {
+                stepData.modelOutput = line.replace('model:', '').trim()
+              } else if (line.startsWith('tool:')) {
+                stepData.tool = line.replace('tool:', '').trim()
+              } else if (line.startsWith('args:')) {
+                stepData.toolArgs = line.replace('args:', '').trim()
+              } else if (line.startsWith('output:')) {
+                // Collect multi-line output
+                let output = line.replace('output:', '').trim()
+                i++
+                while (i < lines.length && !lines[i].trim().startsWith('::') &&
+                  !lines[i].trim().startsWith('timing:') && !lines[i].trim().startsWith('tokens:') &&
+                  !lines[i].trim().startsWith('model:') && !lines[i].trim().startsWith('tool:') &&
+                  !lines[i].trim().startsWith('args:') && lines[i].trim() !== '{/agent_example}') {
+                  output += '\n' + lines[i]
+                  i++
+                }
+                i-- // Back up one line
+                stepData.output = output
+              }
+              i++
+            }
+            steps.push(stepData)
+            continue
+          }
+          i++
+        }
+        continue
+      }
+
       // capture caption="..."
       const capMatch = inner.match(/caption\s*=\s*"([^"]+)"/)
       // capture path=... (quoted or unquoted, until comma or end)
@@ -122,25 +236,82 @@ export function MarkdownRenderer({ content, className }: Props) {
       continue
     }
 
-    // Lists
-    const ulMatch = line.match(/^\s*[-*]\s+(.*)$/)
-    const olMatch = line.match(/^\s*\d+\.\s+(.*)$/)
-    if (ulMatch || olMatch) {
+    // Blockquotes
+    const blockquoteMatch = line.match(/^\s*>\s+(.*)$/)
+    if (blockquoteMatch) {
       flushParagraph()
-      const item = (ulMatch ? ulMatch[1] : olMatch![1]).trim()
-      const type: 'ul' | 'ol' = ulMatch ? 'ul' : 'ol'
-      if (listType && listType !== type) {
-        // switch list type
-        flushList()
-      }
-      listType = type
-      listBuffer.push(item)
+      flushList()
+      const text = blockquoteMatch[1].trim()
+      blocks.push({ type: 'blockquote', text })
       i++
       continue
     }
 
-    // Default: accumulate paragraph
-    paraBuffer.push(line.trim())
+    // Footnote definitions (skip since we already processed them)
+    const footnoteMatch = line.match(/^\[\^([^\]]+)\]:\s*(.*)$/)
+    if (footnoteMatch) {
+      flushParagraph()
+      flushList()
+      i++
+      continue
+    }
+
+    // Lists (with indentation support)
+    const ulMatch = line.match(/^(\s*)[-*]\s+(.*)$/)
+    const olMatch = line.match(/^(\s*)(\d+)\.\s+(.*)$/)
+    if (ulMatch || olMatch) {
+      flushParagraph()
+      const indentation = (ulMatch ? ulMatch[1] : olMatch![1]).length
+      const item = (ulMatch ? ulMatch[3] || ulMatch[2] : olMatch![3]).trim()
+      const originalNumber = olMatch ? olMatch[2] : undefined
+      const level = Math.floor(indentation / 4) // 4 spaces = 1 level
+
+      // Special handling for mixed ordered and unordered lists
+      let itemLevel = level
+
+      if (olMatch && level === 0) {
+        // For top-level ordered items, keep the ordered list going
+        if (listType !== 'ol') {
+          // If we were in an unordered list, flush it first
+          if (listType === 'ul') {
+            flushList()
+          }
+          listType = 'ol'
+        }
+      } else if (ulMatch && level === 0 && listType === 'ol') {
+        // Special case: unordered list items following ordered list items
+        // should be treated as nested under the last ordered item
+        itemLevel = 1
+      } else if (ulMatch && level === 0) {
+        // For standalone top-level unordered items
+        if (listType === 'ol') {
+          flushList()
+        }
+        if (listType !== 'ul') {
+          listType = 'ul'
+        }
+      }
+
+      listBuffer.push({ text: item, level: itemLevel, number: originalNumber, children: [] })
+      i++
+      continue
+    }
+
+    // Default: treat as paragraph line
+    if (line.trim()) {
+      paraBuffer.push(line.trim())
+      // Immediately flush single-line paragraphs that follow list items
+      if (listType && paraBuffer.length === 1) {
+        // Check if next line is empty or another list item - if so, flush now
+        const nextLine = i + 1 < lines.length ? lines[i + 1] : ''
+        if (!nextLine.trim() || nextLine.match(/^\s*[-*]\s+/) || nextLine.match(/^\s*\d+\.\s+/)) {
+          flushParagraph()
+        }
+      }
+    } else {
+      // Empty line - flush current paragraph
+      flushParagraph()
+    }
     i++
   }
 
@@ -149,61 +320,203 @@ export function MarkdownRenderer({ content, className }: Props) {
   flushList()
   if (inCode) flushCode()
 
+  // Add footnotes as a bibliography section if any exist
+  if (Object.keys(footnotes).length > 0) {
+    Object.entries(footnotes).forEach(([id, text]) => {
+      blocks.push({ type: 'footnote', id, text })
+    })
+  }
+
   const renderInline = (text: string, keyPrefix: string) => {
-    // Links
+    // Process bold first, then everything else inside it
+    const strongRegex = /\*\*(.*?)\*\*/g
+    const parts: React.ReactNode[] = []
+    let lastIndex = 0
+    let strongMatch: RegExpExecArray | null
+    let strongCount = 0
+
+    while ((strongMatch = strongRegex.exec(text))) {
+      // Add text before the bold
+      if (strongMatch.index > lastIndex) {
+        const beforeText = text.slice(lastIndex, strongMatch.index)
+        parts.push(...processNonBoldText(beforeText, `${keyPrefix}-before-${strongCount}`))
+      }
+
+      // Process the bold content
+      const boldContent = strongMatch[1]
+      const boldProcessed = processNonBoldText(boldContent, `${keyPrefix}-bold-${strongCount}`)
+      parts.push(
+        <strong key={`${keyPrefix}-strong-${strongCount}`}>{boldProcessed}</strong>
+      )
+
+      lastIndex = strongMatch.index + strongMatch[0].length
+      strongCount++
+    }
+
+    // Add remaining text after the last bold
+    if (lastIndex < text.length) {
+      const afterText = text.slice(lastIndex)
+      parts.push(...processNonBoldText(afterText, `${keyPrefix}-after`))
+    }
+
+    return parts.length > 0 ? parts : [text]
+  }
+
+  const processNonBoldText = (text: string, keyPrefix: string): React.ReactNode[] => {
     const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g
+    const footnoteRefRegex = /\[\^([^\]]+)\]/g
     const codeRegex = /`([^`]+)`/g
-    const strongRegex = /\*\*([^*]+)\*\*/g
     const emRegex = /\*([^*]+)\*/g
 
-    // Process progressively to avoid nesting conflicts. We'll split into tokens.
-    // Start with links
+    // First process footnote references (before links to avoid conflicts)
     let parts: React.ReactNode[] = []
     let lastIndex = 0
-    let m: RegExpExecArray | null
-    while ((m = linkRegex.exec(text))) {
-      if (m.index > lastIndex) parts.push(text.slice(lastIndex, m.index))
+    let footnoteMatch: RegExpExecArray | null
+    let footnoteCount = 0
+
+    while ((footnoteMatch = footnoteRefRegex.exec(text))) {
+      if (footnoteMatch.index > lastIndex) {
+        parts.push(text.slice(lastIndex, footnoteMatch.index))
+      }
+      const refId = footnoteMatch[1]
+      // Get the footnote number based on the order of appearance in the footnotes object
+      const footnoteKeys = Object.keys(footnotes)
+      const footnoteIndex = footnoteKeys.indexOf(refId)
+      const footnoteNumber = footnoteIndex >= 0 ? footnoteIndex + 1 : footnoteCount + 1
       parts.push(
-        <a key={`${keyPrefix}-link-${parts.length}`} href={m[2]} className="underline hover:no-underline" target={m[2].startsWith('/') ? undefined : '_blank'} rel="noreferrer">
-          {m[1]}
+        <a key={`${keyPrefix}-footnote-${footnoteCount}`} href={`#footnote-${refId}`} className="text-primary hover:text-primary/80 text-sm align-super no-underline" onClick={(e) => {
+          e.preventDefault()
+          const element = document.getElementById(`footnote-${refId}`)
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }
+        }}>
+          [{footnoteNumber}]
         </a>
       )
-      lastIndex = m.index + m[0].length
+      lastIndex = footnoteMatch.index + footnoteMatch[0].length
+      footnoteCount++
     }
-    if (lastIndex < text.length) parts.push(text.slice(lastIndex))
+    if (lastIndex < text.length) {
+      parts.push(text.slice(lastIndex))
+    }
 
-    const applyRegex = (nodes: React.ReactNode[], regex: RegExp, render: (match: string, i: number) => React.ReactNode) => {
-      const out: React.ReactNode[] = []
-      nodes.forEach((node) => {
-        if (typeof node !== 'string') {
-          out.push(node)
+    // Then process links on the parts
+    const linkProcessedParts: React.ReactNode[] = []
+    parts.forEach((part, idx) => {
+      if (typeof part !== 'string') {
+        linkProcessedParts.push(part)
+        return
+      }
+
+      let linkParts: React.ReactNode[] = []
+      let linkLastIndex = 0
+      let linkMatch: RegExpExecArray | null
+      let linkCount = 0
+      linkRegex.lastIndex = 0
+
+      while ((linkMatch = linkRegex.exec(part))) {
+        if (linkMatch.index > linkLastIndex) {
+          linkParts.push(part.slice(linkLastIndex, linkMatch.index))
+        }
+        linkParts.push(
+          <a key={`${keyPrefix}-link-${idx}-${linkCount}`} href={linkMatch[2]} className="underline hover:no-underline" target={linkMatch[2].startsWith('/') ? undefined : '_blank'} rel="noreferrer">
+            {linkMatch[1]}
+          </a>
+        )
+        linkLastIndex = linkMatch.index + linkMatch[0].length
+        linkCount++
+      }
+      if (linkLastIndex < part.length) {
+        linkParts.push(part.slice(linkLastIndex))
+      }
+
+      linkProcessedParts.push(...linkParts)
+    })
+
+    parts = linkProcessedParts
+
+    // Then process code and italic on the string parts
+    const finalParts: React.ReactNode[] = []
+    parts.forEach((part, idx) => {
+      if (typeof part !== 'string') {
+        finalParts.push(part)
+        return
+      }
+
+      // Process code
+      const codeProcessed: React.ReactNode[] = []
+      let codeLastIndex = 0
+      let codeMatch: RegExpExecArray | null
+      let codeCount = 0
+      codeRegex.lastIndex = 0
+
+      while ((codeMatch = codeRegex.exec(part))) {
+        if (codeMatch.index > codeLastIndex) {
+          codeProcessed.push(part.slice(codeLastIndex, codeMatch.index))
+        }
+        codeProcessed.push(
+          <code key={`${keyPrefix}-code-${idx}-${codeCount}`} className="bg-muted px-1 py-0.5 rounded text-xs">{codeMatch[1]}</code>
+        )
+        codeLastIndex = codeMatch.index + codeMatch[0].length
+        codeCount++
+      }
+      if (codeLastIndex < part.length) {
+        codeProcessed.push(part.slice(codeLastIndex))
+      }
+
+      // Process italic on the results
+      codeProcessed.forEach((codePart, codeIdx) => {
+        if (typeof codePart !== 'string') {
+          finalParts.push(codePart)
           return
         }
-        let last = 0
-        let mm: RegExpExecArray | null
-        let count = 0
-        while ((mm = regex.exec(node))) {
-          if (mm.index > last) out.push(node.slice(last, mm.index))
-          out.push(render(mm[1], count++))
-          last = mm.index + mm[0].length
+
+        const italicProcessed: React.ReactNode[] = []
+        let italicLastIndex = 0
+        let italicMatch: RegExpExecArray | null
+        let italicCount = 0
+        emRegex.lastIndex = 0
+
+        while ((italicMatch = emRegex.exec(codePart))) {
+          if (italicMatch.index > italicLastIndex) {
+            italicProcessed.push(codePart.slice(italicLastIndex, italicMatch.index))
+          }
+          italicProcessed.push(
+            <em key={`${keyPrefix}-em-${idx}-${codeIdx}-${italicCount}`}>{italicMatch[1]}</em>
+          )
+          italicLastIndex = italicMatch.index + italicMatch[0].length
+          italicCount++
         }
-        if (last < node.length) out.push(node.slice(last))
+        if (italicLastIndex < codePart.length) {
+          italicProcessed.push(codePart.slice(italicLastIndex))
+        }
+
+        finalParts.push(...italicProcessed)
       })
-      return out
-    }
+    })
 
-    // Inline code, bold, italic
-    parts = applyRegex(parts, codeRegex, (match, i) => (
-      <code key={`${keyPrefix}-code-${i}`} className="bg-muted px-1 py-0.5 rounded text-xs">{match}</code>
-    ))
-    parts = applyRegex(parts, strongRegex, (match, i) => (
-      <strong key={`${keyPrefix}-strong-${i}`}>{match}</strong>
-    ))
-    parts = applyRegex(parts, emRegex, (match, i) => (
-      <em key={`${keyPrefix}-em-${i}`}>{match}</em>
-    ))
+    return finalParts.length > 0 ? finalParts : [text]
+  }
 
-    return parts
+  const renderListItems = (items: ListItem[], keyPrefix: string): React.ReactNode[] => {
+    return items.map((item, idx) => (
+      <li key={`${keyPrefix}-${idx}`} style={item.number ? { listStyleType: 'none' } : undefined}>
+        <div className="flex">
+          {item.number && (
+            <span className="mr-2 font-medium">{item.number}.</span>
+          )}
+          <div className="flex-1">
+            {renderInline(item.text, `${keyPrefix}-${idx}`)}
+            {item.children && item.children.length > 0 && (
+              <ul className="list-disc pl-6 space-y-1 mt-1" style={{ color: 'hsl(var(--content-foreground))' }}>
+                {renderListItems(item.children, `${keyPrefix}-${idx}-child`)}
+              </ul>
+            )}
+          </div>
+        </div>
+      </li>
+    ))
   }
 
   return (
@@ -222,36 +535,89 @@ export function MarkdownRenderer({ content, className }: Props) {
           }
           case 'paragraph':
             return (
-              <p key={idx} className="text-muted-foreground leading-7 mb-4">
+              <p key={idx} className="leading-7 mb-4" style={{ color: 'hsl(var(--content-foreground))' }}>
                 {renderInline(b.text, `p-${idx}`)}
               </p>
             )
+          case 'blockquote':
+            return (
+              <blockquote key={idx} className="text-center text-lg italic mb-6 mx-auto max-w-2xl" style={{ color: 'hsl(var(--content-foreground))' }}>
+                {renderInline(b.text, `bq-${idx}`)}
+              </blockquote>
+            )
           case 'ul':
             return (
-              <ul key={idx} className="list-disc pl-6 space-y-1 mb-4">
-                {b.items.map((it, i2) => (
-                  <li key={i2}>{renderInline(it, `ul-${idx}-${i2}`)}</li>
-                ))}
+              <ul key={idx} className="list-disc pl-6 space-y-1 mb-4" style={{ color: 'hsl(var(--content-foreground))' }}>
+                {renderListItems(b.items, `ul-${idx}`)}
               </ul>
             )
           case 'ol':
             return (
-              <ol key={idx} className="list-decimal pl-6 space-y-1 mb-4">
-                {b.items.map((it, i2) => (
-                  <li key={i2}>{renderInline(it, `ol-${idx}-${i2}`)}</li>
-                ))}
+              <ol key={idx} className="list-none pl-6 space-y-1 mb-4" style={{ color: 'hsl(var(--content-foreground))' }}>
+                {renderListItems(b.items, `ol-${idx}`)}
               </ol>
             )
           case 'code':
+            const renderCodeWithComments = (codeText: string) => {
+              const lines = codeText.split('\n')
+              return lines.map((line, lineIdx) => {
+                // Check if line contains a Python comment
+                const commentMatch = line.match(/^(\s*)(.*?)(#.*)$/)
+                if (commentMatch) {
+                  const [, indent, beforeComment, comment] = commentMatch
+                  return (
+                    <div key={lineIdx}>
+                      {indent}{beforeComment}
+                      <span className="opacity-70 text-muted-foreground">{comment}</span>
+                    </div>
+                  )
+                } else {
+                  return <div key={lineIdx}>{line}</div>
+                }
+              })
+            }
+
             return (
               <pre key={idx} className="bg-muted rounded-md p-4 overflow-auto text-sm mb-4">
-                <code>{b.text}</code>
+                <code>
+                  {renderCodeWithComments(b.text)}
+                </code>
               </pre>
             )
           case 'plotly':
             return (
               <PlotlyCard key={idx} caption={b.caption} path={b.path} secondPath={b.secondPath} />
             )
+          case 'footnote':
+            // Calculate footnote number based on position in the footnotes object
+            const footnoteKeys = Object.keys(footnotes)
+            const footnoteIndex = footnoteKeys.indexOf(b.id)
+            const footnoteNumber = footnoteIndex + 1
+            return (
+              <div key={idx} id={`footnote-${b.id}`} className="mb-3 p-3 bg-muted/30 rounded border-l-4 border-primary">
+                <div className="flex items-start gap-2">
+                  <span className="text-primary font-medium text-sm mt-0.5">[{footnoteNumber}]</span>
+                  <div className="flex-1">
+                    <span className="text-sm" style={{ color: 'hsl(var(--content-foreground))' }}>
+                      {renderInline(b.text, `footnote-${idx}`)}
+                    </span>
+                    <button
+                      onClick={() => {
+                        const referenceElement = document.querySelector(`a[href="#footnote-${b.id}"]`)
+                        if (referenceElement) {
+                          referenceElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                        }
+                      }}
+                      className="ml-2 text-primary hover:text-primary/80 text-xs underline"
+                    >
+                      ↑
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          case 'agent_example':
+            return <AgentExample key={idx} steps={b.steps} />
           default:
             return null
         }

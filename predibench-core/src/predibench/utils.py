@@ -41,17 +41,13 @@ def apply_template(
         "width": width,
         "height": height,
         "font": dict(family=FONT_FAMILY, size=font_size),
-        "title_font_family": BOLD_FONT_FAMILY,
-        "title_font_size": 24,
-        "title_xanchor": "center",
-        "title_font_weight": "bold",
         "legend": dict(
             itemsizing="constant",
             title_font_family=BOLD_FONT_FAMILY,
             font=dict(family=BOLD_FONT_FAMILY, size=font_size),
             itemwidth=30,
         ),
-        "margin": dict(l=80, r=20, t=20, b=80),
+        "margin": dict(r=20, t=20),
     }
     if len(annotation_text) > 0:
         layout_updates["annotations"] = [
@@ -116,14 +112,7 @@ def get_model_color(model_name: str, model_index: int) -> str:
     if any(
         name in model_name for name in ["GPT-5 Mini", "GPT-5", "GPT-4.1", "GPT-OSS"]
     ):
-        if "GPT-5 Mini" in model_name:
-            return "#606060"  # Dark grey for GPT-5 Mini
-        elif "GPT-5" in model_name:
-            return "#404040"  # Darker grey for GPT-5
-        elif "GPT-OSS 120B" in model_name:
-            return "#808080"  # Medium grey for GPT-OSS
-        else:  # GPT-4.1
-            return "#505050"  # Mid-dark grey for GPT-4.1
+        return "#606060"  # Dark grey
 
     # Anthropic Claude - canonical warm terra cotta
     elif "Claude" in model_name:
@@ -135,7 +124,7 @@ def get_model_color(model_name: str, model_index: int) -> str:
 
     # xAI Grok - grey (avoid black due to black background)
     elif "Grok" in model_name:
-        return "#707070"  # Grey for Grok (xAI uses black but we need contrast)
+        return "#262626"  # Grey for Grok (xAI uses black but we need contrast)
 
     # Perplexity Sonar - canonical turquoise
     elif "Sonar" in model_name:
@@ -154,8 +143,8 @@ def get_model_color(model_name: str, model_index: int) -> str:
         return "#0082FB"  # Meta Azure Radiance
 
     # Baseline - neutral grey
-    elif "Baseline" in model_name:
-        return "#808080"  # Neutral grey for baseline
+    elif "baseline" in model_name.lower():
+        return "#cf9b02"  # Neutral grey for baseline
 
     else:
         # Fallback colors for any other models

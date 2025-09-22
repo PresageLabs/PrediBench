@@ -4,18 +4,48 @@ Fed Event Readable Analysis - Clean, Non-overlapping Visualizations
 """
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from predibench.common import (
+    DATA_PATH,
+    FRONTEND_PUBLIC_PATH,
+    PREFIX_MODEL_RESULTS,
+)
 from predibench.logger_config import get_logger
 from predibench.utils import apply_template
 
 logger = get_logger(__name__)
 
-# Configuration
-RESULTS_BASE_PATH = "/Users/charlesazam/charloupioupiou/market-bench/bucket-prod/model_results/2025-09-18"
+
+def _get_latest_results_base_path() -> Path:
+    """Return the latest date folder under bucket-prod/model_results."""
+    base = DATA_PATH / PREFIX_MODEL_RESULTS
+    if not base.exists():
+        logger.error("Results base path does not exist: %s", base)
+        return base
+
+    date_dirs = [d for d in base.iterdir() if d.is_dir()]
+    if not date_dirs:
+        logger.error("No date directories found under: %s", base)
+        return base
+
+    def parse_date(p: Path) -> datetime:
+        try:
+            return datetime.strptime(p.name, "%Y-%m-%d")
+        except Exception:
+            # If non-date directories exist, push them to the beginning
+            return datetime.min
+
+    latest = max(date_dirs, key=parse_date)
+    return latest
+
+
+# Configuration (auto-detected latest results date directory)
+RESULTS_BASE_PATH = _get_latest_results_base_path()
 
 MODELS_CONFIG = {
     "Qwen--Qwen3-Coder-480B-A35B-Instruct": {
@@ -81,7 +111,7 @@ def calculate_returns(bet_amount, decision_price, current_price):
 
 def load_model_data(model_id: str, run_indices: list) -> list:
     """Load all runs for a specific model."""
-    results_path = Path(RESULTS_BASE_PATH)
+    results_path = RESULTS_BASE_PATH
     all_runs = []
 
     for run_idx in run_indices:
@@ -158,7 +188,7 @@ def create_readable_individual_analysis():
     html_out_dir = repo_root / "analyses/fed_event_analysis_readable"
     html_out_dir.mkdir(parents=True, exist_ok=True)
 
-    json_out_dir = repo_root / "predibench-frontend-react/public/fed_event_analysis_readable"
+    json_out_dir = FRONTEND_PUBLIC_PATH / "fed_event_analysis_readable"
     json_out_dir.mkdir(parents=True, exist_ok=True)
 
     # Load data for both models
@@ -348,7 +378,7 @@ def create_readable_comparative_analysis():
     html_out_dir = repo_root / "analyses/fed_event_analysis_readable"
     html_out_dir.mkdir(parents=True, exist_ok=True)
 
-    json_out_dir = repo_root / "predibench-frontend-react/public/fed_event_analysis_readable"
+    json_out_dir = FRONTEND_PUBLIC_PATH / "fed_event_analysis_readable"
     json_out_dir.mkdir(parents=True, exist_ok=True)
 
     # Load data for both models
@@ -434,9 +464,10 @@ def create_readable_comparative_analysis():
             # Decision time price only (red solid)
             fig.add_hline(
                 y=MARKET_PRICES[market]["decision_time_price"],
-                line=dict(color="red", width=2, dash="solid"),
+                line=dict(color="gray", width=2, dash="solid"),
                 row=1,
                 col=col_idx + 1,
+                text=MARKET_PRICES[market]["short_name"],
             )
 
         # Add zero line for bet amounts (row 2)
@@ -446,9 +477,9 @@ def create_readable_comparative_analysis():
 
     # Update layout
     fig.update_layout(
-        height=1200,
-        width=2200,
-        showlegend=True,
+        height=600,
+        width=800,
+        showlegend=False,
         legend=dict(
             orientation="v",
             yanchor="top",
@@ -464,6 +495,8 @@ def create_readable_comparative_analysis():
     # Set consistent y-axis ranges
     for col in range(1, 5):  # 4 markets
         fig.update_yaxes(range=[0, 1.05], row=1, col=col)  # Probability
+        fig.update_yaxes(range=[-0.5, 0.5], row=2, col=col)  # Bets
+
         # Bet amounts keep auto range
 
     # Remove x-axis labels for cleaner look
@@ -472,8 +505,7 @@ def create_readable_comparative_analysis():
             fig.update_xaxes(showticklabels=False, row=row, col=col)
 
     # Apply template
-    apply_template(fig, width=2200, height=1200)
-    fig.update_layout(width=2400, height=1400)
+    apply_template(fig, width=800, height=600)
 
     html_path = (html_out_dir / "fed_readable_comparative.html").resolve()
     fig.write_html(str(html_path))
@@ -482,7 +514,8 @@ def create_readable_comparative_analysis():
     json_path = (json_out_dir / "fed_readable_comparative.json").resolve()
     fig.write_json(str(json_path))
 
-    logger.info("Readable comparative Fed analysis saved")
+    logger.info("Readable comparative Fed analysis saved  in json under %s", html_path)
+    logger.info("Readable comparative Fed analysis saved in html under %s", json_path)
 
 
 def create_returns_analysis():
@@ -491,7 +524,7 @@ def create_returns_analysis():
     html_out_dir = repo_root / "analyses/fed_event_analysis_readable"
     html_out_dir.mkdir(parents=True, exist_ok=True)
 
-    json_out_dir = repo_root / "predibench-frontend-react/public/fed_event_analysis_readable"
+    json_out_dir = FRONTEND_PUBLIC_PATH / "fed_event_analysis_readable"
     json_out_dir.mkdir(parents=True, exist_ok=True)
 
     # Load data for both models
@@ -583,8 +616,8 @@ def create_returns_analysis():
 
     # Update layout
     fig.update_layout(
-        height=800,
-        width=2000,
+        height=600,
+        width=800,
         showlegend=True,
         legend=dict(
             orientation="v",
@@ -606,8 +639,7 @@ def create_returns_analysis():
     fig.update_xaxes(title_text="Market", row=1, col=2)
 
     # Apply template
-    apply_template(fig, width=2000, height=800)
-    fig.update_layout(width=2200, height=900)
+    apply_template(fig, width=800, height=600)
 
     html_path = (html_out_dir / "fed_returns_analysis.html").resolve()
     fig.write_html(str(html_path))
@@ -644,31 +676,11 @@ def create_returns_analysis():
 
 def main():
     """Run the readable Fed event analysis."""
-    logger.info("Creating ENHANCED Fed Event Analysis...")
-
-    # Create readable individual model analysis
     create_readable_individual_analysis()
 
-    # Create readable comparative analysis
     create_readable_comparative_analysis()
 
-    # Create returns analysis
     create_returns_analysis()
-
-    logger.info("Enhanced Fed analysis complete!")
-    logger.info("Generated files:")
-    logger.info("- fed_readable_QWEN_480B.html (enhanced individual analysis)")
-    logger.info("- fed_readable_GPT_OSS_120B.html (enhanced individual analysis)")
-    logger.info("- fed_readable_comparative.html (enhanced side-by-side comparison)")
-    logger.info("- fed_returns_analysis.html (NEW: returns and P&L analysis)")
-    logger.info("- fed_returns_summary.json (returns statistics)")
-    logger.info("")
-    logger.info("Key enhancements:")
-    logger.info("✓ BOLD market price lines with percentage labels")
-    logger.info("✓ Individual points visible on all plots")
-    logger.info("✓ Color-coded bet directions (Green=Long, Red=Short, Gray=None)")
-    logger.info("✓ Returns analysis based on actual price movements")
-    logger.info("✓ Clear annotations and legends")
 
 
 if __name__ == "__main__":
