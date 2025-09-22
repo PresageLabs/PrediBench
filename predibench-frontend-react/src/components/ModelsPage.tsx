@@ -88,17 +88,10 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     navigate(`/models?selected=${encodeSlashes(modelId)}`, { replace: true })
   }
 
-  const handleEventClick = (eventDecision: any, decisionDate: string, decisionDatetime: string) => {
+  const handleEventClick = (eventDecision: any, decisionDate: string) => {
+    // Only include source parameter to indicate navigation origin
     const searchParams = new URLSearchParams({
-      source: 'model',
-      decisionDatetime: decisionDatetime,
-      modelName: selectedModelData?.model_name || selectedModelId,
-      eventTitle: eventDecision.event_title,
-      decisionDatesForEvent: modelDecisions
-        .filter(md => md.event_investment_decisions.some(ed => ed.event_id === eventDecision.event_id))
-        .map(md => md.target_date)
-        .sort()
-        .join(',')
+      source: 'model'
     })
     navigate(`/decision/${encodeSlashes(selectedModelId)}/${eventDecision.event_id}/${decisionDate}?${searchParams.toString()}`)
   }
@@ -472,8 +465,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                             topBet={topBet}
                             decisionsCount={eventDecision.market_investment_decisions.length}
                             onClick={() => {
-                              const decision = modelDecisions.find(d => d.target_date === selectedDate)
-                              handleEventClick(eventDecision, selectedDate, decision?.decision_datetime || '')
+                              handleEventClick(eventDecision, selectedDate)
                             }}
                           />
                         )

@@ -14,7 +14,7 @@ interface DecisionAnnotationProps {
   nextDecision?: ModelInvestmentDecision
   allDecisions: ModelInvestmentDecision[]
   /** Callback when an event is clicked */
-  onEventClick?: (eventDecision: any, decisionDate: string, decisionDatetime: string) => void
+  onEventClick?: (eventDecision: any, decisionDate: string) => void
 }
 
 export function DecisionAnnotation({ decision, nextDecision, onEventClick }: DecisionAnnotationProps) {
@@ -77,7 +77,7 @@ export function DecisionAnnotation({ decision, nextDecision, onEventClick }: Dec
   const handleEventClick = (eventId: string) => {
     const eventDecision = decision.event_investment_decisions.find(ed => ed.event_id === eventId)
     if (eventDecision && onEventClick) {
-      onEventClick(eventDecision, decision.target_date, decision.decision_datetime)
+      onEventClick(eventDecision, decision.target_date)
     }
   }
 

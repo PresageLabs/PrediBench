@@ -342,16 +342,9 @@ export function EventDetail({ event }: EventDetailProps) {
                     topBet={topBet}
                     decisionsCount={ed.market_investment_decisions.length}
                     onClick={() => {
+                      // Only include source parameter to indicate navigation origin
                       const searchParams = new URLSearchParams({
-                        source: 'event',
-                        decisionDatetime: md.decision_datetime,
-                        modelName: modelIdToName[modelId] || modelId,
-                        eventTitle: event.title,
-                        decisionDatesForEvent: eventModelDecisions
-                          .filter(emd => emd.event_investment_decisions.some(eid => eid.event_id === event.id))
-                          .map(emd => emd.target_date)
-                          .sort()
-                          .join(',')
+                        source: 'event'
                       })
                       navigate(`/decision/${encodeSlashes(modelId)}/${event.id}/${md.target_date}?${searchParams.toString()}`)
                     }}
