@@ -109,25 +109,51 @@ def _to_date_index(df: pd.DataFrame) -> pd.DataFrame:
     return df2
 
 def get_model_color(model_name: str, model_index: int) -> str:
-    """Get consistent color for model with high contrast for comparisons."""
-    # High contrast colors for key comparisons
-    if "GPT-5 Mini" in model_name:
-        return "#FF0000"  # Bright red for GPT-5 Mini
-    elif "GPT-5" in model_name:
-        return "#0000FF"  # Bright blue for GPT-5
-    elif "GPT-OSS 120B" in model_name:
-        return "#00FF00"  # Bright green for GPT-OSS 120B
-    elif "Sonar Deep Research" in model_name:
-        return "#800080"  # Purple for Sonar Deep Research
-    elif any(name in model_name for name in ["Gemini 2.5 Flash"]):
-        return "#FF8C00"  # Dark orange for Gemini Flash
-    elif any(name in model_name for name in ["GPT-4.1"]):
-        return "#FF1493"  # Deep pink for GPT-4.1
-    elif any(name in model_name for name in ["Qwen3 235B"]):
-        return "#32CD32"  # Lime green for Qwen3 235B
-    elif any(name in model_name for name in ["Claude", "Grok", "DeepSeek", "Gemini 2.5 Pro"]):
-        return "#FFA500"  # Orange for Claude/Grok/DeepSeek/Gemini Pro
+    """Get consistent color for model using canonical provider brand colors."""
+    # OpenAI models - different greys (avoid black due to black background)
+    if any(name in model_name for name in ["GPT-5 Mini", "GPT-5", "GPT-4.1", "GPT-OSS"]):
+        if "GPT-5 Mini" in model_name:
+            return "#606060"  # Dark grey for GPT-5 Mini
+        elif "GPT-5" in model_name:
+            return "#404040"  # Darker grey for GPT-5
+        elif "GPT-OSS 120B" in model_name:
+            return "#808080"  # Medium grey for GPT-OSS
+        else:  # GPT-4.1
+            return "#505050"  # Mid-dark grey for GPT-4.1
+
+    # Anthropic Claude - canonical warm terra cotta
+    elif "Claude" in model_name:
+        return "#CC785C"  # Anthropic's Antique Brass/Terra Cotta
+
+    # Google Gemini - canonical Google Blue
+    elif "Gemini" in model_name:
+        return "#4285F4"  # Google Blue for all Gemini models
+
+    # xAI Grok - grey (avoid black due to black background)
+    elif "Grok" in model_name:
+        return "#707070"  # Grey for Grok (xAI uses black but we need contrast)
+
+    # Perplexity Sonar - canonical turquoise
+    elif "Sonar" in model_name:
+        return "#20B8CD"  # Perplexity's turquoise
+
+    # DeepSeek - canonical blue
+    elif "DeepSeek" in model_name:
+        return "#0D28F3"  # DeepSeek's bold blue
+
+    # Qwen (Alibaba) - canonical violet/purple
+    elif "Qwen" in model_name:
+        return "#8B5CF6"  # Qwen's violet
+
+    # Meta models - Azure Blue
+    elif any(name in model_name for name in ["Meta", "Llama"]):
+        return "#0082FB"  # Meta Azure Radiance
+
+    # Baseline - neutral grey
+    elif "Baseline" in model_name:
+        return "#808080"  # Neutral grey for baseline
+
     else:
-        # High contrast colors for remaining models
-        additional_colors = ["#800000", "#008080", "#000080", "#808000", "#8B4513"]
+        # Fallback colors for any other models
+        additional_colors = ["#F59E0B", "#EF4444", "#06B6D4", "#84CC16", "#EC4899"]
         return additional_colors[model_index % len(additional_colors)]
