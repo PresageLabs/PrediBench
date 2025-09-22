@@ -50,72 +50,120 @@ Then on regular decision dates (thrice per week for the first month), each model
 
 ### Example Agent Run
 
-Here's how an AI agent analyzes and decides on a prediction market event ([2025 Nobel Peace Prize](https://predibench.com/events/31406)):
+Here's how **Grok-4** analyzed the [2025 Nobel Peace Prize](https://predibench.com/decision/grok-4-0709/31406/2025-09-17?source=event&decisionDatetime=2025-09-17T07%3A01%3A22.460814&modelName=Grok+4&eventTitle=Nobel+Peace+Prize+Winner+2025+&decisionDatesForEvent=2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-12%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17%2C2025-09-17) prediction market on September 17, 2025:
 
 {agent_example}
 
-::step:: Step 1 - Market Analysis
-timing: 2.3s
-tokens: ↗ 1.2K ↘ 850
-model: I need to analyze the 2025 Nobel Peace Prize prediction market. Current prices show Yulia Navalnaya at 11.5%, Sudan's Emergency Response Rooms at 15.5%, and Donald Trump at 5.1%. Let me search for recent developments that might influence the Nobel committee's decision.
+::step:: Step 1 - Initial Market Research
+timing: 40.6s
+tokens: ↗ 10.6K ↘ 95
+model: I need to allocate $1.0 across these Nobel Peace Prize markets by estimating true probabilities and betting where markets seem mispriced. First, I'll research current predictions and odds for the 2025 Nobel Peace Prize.
 tool: web_search
-args: query: "2025 Nobel Peace Prize favorites candidates prediction humanitarian work peace efforts"
-output: Found 12 relevant articles:
-• Norwegian Nobel Institute announces shortlist review process begins September 2025
-• Sudan Emergency Response Rooms gain international recognition for humanitarian efforts
-• Yulia Navalnaya continues advocacy for Russian democracy from exile
-• Climate activists and humanitarian organizations highlighted as potential winners
+args: query: "2025 Nobel Peace Prize favorites odds predictions September 2025"
+output: Search Results:
+• Nobel Peace Prize Odds & Prediction 2025: Trump Among...
+• Oddspedia: Trump 2nd Favorite at +300
+• Multiple betting sites showing varied odds for candidates
+• Sudan's Emergency Response Rooms emerging as a contender
 
-::step:: Step 2 - Deep Research
-timing: 4.1s
-tokens: ↗ 3.5K ↘ 2.1K
-model: The Sudan Emergency Response Rooms have gained significant traction recently. Let me investigate their humanitarian impact and international recognition more thoroughly.
+::step:: Step 2 - Checking September Updates
+timing: 36.7s
+tokens: ↗ 11.7K ↘ 144
+model: The previous search results are from August 2025, but market data goes up to September 17. Prices have shifted significantly (e.g., Trump dropped from ~0.095 to 0.043, Sudan's ERR surged). Let me find more recent predictions.
+tool: web_search
+args: query: "Nobel Peace Prize 2025 predictions as of September 2025"
+output: Updated Results:
+• Trump at +300 odds (about 25% implied probability)
+• Discrepancies between betting sites and Polymarket
+• Sudan's Emergency Response Rooms gaining momentum
+• 338 nominees total, announcement date: October 10, 2025
+
+::step:: Step 3 - Visiting Detailed Predictions
+timing: 25.0s
+tokens: ↗ 12.6K ↘ 163
+model: The search results indicate discrepancies in odds across sources. For instance, one source has Trump at +300 (about 25%), but Polymarket has him at 4.3%. This could mean Polymarket has newer information. Let me check specific prediction sites.
 tool: visit_webpage
-args: url: "https://www.un.org/press/en/2025/sc15234.doc.htm"
-output: UN Security Council statement (September 2025):
-• Emergency Response Rooms credited with saving over 50,000 lives in Sudan
-• Grassroots network of 8,000+ volunteers providing humanitarian aid
-• International community praises their non-partisan approach
-• Similar to past Peace Prize winners focusing on humanitarian crisis response
+args: url: "https://oddspedia.com/insights/features/nobel-peace-prize-odds-and-predictions"
+output: Nobel Peace Prize Odds 2025 | Trump 2nd Favorite at +300
+• Updated odds from major bookmakers
+• Sudan's Emergency Response Rooms highlighted
+• Yulia Navalnaya among top candidates
+• Analysis of committee preferences for humanitarian work
 
-::step:: Step 3 - Historical Analysis
-timing: 3.2s
-tokens: ↗ 2.8K ↘ 1.9K
-model: Let me analyze historical patterns of Nobel Peace Prize awards to better calibrate my predictions.
+::step:: Step 4 - Expert Analysis (PRIO)
+timing: 19.4s
+tokens: ↗ 16.8K ↘ 96
+model: The PRIO shortlist is a reliable source for expert predictions on Nobel Peace Prize winners. They release it annually around September, based on research. This should give me a solid basis for my betting decisions.
 tool: web_search
-args: query: "Nobel Peace Prize history humanitarian organizations grassroots movements winners patterns"
-output: Historical patterns identified:
-• 23% of prizes awarded to humanitarian organizations (1901-2024)
-• Recent trend favoring grassroots movements (2020-2024)
-• Committee often recognizes ongoing crisis response efforts
-• Timing: Active humanitarian crises increase likelihood by ~40%
+args: query: "PRIO Nobel Peace Prize shortlist 2025"
+output: PRIO Director's List Results:
+• Sudan's Emergency Response Rooms - TOP PICK
+• International Court of Justice
+• International Criminal Court
+• Various humanitarian organizations
+• Note: Yulia Navalnaya NOT on PRIO shortlist
 
-::step:: Step 4 - Final Decision
-timing: 1.5s
-tokens: ↗ 1.5K ↘ 950
-model: Based on my analysis: Sudan's Emergency Response Rooms are undervalued at 15.5% (estimate: 25-30%). Yulia Navalnaya fairly priced at 11.5%. Historical patterns favor active humanitarian response over political figures. Allocating $0.40 to Sudan's Emergency Response Rooms (positive bet), $0.20 against Donald Trump (negative bet), keeping $0.40 unallocated for risk management. Now calling final_answer tool to return structured output.
+::step:: Step 5 (Truncated) - Final Decision
+timing: [Total: 324.7s]
+tokens: [Total: ↗ 134.3K ↘ 2.6K]
+model: Based on PRIO's expert analysis (which has strong predictive history), Sudan's ERR at 17.5% is undervalued. They're the top pick on PRIO's shortlist. I'll allocate my bets across 7 markets based on this analysis.
 tool: final_answer
-args: market_decisions=[{"market_id": "560873", "rationale": "Sudan's Emergency Response Rooms show strong humanitarian impact...", "odds": 0.28, "confidence": 7, "bet": 0.40}, {"market_id": "560856", "rationale": "Donald Trump unlikely to win given current geopolitical climate...", "odds": 0.02, "confidence": 8, "bet": -0.20}], unallocated_capital=0.40
+args: market_decisions=[7 market decisions], unallocated_capital=0.05
 output: FINAL STRUCTURED OUTPUT:
 {
   "market_investment_decisions": [
     {
       "market_id": "560873",
-      "rationale": "Sudan's Emergency Response Rooms show strong humanitarian impact with growing international recognition, fitting historical Nobel patterns. Market undervalues their chances given recent UN endorsements.",
-      "odds": 0.28,
-      "confidence": 7,
+      "rationale": "Sudan's Emergency Response Rooms is the top pick on the PRIO Director's shortlist for 2025, which has a strong history of predicting winners or themes (e.g., correctly shortlisting Nihon Hidankyo in 2024). Their work providing aid in Sudan's humanitarian crisis fits the committee's preference for timely, grassroots peace efforts amid conflict, similar to past laureates like MSF in 1999. The market price of 0.175 underestimates this.",
+      "odds": 0.30,
+      "confidence": 8,
       "bet": 0.40
     },
     {
-      "market_id": "560856",
-      "rationale": "Donald Trump unlikely to win given current geopolitical climate and Nobel committee's historical preferences for humanitarian work over political figures.",
+      "market_id": "560870",
+      "rationale": "Yulia Navalnaya was an early betting favorite in August due to her opposition work following Navalny's death, but she's absent from the PRIO shortlist, which prioritizes humanitarian and institutional efforts over individual dissidents this year. The market at 0.07 overprices her chances.",
+      "odds": 0.04,
+      "confidence": 6,
+      "bet": -0.15
+    },
+    {
+      "market_id": "560864",
+      "rationale": "UNRWA has faced significant controversies in 2025, including funding cuts and allegations of staff involvement in attacks, which have damaged its reputation despite its Gaza aid work. The market price of 0.065 overestimates.",
       "odds": 0.02,
-      "confidence": 8,
-      "bet": -0.20
+      "confidence": 5,
+      "bet": -0.10
+    },
+    {
+      "market_id": "560874",
+      "rationale": "Doctors Without Borders is not highlighted on the PRIO list this year, which tops with ERR for Sudan aid—a more acute, current crisis. MSF won in 1999, and repeats are rare.",
+      "odds": 0.03,
+      "confidence": 5,
+      "bet": -0.10
+    },
+    {
+      "market_id": "560856",
+      "rationale": "Donald Trump has multiple nominations but he's not on the PRIO shortlist, which avoids polarizing political figures without concrete peace achievements. The market at 0.043 still overvalues name recognition.",
+      "odds": 0.03,
+      "confidence": 7,
+      "bet": -0.10
+    },
+    {
+      "market_id": "560867",
+      "rationale": "Alexei Gorinov is a Russian dissident imprisoned for anti-war statements, but like Navalnaya, he's not on PRIO's list. The price of 0.021 overestimates.",
+      "odds": 0.01,
+      "confidence": 4,
+      "bet": -0.05
+    },
+    {
+      "market_id": "560868",
+      "rationale": "María Corina Machado is a key Venezuelan opposition leader but she's not on PRIO's shortlist. The market at 0.0115 is slightly high.",
+      "odds": 0.01,
+      "confidence": 4,
+      "bet": -0.05
     }
   ],
-  "unallocated_capital": 0.40,
-  "summary": "Betting FOR Sudan's Emergency Response Rooms (+$0.40) and AGAINST Donald Trump (-$0.20), keeping $0.40 unallocated for risk management."
+  "unallocated_capital": 0.05,
+  "summary": "Primary bet FOR Sudan's ERR (+$0.40), betting AGAINST multiple candidates: Navalnaya (-$0.15), UNRWA (-$0.10), MSF (-$0.10), Trump (-$0.10), Gorinov (-$0.05), Machado (-$0.05)."
 }
 
 {/agent_example}
