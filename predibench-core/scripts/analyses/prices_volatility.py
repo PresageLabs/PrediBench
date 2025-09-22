@@ -31,6 +31,24 @@ logger = get_logger(__name__)
 # We treat prices <= 0.05 as NO resolved, and >= 0.95 as YES resolved
 EPSILON_TERMINAL = 0.05
 
+HORIZONS = ["1h", "6h", "12h", "1d", "2d", "3d", "7d", "14d", "30d"]
+
+
+def _horizon_to_hours(horizon: str) -> int:
+    """Convert horizon string to hours."""
+    if horizon.endswith("h"):
+        return int(horizon[:-1])
+    elif horizon.endswith("d"):
+        return int(horizon[:-1]) * 24
+    else:
+        raise ValueError(f"Unknown horizon format: {horizon}")
+
+
+def _get_max_horizon_hours() -> int:
+    """Get the maximum horizon in hours from HORIZONS."""
+    return max(_horizon_to_hours(h) for h in HORIZONS)
+
+
 # Outcome stats for logging/diagnostics
 OUTCOME_STATS: dict[str, int] = {
     "eligible_markets": 0,  # markets with end passed and price data
@@ -72,36 +90,6 @@ def calculate_brier_score(predicted_prob: float, actual_outcome: int) -> float:
     assert actual_outcome in (0, 1)
     # Return sqrt of Brier (i.e., absolute error) to reduce squaring effects
     return abs(predicted_prob - actual_outcome)
-
-
-def _adjust_daily_points_to_end_of_day(
-    ts: pd.Series, end_dt: datetime | None
-) -> pd.Series:
-    """
-    Heuristic: daily-resampled points often carry midnight timestamps while representing
-    end-of-day "last" values. Shift such timestamps to end-of-day to better align with
-    the represented value timing, then clip to event end if provided.
-    """
-    if ts is None or len(ts) == 0:
-        return ts
-    idx = ts.index
-    if not isinstance(idx, pd.DatetimeIndex):
-        return ts
-    # Identify midnight timestamps
-    mask = (
-        (idx.hour == 0) & (idx.minute == 0) & (idx.second == 0) & (idx.microsecond == 0)
-    )
-    if mask.any():
-        shifted_idx = idx.copy()
-        shifted_idx = shifted_idx.where(
-            ~mask, shifted_idx + pd.Timedelta(hours=23, minutes=59)
-        )
-        ts = pd.Series(ts.values, index=shifted_idx).sort_index()
-    # Clip to end_dt
-    if end_dt is not None:
-        ed = end_dt if end_dt.tzinfo else end_dt.replace(tzinfo=timezone.utc)
-        ts = ts.loc[ts.index <= ed]
-    return ts
 
 
 def _to_utc(dt: datetime) -> datetime:
@@ -195,20 +183,18 @@ def _estimate_mutual_information_binned(
         return 0.0
 
 
-def calculate_mutual_information_decay(
-    price_series: pd.Series, max_lag: int = 50
-) -> dict:
+def calculate_mutual_information_decay(price_series: pd.Series) -> dict:
     """
     Calculate mutual information decay vs lag for price returns.
 
     Args:
         price_series: Time series of prices
-        max_lag: Maximum lag to compute MI for
 
     Returns:
         Dictionary with lags, MI values, and information half-life
     """
-    if len(price_series) < max_lag + 2:
+    # Calculate MI for available horizons, not just the maximum
+    if len(price_series) < 50:  # Need minimum data for any meaningful analysis
         return {"lags": [], "mi_values": [], "half_life": None}
 
     # Compute returns (price differences)
@@ -219,13 +205,17 @@ def calculate_mutual_information_decay(
     upper_bound = returns.quantile(0.995)
     returns = returns.clip(lower=lower_bound, upper=upper_bound)
 
-    if len(returns) < max_lag + 1:
+    if len(returns) < 10:
         return {"lags": [], "mi_values": [], "half_life": None}
 
     lags = []
     mi_values = []
 
-    for lag in range(1, min(max_lag + 1, len(returns))):
+    # Calculate MI for lags up to available horizons
+    horizon_hours = [_horizon_to_hours(h) for h in HORIZONS]
+    max_available_lag = min(max(horizon_hours), len(returns) // 2)  # Use available data
+
+    for lag in range(1, max_available_lag + 1):
         if len(returns) <= lag:
             break
 
@@ -254,20 +244,18 @@ def calculate_mutual_information_decay(
     return {"lags": lags, "mi_values": mi_values, "half_life": half_life}
 
 
-def calculate_autocorrelation_half_life(
-    price_series: pd.Series, max_lag: int = 50
-) -> dict:
+def calculate_autocorrelation_half_life(price_series: pd.Series) -> dict:
     """
     Calculate autocorrelation function and AR(1) half-life for price returns.
 
     Args:
         price_series: Time series of prices
-        max_lag: Maximum lag for ACF computation
 
     Returns:
         Dictionary with ACF values, AR(1) half-life, and ACF zero-crossing
     """
-    if len(price_series) < max_lag + 2:
+    # Calculate ACF for available horizons, not just the maximum
+    if len(price_series) < 50:  # Need minimum data for any meaningful analysis
         return {
             "lags": [],
             "acf_values": [],
@@ -292,7 +280,10 @@ def calculate_autocorrelation_half_life(
         }
 
     # Calculate autocorrelation function
-    lags = list(range(1, min(max_lag + 1, len(returns))))
+    horizon_hours = [_horizon_to_hours(h) for h in HORIZONS]
+    max_available_lag = min(max(horizon_hours), len(returns) // 2)  # Use available data
+
+    lags = list(range(1, max_available_lag + 1))
     acf_values = []
 
     for lag in lags:
@@ -334,28 +325,23 @@ def calculate_autocorrelation_half_life(
     }
 
 
-def calculate_wavelet_variance(
-    price_series: pd.Series, wavelet: str = "db4", max_scales: int = 8
-) -> dict:
+def calculate_wavelet_variance(price_series: pd.Series, wavelet: str = "db4") -> dict:
     """
     Calculate wavelet variance using MODWT (Maximal Overlap Discrete Wavelet Transform).
 
     Args:
         price_series: Time series of prices
         wavelet: Wavelet type for decomposition
-        max_scales: Maximum number of scales to compute
 
     Returns:
-        Dictionary with scales, horizons, wavelet variances, and elbow scale
+        Dictionary with horizons, wavelet variances, and elbow scale
     """
-    if len(price_series) < 2**max_scales:
-        return {"scales": [], "horizons": [], "variances": [], "elbow_scale": None}
+    # Basic check for minimum data
+    if len(price_series) < 16:
+        return {"horizons": [], "variances": [], "elbow_scale": None}
 
     # Compute returns
     returns = price_series.diff().dropna()
-
-    if len(returns) < 2**max_scales:
-        return {"scales": [], "horizons": [], "variances": [], "elbow_scale": None}
 
     # Winsorize extreme returns
     lower_bound = returns.quantile(0.005)
@@ -363,114 +349,45 @@ def calculate_wavelet_variance(
     returns = returns.clip(lower=lower_bound, upper=upper_bound)
 
     if len(returns) < 16:  # Minimum length for meaningful decomposition
-        return {"scales": [], "horizons": [], "variances": [], "elbow_scale": None}
+        return {"horizons": [], "variances": [], "elbow_scale": None}
 
-    # Ensure length is power of 2 for efficiency (optional for MODWT)
-    returns_array = returns.values
-
-    scales = []
     horizons = []
     variances = []
 
-    # Calculate maximum possible scales
-    max_possible_scales = min(
-        max_scales, pywt.dwt_max_level(len(returns_array), wavelet)
-    )
+    # Use natural wavelet decomposition with powers of 2 time scales
+    returns_array = returns.values
 
-    # Debug logging
-    logger.debug(
-        f"Wavelet analysis: data_length={len(returns_array)}, max_possible_scales={max_possible_scales}"
-    )
+    # Perform wavelet decomposition
+    max_possible_levels = min(8, pywt.dwt_max_level(len(returns_array), wavelet))
 
-    try:
-        # Perform a single multilevel DWT decomposition
-        coeffs = pywt.wavedec(returns_array, wavelet, level=max_possible_scales)
+    if max_possible_levels == 0:
+        raise ValueError(
+            f"Insufficient data for wavelet decomposition: {len(returns_array)} points"
+        )
 
-        # coeffs contains: [cA_n, cD_n, cD_{n-1}, ..., cD_1]
-        # where n = max_possible_scales
+    coeffs = pywt.wavedec(returns_array, wavelet, level=max_possible_levels)
 
-        # Extract detail coefficients at each scale
-        for j in range(1, len(coeffs)):  # Skip approximation coefficients (index 0)
-            detail_coeffs = coeffs[j]
+    # Use natural wavelet time scales (2^j hours)
+    # For hourly sampling: Scale at level j ≈ 2^j hours
+    for j in range(1, len(coeffs)):  # Skip approximation coeffs (index 0)
+        detail_coeffs = coeffs[j]
 
-            if len(detail_coeffs) > 0:
-                # Calculate wavelet variance at this scale
-                wvar = np.var(detail_coeffs)
+        if len(detail_coeffs) == 0:
+            continue
 
-                # Scale index (1 = finest, increasing = coarser)
-                scale = len(coeffs) - j
+        time_scale_hours = 2**j  # Level j captures fluctuations at ~2^j hours
 
-                # Map scales to meaningful time horizons
-                horizon_labels = [
-                    "1h",
-                    "6h",
-                    "12h",
-                    "1d",
-                    "2d",
-                    "3d",
-                    "7d",
-                    "14d",
-                    "30d",
-                ]
-                if scale <= len(horizon_labels):
-                    horizon_label = horizon_labels[scale - 1]
-                else:
-                    horizon_label = f"{scale}d"  # Fallback for higher scales
+        # Check if we have enough time span for this time scale analysis
+        time_span_hours = (
+            price_series.index.max() - price_series.index.min()
+        ).total_seconds() // 3600
+        if time_span_hours < time_scale_hours:
+            continue
 
-                scales.append(scale)
-                horizons.append(horizon_label)
-                variances.append(wvar)
+        wvar = np.var(detail_coeffs)
 
-                logger.debug(f"  Scale {scale} -> {horizon_label}: variance={wvar:.6f}")
-
-    except Exception:
-        # Fallback: use simple multi-scale variance approach
-        try:
-            for j in range(1, min(6, max_possible_scales + 1)):
-                window_size = 2**j
-
-                if window_size >= len(returns_array):
-                    break
-
-                # Calculate running variance at this scale using rolling windows
-                if len(returns_array) >= window_size:
-                    # Create overlapping windows and calculate variance within each
-                    windowed_vars = []
-                    for start in range(
-                        0, len(returns_array) - window_size + 1, window_size // 2
-                    ):
-                        window = returns_array[start : start + window_size]
-                        if len(window) == window_size:
-                            windowed_vars.append(np.var(window))
-
-                    if windowed_vars:
-                        # Variance of the windowed variances
-                        wvar = np.var(windowed_vars)
-
-                        # Map to meaningful horizons
-                        horizon_labels = [
-                            "1h",
-                            "6h",
-                            "12h",
-                            "1d",
-                            "2d",
-                            "3d",
-                            "7d",
-                            "14d",
-                            "30d",
-                        ]
-                        if j <= len(horizon_labels):
-                            horizon_label = horizon_labels[j - 1]
-                        else:
-                            horizon_label = f"{j}d"
-
-                        scales.append(j)
-                        horizons.append(horizon_label)
-                        variances.append(wvar)
-
-        except Exception:
-            # If all else fails, return empty results
-            return {"scales": [], "horizons": [], "variances": [], "elbow_scale": None}
+        horizons.append(f"{time_scale_hours}h")
+        variances.append(wvar)
 
     # Find elbow in variance curve (point of diminishing returns)
     elbow_scale = None
@@ -478,15 +395,14 @@ def calculate_wavelet_variance(
         # Calculate second differences to find elbow
         var_diffs = np.diff(np.diff(variances))
         if len(var_diffs) > 0:
-            # Find the scale where curvature changes most
+            # Find the horizon where curvature changes most
             elbow_idx = (
                 np.argmax(np.abs(var_diffs)) + 2
             )  # +2 due to double differencing
-            if elbow_idx < len(scales):
-                elbow_scale = scales[elbow_idx]
+            if elbow_idx < len(horizons):
+                elbow_scale = elbow_idx + 1  # Return 1-based index
 
     return {
-        "scales": scales,
         "horizons": horizons,
         "variances": variances,
         "elbow_scale": elbow_scale,
@@ -626,29 +542,14 @@ def analyze_market_volatility_measures(events: list[EventBackend]) -> pd.DataFra
     """
     Apply all three volatility measures to markets with sufficient price data.
 
-    Filters markets to ensure they have at least 3x the data points needed for
-    the longest horizon analysis (30 days = 720 hours, so need >2160 points).
+    Each analysis function will now handle per-horizon filtering internally.
 
     Returns:
         DataFrame with volatility analysis results for each market
     """
     results = []
     data_length_stats = []
-
-    # Horizon mapping in hours - longest is 30 days = 720 hours
-    horizon_hours = {
-        "1h": 1,
-        "6h": 6,
-        "12h": 12,
-        "1d": 24,
-        "2d": 48,
-        "3d": 72,
-        "7d": 168,
-        "14d": 336,
-        "30d": 720,
-    }
-    max_horizon_hours = max(horizon_hours.values())  # 720 hours
-    min_data_points = max_horizon_hours * 3  # Need 3x the data for reliable analysis
+    data_span_hours = []  # Track time spans in hours
 
     for event in events:
         for market in event.markets:
@@ -658,9 +559,8 @@ def analyze_market_volatility_measures(events: list[EventBackend]) -> pd.DataFra
             data_length = len(market.prices)
             data_length_stats.append(data_length)
 
-            if (
-                data_length < min_data_points
-            ):  # Need sufficient data for longest horizon
+            # Apply basic minimum filter - need at least some data
+            if data_length < 50:
                 continue
 
             # Convert prices to pandas Series
@@ -678,8 +578,12 @@ def analyze_market_volatility_measures(events: list[EventBackend]) -> pd.DataFra
                     data_length_stats.append(len(price_series))
                     continue
 
-                # Track data length for analysis
+                # Track data length and time span for analysis
                 data_length_stats.append(len(price_series))
+                time_span_hours = (
+                    price_series.index.max() - price_series.index.min()
+                ).total_seconds() / 3600
+                data_span_hours.append(time_span_hours)
 
                 # Apply all three measures
                 mi_result = calculate_mutual_information_decay(price_series)
@@ -718,13 +622,11 @@ def analyze_market_volatility_measures(events: list[EventBackend]) -> pd.DataFra
                         if acf_result.get("acf_values")
                         else 0,
                         # Wavelet results
-                        "wavelet_elbow_scale": wavelet_result.get("elbow_scale"),
-                        "wavelet_max_variance": max(
-                            wavelet_result.get("variances", [0])
-                        )
-                        if wavelet_result.get("variances")
+                        "wavelet_elbow_scale": wavelet_result["elbow_scale"],
+                        "wavelet_max_variance": max(wavelet_result["variances"])
+                        if wavelet_result["variances"]
                         else 0,
-                        "wavelet_total_scales": len(wavelet_result.get("scales", [])),
+                        "wavelet_total_horizons": len(wavelet_result["horizons"]),
                         # Store full results for detailed analysis
                         "mi_full_result": mi_result,
                         "acf_full_result": acf_result,
@@ -733,12 +635,15 @@ def analyze_market_volatility_measures(events: list[EventBackend]) -> pd.DataFra
                 )
 
             except Exception as e:
+                raise e
                 logger.warning(f"Failed to analyze market {market.id}: {e}")
                 continue
 
-    # Log data length statistics
+    # Log data length and span statistics
     if data_length_stats:
         data_stats = pd.Series(data_length_stats)
+        span_stats = pd.Series(data_span_hours)
+
         logger.info("Market data length statistics:")
         logger.info(f"  Total markets examined: {len(data_stats)}")
         logger.info(f"  Min points: {data_stats.min()}")
@@ -747,8 +652,39 @@ def analyze_market_volatility_measures(events: list[EventBackend]) -> pd.DataFra
         logger.info(f"  Median points: {data_stats.median():.1f}")
         logger.info(f"  Q25: {data_stats.quantile(0.25):.1f}")
         logger.info(f"  Q75: {data_stats.quantile(0.75):.1f}")
+
+        logger.info("Market data time span statistics (hours):")
         logger.info(
-            f"  Markets with >{min_data_points} points (needed for 30d horizon): {(data_stats >= min_data_points).sum()}"
+            f"  Min span: {span_stats.min():.1f}h ({span_stats.min() / 24:.1f} days)"
+        )
+        logger.info(
+            f"  Max span: {span_stats.max():.1f}h ({span_stats.max() / 24:.1f} days)"
+        )
+        logger.info(
+            f"  Mean span: {span_stats.mean():.1f}h ({span_stats.mean() / 24:.1f} days)"
+        )
+        logger.info(
+            f"  Median span: {span_stats.median():.1f}h ({span_stats.median() / 24:.1f} days)"
+        )
+        logger.info(
+            f"  Q25 span: {span_stats.quantile(0.25):.1f}h ({span_stats.quantile(0.25) / 24:.1f} days)"
+        )
+        logger.info(
+            f"  Q75 span: {span_stats.quantile(0.75):.1f}h ({span_stats.quantile(0.75) / 24:.1f} days)"
+        )
+
+        # Check coverage for different horizons
+        for horizon in ["14d", "30d"]:
+            horizon_hours = _horizon_to_hours(horizon)
+            count = (span_stats >= horizon_hours).sum()
+            logger.info(
+                f"  Markets with ≥{horizon_hours}h span (for {horizon} analysis): {count} ({count / len(span_stats) * 100:.1f}%)"
+            )
+
+        max_horizon_hours = _get_max_horizon_hours()
+        min_data_points_for_max = max_horizon_hours * 2
+        logger.info(
+            f"  Markets with >{min_data_points_for_max} points (needed for {max_horizon_hours}h horizon): {(data_stats >= min_data_points_for_max).sum()}"
         )
         logger.info(f"  Markets with >1000 points: {(data_stats > 1000).sum()}")
         logger.info(f"  Markets with >2000 points: {(data_stats > 2000).sum()}")
@@ -862,10 +798,37 @@ def create_volatility_analysis_plots(
                 )
             )
 
+        # Create enhanced tick labels that show hours with horizon labels when available
+        horizon_hours_map = {_horizon_to_hours(h): h for h in HORIZONS}
+
+        # Get default tick values from plotly
+        tick_vals = []
+        tick_texts = []
+
+        # Create ticks at nice intervals and at horizon boundaries
+        max_lag = int(mi_stats["lag"].max())
+        horizon_hours = [
+            _horizon_to_hours(h) for h in HORIZONS if _horizon_to_hours(h) <= max_lag
+        ]
+
+        # Combine nice intervals with horizon hours, but exclude 6h to avoid overlap
+        nice_intervals = [1, 12, 24, 48, 72, 168, 336, 720]
+        horizon_hours_filtered = [h for h in horizon_hours if h != 6]  # Remove 6h
+        all_ticks = sorted(set(nice_intervals + horizon_hours_filtered))
+        all_ticks = [t for t in all_ticks if t <= max_lag]
+
+        for hours in all_ticks:
+            tick_vals.append(hours)
+            if hours in horizon_hours_map and hours != 6:  # Skip 6h horizon label
+                tick_texts.append(f"{hours} ({horizon_hours_map[hours]})")
+            else:
+                tick_texts.append(str(hours))
+
         fig2.update_layout(
             xaxis_title="Lag (hours)",
             yaxis_title="Mutual Information (bits)",
             height=600,
+            xaxis=dict(tickmode="array", tickvals=tick_vals, ticktext=tick_texts),
         )
         apply_template(fig2)
 
@@ -964,14 +927,10 @@ def create_volatility_analysis_plots(
         wavelet_stats.columns = ["mean_variance", "std_variance", "count"]
         wavelet_stats = wavelet_stats.reset_index()
         wavelet_stats = wavelet_stats[
-            wavelet_stats["count"] >= 3
-        ]  # Only horizons with at least 3 observations
+            wavelet_stats["count"] >= 5
+        ]  # Only horizons with at least N observations
 
         # Sort horizons in logical order
-        horizon_order = ["1h", "6h", "12h", "1d", "2d", "3d", "7d", "14d", "30d"]
-        wavelet_stats["horizon"] = pd.Categorical(
-            wavelet_stats["horizon"], categories=horizon_order, ordered=True
-        )
         wavelet_stats = wavelet_stats.sort_values("horizon")
 
         fig4 = go.Figure()
@@ -1019,6 +978,17 @@ def create_volatility_analysis_plots(
         export_figure(fig4, "wavelet_variance_by_horizon")
 
     # 5. Summary statistics comparison
+    # Debug logging for summary statistics
+    logger.debug("Creating summary statistics for volatility measures:")
+    for col in [
+        "mi_half_life",
+        "ar1_half_life",
+        "acf_zero_crossing",
+        "wavelet_elbow_scale",
+    ]:
+        valid_count = volatility_df[col].notna().sum()
+        logger.debug(f"  {col}: {valid_count} valid values")
+
     summary_data = {
         "Measure": [
             "MI Half-Life",
@@ -1027,16 +997,32 @@ def create_volatility_analysis_plots(
             "Wavelet Elbow",
         ],
         "Mean": [
-            volatility_df["mi_half_life"].mean(),
-            volatility_df["ar1_half_life"].mean(),
-            volatility_df["acf_zero_crossing"].mean(),
-            volatility_df["wavelet_elbow_scale"].mean(),
+            volatility_df["mi_half_life"].mean()
+            if volatility_df["mi_half_life"].notna().sum() > 0
+            else 0,
+            volatility_df["ar1_half_life"].mean()
+            if volatility_df["ar1_half_life"].notna().sum() > 0
+            else 0,
+            volatility_df["acf_zero_crossing"].mean()
+            if volatility_df["acf_zero_crossing"].notna().sum() > 0
+            else 0,
+            volatility_df["wavelet_elbow_scale"].mean()
+            if volatility_df["wavelet_elbow_scale"].notna().sum() > 0
+            else 0,
         ],
         "Median": [
-            volatility_df["mi_half_life"].median(),
-            volatility_df["ar1_half_life"].median(),
-            volatility_df["acf_zero_crossing"].median(),
-            volatility_df["wavelet_elbow_scale"].median(),
+            volatility_df["mi_half_life"].median()
+            if volatility_df["mi_half_life"].notna().sum() > 0
+            else 0,
+            volatility_df["ar1_half_life"].median()
+            if volatility_df["ar1_half_life"].notna().sum() > 0
+            else 0,
+            volatility_df["acf_zero_crossing"].median()
+            if volatility_df["acf_zero_crossing"].notna().sum() > 0
+            else 0,
+            volatility_df["wavelet_elbow_scale"].median()
+            if volatility_df["wavelet_elbow_scale"].notna().sum() > 0
+            else 0,
         ],
         "Valid_Count": [
             volatility_df["mi_half_life"].notna().sum(),
@@ -1376,32 +1362,53 @@ def main():
 
         # Log summary statistics
         logger.info("Volatility Analysis Summary:")
-        logger.info(
-            f"  MI half-life (median): {volatility_df['mi_half_life'].median():.2f}"
+
+        # Debug logging for MI half-life
+        mi_values = volatility_df["mi_half_life"].dropna()
+        logger.debug(
+            f"MI half-life: {len(mi_values)} non-null values out of {len(volatility_df)}"
         )
-        logger.info(
-            f"  AR(1) half-life (median): {volatility_df['ar1_half_life'].median():.2f}"
+        if len(mi_values) > 0:
+            logger.info(f"  MI half-life (median): {mi_values.median():.2f}")
+        else:
+            logger.info("  MI half-life (median): No valid values")
+
+        # Debug logging for AR(1) half-life
+        ar1_values = volatility_df["ar1_half_life"].dropna()
+        logger.debug(
+            f"AR(1) half-life: {len(ar1_values)} non-null values out of {len(volatility_df)}"
         )
-        logger.info(
-            f"  ACF zero-crossing (median): {volatility_df['acf_zero_crossing'].median():.2f}"
+        if len(ar1_values) > 0:
+            logger.info(f"  AR(1) half-life (median): {ar1_values.median():.2f}")
+        else:
+            logger.info("  AR(1) half-life (median): No valid values")
+
+        # Debug logging for ACF zero-crossing
+        acf_values = volatility_df["acf_zero_crossing"].dropna()
+        logger.debug(
+            f"ACF zero-crossing: {len(acf_values)} non-null values out of {len(volatility_df)}"
         )
-        logger.info(
-            f"  Wavelet elbow scale (median): {volatility_df['wavelet_elbow_scale'].median():.2f}"
+        if len(acf_values) > 0:
+            logger.info(f"  ACF zero-crossing (median): {acf_values.median():.2f}")
+        else:
+            logger.info("  ACF zero-crossing (median): No valid values")
+
+        # Debug logging for Wavelet elbow scale
+        wavelet_values = volatility_df["wavelet_elbow_scale"].dropna()
+        logger.debug(
+            f"Wavelet elbow scale: {len(wavelet_values)} non-null values out of {len(volatility_df)}"
         )
+        if len(wavelet_values) > 0:
+            logger.info(
+                f"  Wavelet elbow scale (median): {wavelet_values.median():.2f}"
+            )
+        else:
+            logger.info("  Wavelet elbow scale (median): No valid values")
     else:
         logger.warning("No markets had sufficient data for volatility analysis")
 
     # Create and export visualizations
     logger.info("Creating and exporting visualizations...")
-
-    def _slugify(title: str | None, fallback: str) -> str:
-        if not title:
-            return fallback
-        s = title.lower().replace("—", "-").replace("–", "-")
-        allowed = "abcdefghijklmnopqrstuvwxyz0123456789-_ "
-        s = "".join(ch if ch in allowed else " " for ch in s)
-        s = "_".join(part for part in s.split() if part)
-        return s or fallback
 
     # Export each figure individually with proper names
     create_brier_score_analysis_plots(brier_df)

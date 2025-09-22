@@ -40,7 +40,7 @@ def _storage_using_bucket() -> bool:
 
 
 STORAGE_MODE_BUCKET = _storage_using_bucket()
-# STORAGE_MODE_BUCKET = False
+STORAGE_MODE_BUCKET = False
 
 try:
     bucket_json_key = os.getenv("BUCKET_JSON_KEY")

@@ -1,5 +1,3 @@
-# About Page
-
 ***Can AI predict the future?***
 
 AI models shine on within-distribution tasks, thus cracking standardized math or medicine exams ; but what about predicting the future, the realm of out-of-distribution events ?
@@ -17,6 +15,29 @@ This benchmark has the following advantages:
 - It evaluates LLMs in agentic mode : they can retrieve information from the Web.
 
 We make this work entirely open source: code, data, experiments, to let the community iterate on it.
+
+## Intro
+
+Prediction is a difficult science. We believe that in the future, AI models can possess a superhuman ability to predict the future.
+
+What does it take to predict the future? Or at least, to propose reliable estimates of probabilites? 
+Amongst the example of striking prediction ability shown by individuals in history, what these individuals had in common was a combination of profound knowledge and of well-applied, bold judgement (NOTE: forward-thinking?)
+
+In 1919, major French historian Jacques Bainville predicted that the Treaty of Versailles would have dire consequences. Far from the optimism of his contemporaneous at the time, he announced an upcoming war : he announced that a powerful and revengeful social republic of Germany would raise again to power.
+He predicted that German would annex Austria, and the Sudeten german-speaking minorities. He announced the alliance of Russia and Germany, their siding together against Poland, and the alliance of Italy and Germany.
+
+When the Second World War broke out, two decades later, it followed the exact steps predicted by Bainville. And in 1940, 4 years after his death, France was defeated, as he had feared.
+
+Bainville’s stunning prescience was not a product of chance: it was a mechanical application of his immense knowledge of European geopolitics and of his bold judgement, that defied the views of his time.
+
+Knowledge is used to gather heuristics : from a-priori data, cause A implies consequence B. Judgement, loosely defined as a combination of critical thinking, probabilistic reasoning, and causality understanding, then allows to weigh and combine these different heuristics to assess the outcome’s probability distribution.
+
+Knowledge and judgement : AI is already gathering these two ingredients.
+
+- Knowledge : Leading models already know more in most areas of science than PhD students specialized in these areas. These models possess a knowledge of both superhuman breadth and depth.
+- Judgement : models have historically been struggling with causality and critical thinking, but recent progress has brought them nearly up to human skill (SOURCE)
+
+So this benchmark is here to put a measurement on current prediction ability of AI systems.
 
 ## Methods
 
@@ -76,7 +97,7 @@ Models provide both probability estimates and corresponding bet amounts for each
 
 {caption="Kelly vs Original Betting Strategy - Comparison of 7-day returns using original bet amounts versus Kelly criterion-derived amounts", path="market_dynamics/bet_strategy_comparison.json"}
 
-Interestingly, most models outperformed Kelly criterion optimization when using their original bet amounts, suggesting that models incorporate risk management considerations beyond pure mathematical optimization. Notable exceptions include the DeepSeek family and Gemini Pro, which benefited from Kelly optimization, indicating different internal betting strategies.
+Interestingly, most models outperformed Kelly criterion optimization when using their original bet amounts, suggesting that models incorporate risk management considerations beyond pure mathematical optimization. Notable exceptions include the DeepSeek family and Gemini Pro, where the application of Kelly optimization improved predictions, hinting that their own betting reasoning was suboptimal.
 
 In other words **models are good at predicting, they are also good at betting**.
 
@@ -84,11 +105,12 @@ In other words **models are good at predicting, they are also good at betting**.
 
 #### Model Decision Distribution Analysis
 
-To understand how different models make betting decisions, we analyzed the distribution of model choices across 32 runs on ![Federal Reserve interest rate predictions](https://polymarket.com/event/fed-decision-in-october?tid=1758495631699) for the models Qwen3 Coder 480B and GPT-OSS 120B. This analysis reveals the consistency and strategy patterns of each model when faced with the same prediction markets.
+To understand how different models make betting decisions, we analyzed the distribution of model choices across 32 runs to predict the ![Federal Reserve interest rates](https://polymarket.com/event/fed-decision-in-october?tid=1758495631699), for the models Qwen3-Coder-480B and GPT-OSS-120B. This analysis reveals the consistency and strategy patterns of each model.
 
 {caption="Fed Event: Model Comparison - Distribution of estimated probabilities, bet amounts, and confidence levels across models", path="32_run_results_FED/fed_readable_comparative.json"}
 
 The probability distribution reveals significant uncertainty in model predictions, with wide variance around market prices. This uncertainty translates into conservative betting behavior, explaining why the bet amount distribution median approaches zero - models hedge against their own uncertainty by making smaller bets.
+
 
 #### Returns Analysis
 
@@ -105,21 +127,13 @@ Average returns grows with the count of webpages visited - Perplexity’s Sonar-
 
 ### Predicted odds
 
-Stronger models tend to produce probability estimates that align more closely with market odds — for example, GPT-5 vs. GPT-OSS 120B.
+A basic ability of models should be to provide consistent bet and probability estimates - if the model estimates an event to be more probable (resp less) than the market prices it, it should place its bet on the Yes (resp No).
 
-![image.png](About%20Page%2025e8d6bd102f80ce8f3be27e7ed42698/image%204.png)
+To measure this we measure the criterion of **bet-edge consistency**. When noting "edge" the difference of model's estimated probability minus the market prices, the bet is considered consistent if:
+- **No bet is placed**: the model can always decide to place no bet.
+- **A bet is placed**: then if the edge is positive, we expect the bet to be positive, and if the edge is negative.
 
-![image.png](About%20Page%2025e8d6bd102f80ce8f3be27e7ed42698/image%205.png)
-
-But does that translates to betting ? 
-
-We looked into **bet-edge consistency**. A bet is considered consistent if:
-
-- **No bet is placed** when the edge is below 5%.
-- **A positive bet** is placed when the edge is above +5%.
-- **A negative bet** is placed when the edge is below –5%.
-
-We find that this bet-edge consistency correlates quite well with being a strong model.
+We find that this bet-edge consistency correlates well with the general strength of models.
 
 {caption="Bet-Edge Consistency by Model - Models with higher consistency rates between their betting decisions and estimated market edge tend to perform better", path="market_dynamics/consistency_rates.json"}
 
@@ -129,24 +143,9 @@ And this translates into returns, the 7 day average return is correlated with th
 
 ## Next steps
 
-Prediction is a difficult science. We believe that AI is on the way to becoming a superhuman forecaster.
+Since this work aimed to evaluate the current prediction ability of models, 
 
-History gives few examples of bright individuals predicting the future. What they had in common was a combination of profound knowledge and of good judgement.
-
-In 1919, major French historian Jacques Bainville predicted that the Treaty of Versailles would have dire consequences. Far from the optimism of his contemporaneous, he announced an upcoming war : he announced that 20 years down the road, a powerful and revengeful Germany would first annex the Sudeten, then Austria, would then invade Poland before turning to France. That war broke out in 1939, exactly 20 years later, and it followed the exact steps predicted by Bainville.
-
-Bainville’s prescience is stunning : but it was merely a mechanical application of his knowledge and judgement.
-
-Knowledge is used to gather heuristics : from a priori data, cause A implies consequence B, and cause C implies consequence D.
-
-Judgement, loosely defined as a combination of critical thinking, probabilistic reasoning, and causality understanding, then allows to weight the possible consequences and reliably assess the outcome’s probability distribution.
-
-Knowledge and judgement : AI is already gathering these two ingredients.
-
-- Knowledge : Leading models already know more in most areas of science than PhD students specialized in these areas. These models possess a knowledge of both superhuman breadth and depth.
-- Judgement : models have historically been struggling with causality and critical thinking, but recent progress has brought them nearly up to human skill (SOURCE)
-
-This benchmark, and the positive profits of the most advanced models, show that AI has now caught up with human level on predicting the future.
+Each event decision can be commented via [giscus](https://giscus.app/), and the comments will appear directly under the repo's [discussions page](https://github.com/clairvoyance-tech/PrediBench/discussions): we invite the community to hop in and help us annotate model decisions.
 
 In the next months, we are going to push this boundary to a superhuman level. This is going to be called Clairvoyance.
 
