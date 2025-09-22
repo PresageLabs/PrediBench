@@ -11,6 +11,9 @@ dist/
 wheels/
 *.egg-info
 
+# Figures
+./analyses/
+
 # Virtual environments
 .venv
 predibench-core/.env

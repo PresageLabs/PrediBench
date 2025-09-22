@@ -51,6 +51,7 @@ def apply_template(
             font=dict(family=BOLD_FONT_FAMILY, size=font_size),
             itemwidth=30,
         ),
+        "margin": dict(l=80, r=20, t=20, b=80),
     }
     if len(annotation_text) > 0:
         layout_updates["annotations"] = [
@@ -108,10 +109,13 @@ def _to_date_index(df: pd.DataFrame) -> pd.DataFrame:
     df2 = df2[~df2.index.duplicated(keep="last")]
     return df2
 
+
 def get_model_color(model_name: str, model_index: int) -> str:
     """Get consistent color for model using canonical provider brand colors."""
     # OpenAI models - different greys (avoid black due to black background)
-    if any(name in model_name for name in ["GPT-5 Mini", "GPT-5", "GPT-4.1", "GPT-OSS"]):
+    if any(
+        name in model_name for name in ["GPT-5 Mini", "GPT-5", "GPT-4.1", "GPT-OSS"]
+    ):
         if "GPT-5 Mini" in model_name:
             return "#606060"  # Dark grey for GPT-5 Mini
         elif "GPT-5" in model_name:

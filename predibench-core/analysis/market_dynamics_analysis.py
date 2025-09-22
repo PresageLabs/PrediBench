@@ -9,21 +9,19 @@ This script analyzes:
 4. Comparison with Kelly criterion
 """
 
-import os
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-
 from predibench.backend.data_loader import get_data_for_backend
-from predibench.utils import apply_template
 from predibench.common import FRONTEND_PUBLIC_PATH
-from predibench.utils import get_model_color
+from predibench.utils import apply_template, get_model_color
+
 
 def analyze_price_volatility_around_events(backend_data) -> Dict:
     """Analyze price movements around significant events."""
@@ -32,10 +30,16 @@ def analyze_price_volatility_around_events(backend_data) -> Dict:
     for event in backend_data.events:
         for market in event.markets:
             if market.prices and len(market.prices) > 1:
-                prices_df = pd.DataFrame([
-                    {"date": pd.to_datetime(p.date), "price": p.value}
-                    for p in market.prices
-                ]).set_index("date").sort_index()
+                prices_df = (
+                    pd.DataFrame(
+                        [
+                            {"date": pd.to_datetime(p.date), "price": p.value}
+                            for p in market.prices
+                        ]
+                    )
+                    .set_index("date")
+                    .sort_index()
+                )
 
                 # Calculate daily price changes
                 prices_df["price_change"] = prices_df["price"].diff()
@@ -43,26 +47,31 @@ def analyze_price_volatility_around_events(backend_data) -> Dict:
                 prices_df["volatility"] = prices_df["price_change"].abs()
 
                 # Find significant price movements (>5% in a day)
-                significant_moves = prices_df[prices_df["price_change_pct"].abs() > 0.05]
+                significant_moves = prices_df[
+                    prices_df["price_change_pct"].abs() > 0.05
+                ]
 
                 for date, row in significant_moves.iterrows():
                     # Look at price adjustment in following days
-                    future_window = prices_df[date:date + timedelta(days=7)]
+                    future_window = prices_df[date : date + timedelta(days=7)]
                     if len(future_window) > 1:
                         adjustment_speed = _calculate_adjustment_speed(future_window)
 
-                        price_changes.append({
-                            "event_id": event.id,
-                            "market_id": market.id,
-                            "event_title": event.title,
-                            "market_question": market.question,
-                            "shock_date": date,
-                            "initial_change": row["price_change_pct"],
-                            "adjustment_speed": adjustment_speed,
-                            "volatility_1d": row["volatility"],
-                            "price_before": prices_df.loc[date, "price"] - row["price_change"],
-                            "price_after": prices_df.loc[date, "price"]
-                        })
+                        price_changes.append(
+                            {
+                                "event_id": event.id,
+                                "market_id": market.id,
+                                "event_title": event.title,
+                                "market_question": market.question,
+                                "shock_date": date,
+                                "initial_change": row["price_change_pct"],
+                                "adjustment_speed": adjustment_speed,
+                                "volatility_1d": row["volatility"],
+                                "price_before": prices_df.loc[date, "price"]
+                                - row["price_change"],
+                                "price_after": prices_df.loc[date, "price"],
+                            }
+                        )
 
     return pd.DataFrame(price_changes)
 
@@ -110,7 +119,10 @@ def analyze_bet_vs_edge_consistency(backend_data) -> pd.DataFrame:
                 if not event:
                     continue
 
-                market = next((m for m in event.markets if m.id == market_decision.market_id), None)
+                market = next(
+                    (m for m in event.markets if m.id == market_decision.market_id),
+                    None,
+                )
                 if not market or not market.prices:
                     continue
 
@@ -148,60 +160,83 @@ def analyze_bet_vs_edge_consistency(backend_data) -> pd.DataFrame:
                     # Proper Kelly formula for binary outcomes
                     if estimated_prob > market_price:
                         # Kelly = (bp - q) / b where b=odds-1, p=prob, q=1-p
-                        odds_for_yes = (1 - market_price) / market_price  # If market price is 0.6, odds are 0.4/0.6 = 2/3
-                        kelly_bet = (estimated_prob * odds_for_yes - (1 - estimated_prob)) / odds_for_yes
-                        kelly_bet = max(0, min(1, kelly_bet))  # Clamp to [0, 1] for positive bets
+                        odds_for_yes = (
+                            (1 - market_price) / market_price
+                        )  # If market price is 0.6, odds are 0.4/0.6 = 2/3
+                        kelly_bet = (
+                            estimated_prob * odds_for_yes - (1 - estimated_prob)
+                        ) / odds_for_yes
+                        kelly_bet = max(
+                            0, min(1, kelly_bet)
+                        )  # Clamp to [0, 1] for positive bets
                     elif estimated_prob < market_price:
                         # Short Kelly bet (betting against)
                         odds_for_no = market_price / (1 - market_price)
-                        kelly_bet = ((1 - estimated_prob) * odds_for_no - estimated_prob) / odds_for_no
-                        kelly_bet = -max(0, min(1, kelly_bet))  # Negative for betting against
+                        kelly_bet = (
+                            (1 - estimated_prob) * odds_for_no - estimated_prob
+                        ) / odds_for_no
+                        kelly_bet = -max(
+                            0, min(1, kelly_bet)
+                        )  # Negative for betting against
                     else:
                         kelly_bet = 0
                 else:
                     kelly_bet = 0
 
-                bet_edge_data.append({
-                    "model_id": decision.model_id,
-                    "model_name": decision.model_info.model_pretty_name,
-                    "provider": decision.model_info.inference_provider,
-                    "event_id": event_decision.event_id,
-                    "market_id": market_decision.market_id,
-                    "date": str(decision.target_date),
-                    "estimated_prob": estimated_prob,
-                    "market_price": market_price,
-                    "edge": edge,
-                    "bet_amount": bet_amount,
-                    "confidence": confidence,
-                    "consistent": consistent,
-                    "kelly_bet": kelly_bet,
-                    "bet_vs_kelly": abs(bet_amount - kelly_bet),
-                    "abs_edge": abs(edge)
-                })
+                bet_edge_data.append(
+                    {
+                        "model_id": decision.model_id,
+                        "model_name": decision.model_info.model_pretty_name,
+                        "company": decision.model_info.company,
+                        "provider": decision.model_info.inference_provider,
+                        "event_id": event_decision.event_id,
+                        "market_id": market_decision.market_id,
+                        "date": str(decision.target_date),
+                        "estimated_prob": estimated_prob,
+                        "market_price": market_price,
+                        "edge": edge,
+                        "bet_amount": bet_amount,
+                        "confidence": confidence,
+                        "consistent": consistent,
+                        "kelly_bet": kelly_bet,
+                        "bet_vs_kelly": abs(bet_amount - kelly_bet),
+                        "abs_edge": abs(edge),
+                    }
+                )
 
     return pd.DataFrame(bet_edge_data)
 
 
-def create_price_adjustment_visualization(price_volatility_df: pd.DataFrame) -> go.Figure:
+def create_price_adjustment_visualization(
+    price_volatility_df: pd.DataFrame,
+) -> go.Figure:
     """Create visualization of price adjustment speed around events."""
     if price_volatility_df.empty:
         fig = go.Figure()
-        fig.add_annotation(text="No significant price movements found",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No significant price movements found",
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.5,
+        )
         apply_template(fig, width=1200, height=800)
         return fig
 
     # Create subplots
     fig = make_subplots(
-        rows=2, cols=2,
+        rows=2,
+        cols=2,
         subplot_titles=[
             "Price Adjustment Speed Distribution",
             "Initial Shock vs Adjustment Speed",
             "Price Volatility Examples",
-            "Adjustment Speed by Market Type"
+            "Adjustment Speed by Market Type",
         ],
-        specs=[[{"secondary_y": False}, {"secondary_y": False}],
-               [{"secondary_y": False}, {"secondary_y": False}]]
+        specs=[
+            [{"secondary_y": False}, {"secondary_y": False}],
+            [{"secondary_y": False}, {"secondary_y": False}],
+        ],
     )
 
     # 1. Adjustment speed histogram
@@ -210,9 +245,10 @@ def create_price_adjustment_visualization(price_volatility_df: pd.DataFrame) -> 
             x=price_volatility_df["adjustment_speed"],
             nbinsx=20,
             name="Adjustment Speed (days)",
-            showlegend=False
+            showlegend=False,
         ),
-        row=1, col=1
+        row=1,
+        col=1,
     )
 
     # 2. Scatter: Initial shock vs adjustment speed
@@ -228,11 +264,12 @@ def create_price_adjustment_visualization(price_volatility_df: pd.DataFrame) -> 
                 color=price_volatility_df["volatility_1d"],
                 colorscale="Viridis",
                 showscale=True,
-                colorbar=dict(title="Volatility")
+                colorbar=dict(title="Volatility"),
             ),
-            showlegend=False
+            showlegend=False,
         ),
-        row=1, col=2
+        row=1,
+        col=2,
     )
 
     # 3. Example price movements (top 5 by volatility)
@@ -245,36 +282,37 @@ def create_price_adjustment_visualization(price_volatility_df: pd.DataFrame) -> 
                 mode="lines+markers",
                 name=f"{row['event_title'][:30]}...",
                 line=dict(width=2),
-                showlegend=False
+                showlegend=False,
             ),
-            row=2, col=1
+            row=2,
+            col=1,
         )
 
     # 4. Adjustment speed by quartiles of shock magnitude
     price_volatility_df["shock_quartile"] = pd.qcut(
         price_volatility_df["initial_change"].abs(),
         q=4,
-        labels=["Q1 (Small)", "Q2", "Q3", "Q4 (Large)"]
+        labels=["Q1 (Small)", "Q2", "Q3", "Q4 (Large)"],
     )
 
     for quartile in price_volatility_df["shock_quartile"].unique():
         if pd.isna(quartile):
             continue
-        quartile_data = price_volatility_df[price_volatility_df["shock_quartile"] == quartile]
+        quartile_data = price_volatility_df[
+            price_volatility_df["shock_quartile"] == quartile
+        ]
         fig.add_trace(
             go.Box(
                 y=quartile_data["adjustment_speed"],
                 name=str(quartile),
-                showlegend=False
+                showlegend=False,
             ),
-            row=2, col=2
+            row=2,
+            col=2,
         )
 
     # Update layout
-    fig.update_layout(
-        height=800,
-        width=1200
-    )
+    fig.update_layout(height=800, width=1200)
 
     fig.update_xaxes(title_text="Adjustment Speed (days)", row=1, col=1)
     fig.update_xaxes(title_text="Initial Shock Magnitude", row=1, col=2)
@@ -290,15 +328,14 @@ def create_price_adjustment_visualization(price_volatility_df: pd.DataFrame) -> 
     return fig
 
 
-
-
 def create_edge_vs_bet_scatter(bet_edge_df: pd.DataFrame) -> go.Figure:
     """Create scatter plot of edge vs bet amount."""
     fig = go.Figure()
 
     if bet_edge_df.empty:
-        fig.add_annotation(text="No betting data found",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No betting data found", xref="paper", yref="paper", x=0.5, y=0.5
+        )
         apply_template(fig, width=800, height=600)
         return fig
 
@@ -320,7 +357,8 @@ def create_edge_vs_bet_scatter(bet_edge_df: pd.DataFrame) -> go.Figure:
     edge_range = [-0.5, 0.5]
     fig.add_trace(
         go.Scatter(
-            x=edge_range, y=edge_range,
+            x=edge_range,
+            y=edge_range,
             mode="lines",
             name="Perfect Edge-Bet Alignment",
             line=dict(dash="dash", color="black", width=2),
@@ -331,7 +369,7 @@ def create_edge_vs_bet_scatter(bet_edge_df: pd.DataFrame) -> go.Figure:
         xaxis_title="Edge (Estimated Prob - Market Price)",
         yaxis_title="Bet Amount",
         height=600,
-        width=800
+        width=800,
     )
 
     apply_template(fig, width=800, height=600)
@@ -343,35 +381,52 @@ def create_consistency_rate_chart(bet_edge_df: pd.DataFrame) -> go.Figure:
     fig = go.Figure()
 
     if bet_edge_df.empty:
-        fig.add_annotation(text="No betting data found",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No betting data found", xref="paper", yref="paper", x=0.5, y=0.5
+        )
         apply_template(fig, width=1000, height=600)
         return fig
 
-    consistency_by_model = bet_edge_df.groupby("model_name")["consistent"].agg(["mean", "count"]).reset_index()
-    consistency_by_model = consistency_by_model[consistency_by_model["count"] >= 10]  # Filter models with enough data
+    consistency_by_model = (
+        bet_edge_df.groupby("model_name")["consistent"]
+        .agg(["mean", "count"])
+        .reset_index()
+    )
+    consistency_by_model = consistency_by_model[
+        consistency_by_model["count"] >= 10
+    ]  # Filter models with enough data
     consistency_by_model = consistency_by_model.sort_values("mean", ascending=True)
 
     # Use canonical brand colors from get_model_color function
-    colors = [get_model_color(model_name, i) for i, model_name in enumerate(consistency_by_model["model_name"])]
+    colors = [
+        get_model_color(model_name, i)
+        for i, model_name in enumerate(consistency_by_model["model_name"])
+    ]
 
     fig.add_trace(
         go.Bar(
             x=consistency_by_model["mean"],
             y=consistency_by_model["model_name"],
-            orientation='h',
-            text=[f"{rate:.1%} (n={count})" for rate, count in zip(consistency_by_model["mean"], consistency_by_model["count"])],
+            orientation="h",
+            text=[
+                f"{rate:.1%} (n={count})"
+                for rate, count in zip(
+                    consistency_by_model["mean"], consistency_by_model["count"]
+                )
+            ],
             textposition="outside",
-            marker=dict(color=colors)
+            marker=dict(color=colors),
         )
     )
 
     fig.update_layout(
         xaxis_title="Consistency Rate",
         yaxis_title="Model",
-        height=max(500, len(consistency_by_model) * 35),  # Increased height for better readability
+        height=max(
+            500, len(consistency_by_model) * 35
+        ),  # Increased height for better readability
         width=1000,  # Increased width for longer model names
-        margin=dict(l=200, r=100, t=80, b=60)  # Increased left margin for model names
+        margin=dict(l=200, r=100, t=80, b=60),  # Increased left margin for model names
     )
 
     apply_template(fig, width=1000, height=max(500, len(consistency_by_model) * 35))
@@ -383,8 +438,9 @@ def create_kelly_comparison_chart(bet_edge_df: pd.DataFrame) -> go.Figure:
     fig = go.Figure()
 
     if bet_edge_df.empty:
-        fig.add_annotation(text="No betting data found",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No betting data found", xref="paper", yref="paper", x=0.5, y=0.5
+        )
         apply_template(fig, width=800, height=600)
         return fig
 
@@ -398,12 +454,18 @@ def create_kelly_comparison_chart(bet_edge_df: pd.DataFrame) -> go.Figure:
                 colorscale="Viridis",
                 size=6,
                 opacity=0.6,
-                colorbar=dict(title="Confidence Level")
+                colorbar=dict(title="Confidence Level"),
             ),
-            text=[f"Model: {model}<br>Edge: {edge:.3f}<br>Confidence: {conf}"
-                  for model, edge, conf in zip(bet_edge_df["model_name"], bet_edge_df["edge"], bet_edge_df["confidence"])],
+            text=[
+                f"Model: {model}<br>Edge: {edge:.3f}<br>Confidence: {conf}"
+                for model, edge, conf in zip(
+                    bet_edge_df["model_name"],
+                    bet_edge_df["edge"],
+                    bet_edge_df["confidence"],
+                )
+            ],
             hovertemplate="%{text}<extra></extra>",
-            name="Actual vs Kelly"
+            name="Actual vs Kelly",
         )
     )
 
@@ -411,7 +473,8 @@ def create_kelly_comparison_chart(bet_edge_df: pd.DataFrame) -> go.Figure:
     kelly_range = [-1, 1]
     fig.add_trace(
         go.Scatter(
-            x=kelly_range, y=kelly_range,
+            x=kelly_range,
+            y=kelly_range,
             mode="lines",
             name="Perfect Kelly Alignment",
             line=dict(dash="dash", color="red", width=2),
@@ -422,7 +485,7 @@ def create_kelly_comparison_chart(bet_edge_df: pd.DataFrame) -> go.Figure:
         xaxis_title="Kelly Optimal Bet",
         yaxis_title="Actual Bet Amount",
         height=600,
-        width=800
+        width=800,
     )
 
     apply_template(fig, width=800, height=600)
@@ -434,8 +497,9 @@ def create_probability_calibration_chart(bet_edge_df: pd.DataFrame) -> go.Figure
     fig = go.Figure()
 
     if bet_edge_df.empty:
-        fig.add_annotation(text="No betting data found",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No betting data found", xref="paper", yref="paper", x=0.5, y=0.5
+        )
         apply_template(fig, width=800, height=600)
         return fig
 
@@ -449,19 +513,17 @@ def create_probability_calibration_chart(bet_edge_df: pd.DataFrame) -> go.Figure
                 y=model_data["estimated_prob"],
                 mode="markers",
                 name=model_name,
-                marker=dict(
-                    color=color,
-                    size=6,
-                    opacity=0.7
-                ),
-                text=[f"Model: {model_name}<br>Market: {market:.3f}<br>Estimated: {est:.3f}<br>Edge: {edge:.3f}<br>Confidence: {conf}"
-                      for market, est, edge, conf in zip(
-                          model_data["market_price"],
-                          model_data["estimated_prob"],
-                          model_data["edge"],
-                          model_data["confidence"]
-                      )],
-                hovertemplate="%{text}<extra></extra>"
+                marker=dict(color=color, size=6, opacity=0.7),
+                text=[
+                    f"Model: {model_name}<br>Market: {market:.3f}<br>Estimated: {est:.3f}<br>Edge: {edge:.3f}<br>Confidence: {conf}"
+                    for market, est, edge, conf in zip(
+                        model_data["market_price"],
+                        model_data["estimated_prob"],
+                        model_data["edge"],
+                        model_data["confidence"],
+                    )
+                ],
+                hovertemplate="%{text}<extra></extra>",
             )
         )
 
@@ -469,7 +531,8 @@ def create_probability_calibration_chart(bet_edge_df: pd.DataFrame) -> go.Figure
     perfect_line = [0, 1]
     fig.add_trace(
         go.Scatter(
-            x=perfect_line, y=perfect_line,
+            x=perfect_line,
+            y=perfect_line,
             mode="lines",
             name="Perfect Calibration",
             line=dict(dash="dash", color="black", width=2),
@@ -480,21 +543,23 @@ def create_probability_calibration_chart(bet_edge_df: pd.DataFrame) -> go.Figure
     # Overconfidence bias (estimates more extreme than market)
     fig.add_trace(
         go.Scatter(
-            x=[0, 0.5, 1], y=[0, 0.3, 0.7],
+            x=[0, 0.5, 1],
+            y=[0, 0.3, 0.7],
             mode="lines",
             name="Underconfidence Pattern",
             line=dict(dash="dot", color="gray", width=1),
-            opacity=0.5
+            opacity=0.5,
         )
     )
 
     fig.add_trace(
         go.Scatter(
-            x=[0, 0.5, 1], y=[0, 0.7, 1],
+            x=[0, 0.5, 1],
+            y=[0, 0.7, 1],
             mode="lines",
             name="Overconfidence Pattern",
             line=dict(dash="dot", color="orange", width=1),
-            opacity=0.5
+            opacity=0.5,
         )
     )
 
@@ -504,26 +569,35 @@ def create_probability_calibration_chart(bet_edge_df: pd.DataFrame) -> go.Figure
         height=600,
         width=800,
         xaxis=dict(range=[0, 1]),
-        yaxis=dict(range=[0, 1])
+        yaxis=dict(range=[0, 1]),
     )
 
     apply_template(fig, width=800, height=600)
     return fig
 
 
-def create_consistency_vs_7day_returns_chart(bet_edge_df: pd.DataFrame, backend_data) -> go.Figure:
+def create_consistency_vs_7day_returns_chart(
+    bet_edge_df: pd.DataFrame, backend_data
+) -> go.Figure:
     """Create scatter plot showing correlation between consistency rate and 7-day returns."""
     fig = go.Figure()
 
     if bet_edge_df.empty:
-        fig.add_annotation(text="No betting data found",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No betting data found", xref="paper", yref="paper", x=0.5, y=0.5
+        )
         apply_template(fig, width=900, height=600)
         return fig
 
     # Calculate consistency rate by model
-    consistency_by_model = bet_edge_df.groupby("model_name")["consistent"].agg(["mean", "count"]).reset_index()
-    consistency_by_model = consistency_by_model[consistency_by_model["count"] >= 10]  # Filter models with enough data
+    consistency_by_model = (
+        bet_edge_df.groupby("model_name")["consistent"]
+        .agg(["mean", "count"])
+        .reset_index()
+    )
+    consistency_by_model = consistency_by_model[
+        consistency_by_model["count"] >= 10
+    ]  # Filter models with enough data
 
     # Get 7-day returns from performance data
     model_returns = []
@@ -532,24 +606,34 @@ def create_consistency_vs_7day_returns_chart(bet_edge_df: pd.DataFrame, backend_
         for model_id, performance in backend_data.performance_per_model.items():
             if performance.model_name == model_name:
                 seven_day_return = performance.average_returns.seven_day_return
-                model_returns.append({
-                    "model_name": model_name,
-                    "consistency_rate": consistency_by_model[consistency_by_model["model_name"] == model_name]["mean"].iloc[0],
-                    "seven_day_return": seven_day_return,
-                    "n_decisions": consistency_by_model[consistency_by_model["model_name"] == model_name]["count"].iloc[0]
-                })
+                model_returns.append(
+                    {
+                        "model_name": model_name,
+                        "consistency_rate": consistency_by_model[
+                            consistency_by_model["model_name"] == model_name
+                        ]["mean"].iloc[0],
+                        "seven_day_return": seven_day_return,
+                        "n_decisions": consistency_by_model[
+                            consistency_by_model["model_name"] == model_name
+                        ]["count"].iloc[0],
+                    }
+                )
                 break
 
     returns_df = pd.DataFrame(model_returns)
 
     if returns_df.empty:
-        fig.add_annotation(text="No performance data found",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No performance data found", xref="paper", yref="paper", x=0.5, y=0.5
+        )
         apply_template(fig, width=900, height=600)
         return fig
 
     # Use canonical brand colors for each model
-    colors = [get_model_color(model_name, i) for i, model_name in enumerate(returns_df["model_name"])]
+    colors = [
+        get_model_color(model_name, i)
+        for i, model_name in enumerate(returns_df["model_name"])
+    ]
 
     fig.add_trace(
         go.Scatter(
@@ -559,29 +643,35 @@ def create_consistency_vs_7day_returns_chart(bet_edge_df: pd.DataFrame, backend_
             text=returns_df["model_name"],
             textposition="top center",
             textfont=dict(size=10),
-            hovertext=[f"{name}<br>Consistency: {cons:.1%}<br>7d Return: {ret:.1%}<br>n={n}"
-                      for name, cons, ret, n in zip(
-                          returns_df["model_name"],
-                          returns_df["consistency_rate"],
-                          returns_df["seven_day_return"],
-                          returns_df["n_decisions"]
-                      )],
+            hovertext=[
+                f"{name}<br>Consistency: {cons:.1%}<br>7d Return: {ret:.1%}<br>n={n}"
+                for name, cons, ret, n in zip(
+                    returns_df["model_name"],
+                    returns_df["consistency_rate"],
+                    returns_df["seven_day_return"],
+                    returns_df["n_decisions"],
+                )
+            ],
             hovertemplate="%{hovertext}<extra></extra>",
-            marker=dict(
-                size=12,
-                color=colors,
-                opacity=0.8
-            ),
-            showlegend=False
+            marker=dict(size=12, color=colors, opacity=0.8),
+            showlegend=False,
         )
     )
 
     # Add correlation trend line
     if len(returns_df) > 1:
-        correlation = returns_df["consistency_rate"].corr(returns_df["seven_day_return"])
-        z = np.polyfit(returns_df["consistency_rate"], returns_df["seven_day_return"], 1)
+        correlation = returns_df["consistency_rate"].corr(
+            returns_df["seven_day_return"]
+        )
+        z = np.polyfit(
+            returns_df["consistency_rate"], returns_df["seven_day_return"], 1
+        )
         p = np.poly1d(z)
-        x_trend = np.linspace(returns_df["consistency_rate"].min(), returns_df["consistency_rate"].max(), 100)
+        x_trend = np.linspace(
+            returns_df["consistency_rate"].min(),
+            returns_df["consistency_rate"].max(),
+            100,
+        )
 
         fig.add_trace(
             go.Scatter(
@@ -589,7 +679,7 @@ def create_consistency_vs_7day_returns_chart(bet_edge_df: pd.DataFrame, backend_
                 y=p(x_trend),
                 mode="lines",
                 name=f"Trend (r={correlation:.3f})",
-                line=dict(dash="dash", color="red", width=2)
+                line=dict(dash="dash", color="red", width=2),
             )
         )
 
@@ -599,26 +689,35 @@ def create_consistency_vs_7day_returns_chart(bet_edge_df: pd.DataFrame, backend_
         height=600,
         width=900,
         xaxis=dict(tickformat=".0%"),
-        yaxis=dict(tickformat=".1%")
+        yaxis=dict(tickformat=".1%"),
     )
 
     apply_template(fig, width=900, height=600)
     return fig
 
 
-def create_consistency_vs_brier_chart(bet_edge_df: pd.DataFrame, backend_data) -> go.Figure:
+def create_consistency_vs_brier_chart(
+    bet_edge_df: pd.DataFrame, backend_data
+) -> go.Figure:
     """Create scatter plot showing correlation between consistency rate and Brier score."""
     fig = go.Figure()
 
     if bet_edge_df.empty:
-        fig.add_annotation(text="No betting data found",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No betting data found", xref="paper", yref="paper", x=0.5, y=0.5
+        )
         apply_template(fig, width=900, height=600)
         return fig
 
     # Calculate consistency rate by model
-    consistency_by_model = bet_edge_df.groupby("model_name")["consistent"].agg(["mean", "count"]).reset_index()
-    consistency_by_model = consistency_by_model[consistency_by_model["count"] >= 10]  # Filter models with enough data
+    consistency_by_model = (
+        bet_edge_df.groupby("model_name")["consistent"]
+        .agg(["mean", "count"])
+        .reset_index()
+    )
+    consistency_by_model = consistency_by_model[
+        consistency_by_model["count"] >= 10
+    ]  # Filter models with enough data
 
     # Get Brier scores from performance data
     model_data = []
@@ -627,24 +726,34 @@ def create_consistency_vs_brier_chart(bet_edge_df: pd.DataFrame, backend_data) -
         for model_id, performance in backend_data.performance_per_model.items():
             if performance.model_name == model_name:
                 brier_score = performance.final_brier_score
-                model_data.append({
-                    "model_name": model_name,
-                    "consistency_rate": consistency_by_model[consistency_by_model["model_name"] == model_name]["mean"].iloc[0],
-                    "brier_score": brier_score,
-                    "n_decisions": consistency_by_model[consistency_by_model["model_name"] == model_name]["count"].iloc[0]
-                })
+                model_data.append(
+                    {
+                        "model_name": model_name,
+                        "consistency_rate": consistency_by_model[
+                            consistency_by_model["model_name"] == model_name
+                        ]["mean"].iloc[0],
+                        "brier_score": brier_score,
+                        "n_decisions": consistency_by_model[
+                            consistency_by_model["model_name"] == model_name
+                        ]["count"].iloc[0],
+                    }
+                )
                 break
 
     data_df = pd.DataFrame(model_data)
 
     if data_df.empty:
-        fig.add_annotation(text="No Brier score data found",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No Brier score data found", xref="paper", yref="paper", x=0.5, y=0.5
+        )
         apply_template(fig, width=900, height=600)
         return fig
 
     # Use canonical brand colors for each model
-    colors = [get_model_color(model_name, i) for i, model_name in enumerate(data_df["model_name"])]
+    colors = [
+        get_model_color(model_name, i)
+        for i, model_name in enumerate(data_df["model_name"])
+    ]
 
     fig.add_trace(
         go.Scatter(
@@ -654,21 +763,20 @@ def create_consistency_vs_brier_chart(bet_edge_df: pd.DataFrame, backend_data) -
             text=data_df["model_name"],
             textposition="top center",
             textfont=dict(size=10),
-            hovertext=[f"{name}<br>Consistency: {cons:.1%}<br>Brier Score: {brier:.3f}<br>n={n}"
-                      for name, cons, brier, n in zip(
-                          data_df["model_name"],
-                          data_df["consistency_rate"],
-                          data_df["brier_score"],
-                          data_df["n_decisions"]
-                      )],
+            hovertext=[
+                f"{name}<br>Consistency: {cons:.1%}<br>Brier Score: {brier:.3f}<br>n={n}"
+                for name, cons, brier, n in zip(
+                    data_df["model_name"],
+                    data_df["consistency_rate"],
+                    data_df["brier_score"],
+                    data_df["n_decisions"],
+                )
+            ],
             hovertemplate="%{hovertext}<extra></extra>",
             marker=dict(
-                size=12,
-                color=colors,
-                opacity=0.8,
-                line=dict(width=1, color="black")
+                size=12, color=colors, opacity=0.8, line=dict(width=1, color="black")
             ),
-            showlegend=False
+            showlegend=False,
         )
     )
 
@@ -677,7 +785,9 @@ def create_consistency_vs_brier_chart(bet_edge_df: pd.DataFrame, backend_data) -
         correlation = data_df["consistency_rate"].corr(data_df["brier_score"])
         z = np.polyfit(data_df["consistency_rate"], data_df["brier_score"], 1)
         p = np.poly1d(z)
-        x_trend = np.linspace(data_df["consistency_rate"].min(), data_df["consistency_rate"].max(), 100)
+        x_trend = np.linspace(
+            data_df["consistency_rate"].min(), data_df["consistency_rate"].max(), 100
+        )
 
         fig.add_trace(
             go.Scatter(
@@ -685,7 +795,7 @@ def create_consistency_vs_brier_chart(bet_edge_df: pd.DataFrame, backend_data) -
                 y=p(x_trend),
                 mode="lines",
                 name=f"Trend (r={correlation:.3f})",
-                line=dict(dash="dash", color="red", width=2)
+                line=dict(dash="dash", color="red", width=2),
             )
         )
 
@@ -694,20 +804,23 @@ def create_consistency_vs_brier_chart(bet_edge_df: pd.DataFrame, backend_data) -
         yaxis_title="Brier Score (lower = better calibration)",
         height=600,
         width=900,
-        xaxis=dict(tickformat=".0%")
+        xaxis=dict(tickformat=".0%"),
     )
 
     apply_template(fig, width=900, height=600)
     return fig
 
 
-def create_brier_vs_market_correlation_chart(bet_edge_df: pd.DataFrame, backend_data) -> go.Figure:
+def create_brier_vs_market_correlation_chart(
+    bet_edge_df: pd.DataFrame, backend_data
+) -> go.Figure:
     """Create scatter plot showing Brier score vs correlation between model estimates and market prices."""
     fig = go.Figure()
 
     if bet_edge_df.empty:
-        fig.add_annotation(text="No betting data found",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No betting data found", xref="paper", yref="paper", x=0.5, y=0.5
+        )
         apply_template(fig, width=900, height=600)
         return fig
 
@@ -730,23 +843,33 @@ def create_brier_vs_market_correlation_chart(bet_edge_df: pd.DataFrame, backend_
                         break
 
                 if brier_score is not None:
-                    model_correlations.append({
-                        "model_name": model_name,
-                        "market_correlation": correlation,
-                        "brier_score": brier_score,
-                        "n_decisions": len(model_data)
-                    })
+                    model_correlations.append(
+                        {
+                            "model_name": model_name,
+                            "market_correlation": correlation,
+                            "brier_score": brier_score,
+                            "n_decisions": len(model_data),
+                        }
+                    )
 
     if not model_correlations:
-        fig.add_annotation(text="Insufficient data for correlation analysis",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="Insufficient data for correlation analysis",
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.5,
+        )
         apply_template(fig, width=900, height=600)
         return fig
 
     corr_df = pd.DataFrame(model_correlations)
 
     # Use canonical brand colors for each model
-    colors = [get_model_color(model_name, i) for i, model_name in enumerate(corr_df["model_name"])]
+    colors = [
+        get_model_color(model_name, i)
+        for i, model_name in enumerate(corr_df["model_name"])
+    ]
 
     fig.add_trace(
         go.Scatter(
@@ -756,21 +879,20 @@ def create_brier_vs_market_correlation_chart(bet_edge_df: pd.DataFrame, backend_
             text=corr_df["model_name"],
             textposition="top center",
             textfont=dict(size=10),
-            hovertext=[f"{name}<br>Market Correlation: {corr:.3f}<br>Brier Score: {brier:.3f}<br>n={n}"
-                      for name, corr, brier, n in zip(
-                          corr_df["model_name"],
-                          corr_df["market_correlation"],
-                          corr_df["brier_score"],
-                          corr_df["n_decisions"]
-                      )],
+            hovertext=[
+                f"{name}<br>Market Correlation: {corr:.3f}<br>Brier Score: {brier:.3f}<br>n={n}"
+                for name, corr, brier, n in zip(
+                    corr_df["model_name"],
+                    corr_df["market_correlation"],
+                    corr_df["brier_score"],
+                    corr_df["n_decisions"],
+                )
+            ],
             hovertemplate="%{hovertext}<extra></extra>",
             marker=dict(
-                size=12,
-                color=colors,
-                opacity=0.8,
-                line=dict(width=1, color="black")
+                size=12, color=colors, opacity=0.8, line=dict(width=1, color="black")
             ),
-            showlegend=False
+            showlegend=False,
         )
     )
 
@@ -779,7 +901,11 @@ def create_brier_vs_market_correlation_chart(bet_edge_df: pd.DataFrame, backend_
         correlation = corr_df["market_correlation"].corr(corr_df["brier_score"])
         z = np.polyfit(corr_df["market_correlation"], corr_df["brier_score"], 1)
         p = np.poly1d(z)
-        x_trend = np.linspace(corr_df["market_correlation"].min(), corr_df["market_correlation"].max(), 100)
+        x_trend = np.linspace(
+            corr_df["market_correlation"].min(),
+            corr_df["market_correlation"].max(),
+            100,
+        )
 
         fig.add_trace(
             go.Scatter(
@@ -787,7 +913,7 @@ def create_brier_vs_market_correlation_chart(bet_edge_df: pd.DataFrame, backend_
                 y=p(x_trend),
                 mode="lines",
                 name=f"Trend (r={correlation:.3f})",
-                line=dict(dash="dash", color="red", width=2)
+                line=dict(dash="dash", color="red", width=2),
             )
         )
 
@@ -797,20 +923,23 @@ def create_brier_vs_market_correlation_chart(bet_edge_df: pd.DataFrame, backend_
         height=600,
         width=900,
         xaxis=dict(range=[0, 1]),
-        yaxis=dict(range=[0, None])
+        yaxis=dict(range=[0, None]),
     )
 
     apply_template(fig, width=900, height=600)
     return fig
 
 
-def create_brier_vs_7day_returns_chart(bet_edge_df: pd.DataFrame, backend_data) -> go.Figure:
+def create_brier_vs_7day_returns_chart(
+    bet_edge_df: pd.DataFrame, backend_data
+) -> go.Figure:
     """Create scatter plot showing Brier score vs 7-day average returns."""
     fig = go.Figure()
 
     if bet_edge_df.empty:
-        fig.add_annotation(text="No betting data found",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No betting data found", xref="paper", yref="paper", x=0.5, y=0.5
+        )
         apply_template(fig, width=900, height=600)
         return fig
 
@@ -833,23 +962,29 @@ def create_brier_vs_7day_returns_chart(bet_edge_df: pd.DataFrame, backend_data) 
                 break
 
         if brier_score is not None and seven_day_return is not None:
-            model_data.append({
-                "model_name": model_name,
-                "brier_score": brier_score,
-                "seven_day_return": seven_day_return,
-                "n_decisions": models_with_decisions[model_name]
-            })
+            model_data.append(
+                {
+                    "model_name": model_name,
+                    "brier_score": brier_score,
+                    "seven_day_return": seven_day_return,
+                    "n_decisions": models_with_decisions[model_name],
+                }
+            )
 
     if not model_data:
-        fig.add_annotation(text="No performance data found",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No performance data found", xref="paper", yref="paper", x=0.5, y=0.5
+        )
         apply_template(fig, width=900, height=600)
         return fig
 
     data_df = pd.DataFrame(model_data)
 
     # Use canonical brand colors for each model
-    colors = [get_model_color(model_name, i) for i, model_name in enumerate(data_df["model_name"])]
+    colors = [
+        get_model_color(model_name, i)
+        for i, model_name in enumerate(data_df["model_name"])
+    ]
 
     fig.add_trace(
         go.Scatter(
@@ -859,21 +994,20 @@ def create_brier_vs_7day_returns_chart(bet_edge_df: pd.DataFrame, backend_data) 
             text=data_df["model_name"],
             textposition="top center",
             textfont=dict(size=10),
-            hovertext=[f"{name}<br>Brier Score: {brier:.3f}<br>7d Return: {ret:.1%}<br>n={n}"
-                      for name, brier, ret, n in zip(
-                          data_df["model_name"],
-                          data_df["brier_score"],
-                          data_df["seven_day_return"],
-                          data_df["n_decisions"]
-                      )],
+            hovertext=[
+                f"{name}<br>Brier Score: {brier:.3f}<br>7d Return: {ret:.1%}<br>n={n}"
+                for name, brier, ret, n in zip(
+                    data_df["model_name"],
+                    data_df["brier_score"],
+                    data_df["seven_day_return"],
+                    data_df["n_decisions"],
+                )
+            ],
             hovertemplate="%{hovertext}<extra></extra>",
             marker=dict(
-                size=12,
-                color=colors,
-                opacity=0.8,
-                line=dict(width=1, color="black")
+                size=12, color=colors, opacity=0.8, line=dict(width=1, color="black")
             ),
-            showlegend=False
+            showlegend=False,
         )
     )
 
@@ -882,7 +1016,9 @@ def create_brier_vs_7day_returns_chart(bet_edge_df: pd.DataFrame, backend_data) 
         correlation = data_df["brier_score"].corr(data_df["seven_day_return"])
         z = np.polyfit(data_df["brier_score"], data_df["seven_day_return"], 1)
         p = np.poly1d(z)
-        x_trend = np.linspace(data_df["brier_score"].min(), data_df["brier_score"].max(), 100)
+        x_trend = np.linspace(
+            data_df["brier_score"].min(), data_df["brier_score"].max(), 100
+        )
 
         fig.add_trace(
             go.Scatter(
@@ -890,7 +1026,7 @@ def create_brier_vs_7day_returns_chart(bet_edge_df: pd.DataFrame, backend_data) 
                 y=p(x_trend),
                 mode="lines",
                 name=f"Trend (r={correlation:.3f})",
-                line=dict(dash="dash", color="red", width=2)
+                line=dict(dash="dash", color="red", width=2),
             )
         )
 
@@ -899,32 +1035,40 @@ def create_brier_vs_7day_returns_chart(bet_edge_df: pd.DataFrame, backend_data) 
         yaxis_title="7-Day Average Return",
         height=600,
         width=900,
-        yaxis=dict(tickformat=".1%")
+        yaxis=dict(tickformat=".1%"),
     )
 
     apply_template(fig, width=900, height=600)
     return fig
 
 
-def create_bet_amount_vs_confidence_chart_single_model(bet_edge_df: pd.DataFrame, model_name: str, edge_threshold: float = 0.05) -> go.Figure:
+def create_bet_amount_vs_confidence_chart_single_model(
+    bet_edge_df: pd.DataFrame, model_name: str, edge_threshold: float = 0.05
+) -> go.Figure:
     """Create scatter plot showing absolute bet amount vs confidence for a single model."""
     fig = go.Figure()
 
     if bet_edge_df.empty:
-        fig.add_annotation(text="No betting data found",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No betting data found", xref="paper", yref="paper", x=0.5, y=0.5
+        )
         apply_template(fig, width=600, height=500)
         return fig
 
     # Filter by edge threshold and selected model
     filtered_df = bet_edge_df[
-        (bet_edge_df["abs_edge"] > edge_threshold) &
-        (bet_edge_df["model_name"] == model_name)
+        (bet_edge_df["abs_edge"] > edge_threshold)
+        & (bet_edge_df["model_name"] == model_name)
     ]
 
     if filtered_df.empty:
-        fig.add_annotation(text=f"No data for {model_name} with |edge| > {edge_threshold}",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text=f"No data for {model_name} with |edge| > {edge_threshold}",
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.5,
+        )
         apply_template(fig, width=600, height=500)
         return fig
 
@@ -936,18 +1080,16 @@ def create_bet_amount_vs_confidence_chart_single_model(bet_edge_df: pd.DataFrame
             y=filtered_df["bet_amount"].abs(),
             mode="markers",
             name=f"{model_name} (n={len(filtered_df)})",
-            marker=dict(
-                color=color,
-                size=8,
-                opacity=0.7
-            ),
-            text=[f"Model: {model_name}<br>Confidence: {conf}<br>Bet: {bet:.3f}<br>Edge: {edge:.3f}"
-                  for conf, bet, edge in zip(
-                      filtered_df["confidence"],
-                      filtered_df["bet_amount"],
-                      filtered_df["edge"]
-                  )],
-            hovertemplate="%{text}<extra></extra>"
+            marker=dict(color=color, size=8, opacity=0.7),
+            text=[
+                f"Model: {model_name}<br>Confidence: {conf}<br>Bet: {bet:.3f}<br>Edge: {edge:.3f}"
+                for conf, bet, edge in zip(
+                    filtered_df["confidence"],
+                    filtered_df["bet_amount"],
+                    filtered_df["edge"],
+                )
+            ],
+            hovertemplate="%{text}<extra></extra>",
         )
     )
 
@@ -955,20 +1097,23 @@ def create_bet_amount_vs_confidence_chart_single_model(bet_edge_df: pd.DataFrame
     fig.update_layout(
         xaxis_title="Confidence Level",
         yaxis_title="Absolute Bet Amount",
-        showlegend=True
+        showlegend=True,
     )
 
     apply_template(fig, width=600, height=500)
     return fig
 
 
-def create_probability_calibration_chart_single_model(bet_edge_df: pd.DataFrame, model_name: str) -> go.Figure:
+def create_probability_calibration_chart_single_model(
+    bet_edge_df: pd.DataFrame, model_name: str
+) -> go.Figure:
     """Create scatter plot comparing estimated probabilities vs market prices for a single model."""
     fig = go.Figure()
 
     if bet_edge_df.empty:
-        fig.add_annotation(text="No betting data found",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No betting data found", xref="paper", yref="paper", x=0.5, y=0.5
+        )
         apply_template(fig, width=600, height=500)
         return fig
 
@@ -976,8 +1121,9 @@ def create_probability_calibration_chart_single_model(bet_edge_df: pd.DataFrame,
     filtered_df = bet_edge_df[bet_edge_df["model_name"] == model_name]
 
     if filtered_df.empty:
-        fig.add_annotation(text=f"No data for {model_name}",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text=f"No data for {model_name}", xref="paper", yref="paper", x=0.5, y=0.5
+        )
         apply_template(fig, width=600, height=500)
         return fig
 
@@ -989,19 +1135,17 @@ def create_probability_calibration_chart_single_model(bet_edge_df: pd.DataFrame,
             y=filtered_df["estimated_prob"],
             mode="markers",
             name=f"{model_name} (n={len(filtered_df)})",
-            marker=dict(
-                color=color,
-                size=8,
-                opacity=0.7
-            ),
-            text=[f"Model: {model_name}<br>Market: {market:.3f}<br>Estimated: {est:.3f}<br>Edge: {edge:.3f}<br>Confidence: {conf}"
-                  for market, est, edge, conf in zip(
-                      filtered_df["market_price"],
-                      filtered_df["estimated_prob"],
-                      filtered_df["edge"],
-                      filtered_df["confidence"]
-                  )],
-            hovertemplate="%{text}<extra></extra>"
+            marker=dict(color=color, size=8, opacity=0.7),
+            text=[
+                f"Model: {model_name}<br>Market: {market:.3f}<br>Estimated: {est:.3f}<br>Edge: {edge:.3f}<br>Confidence: {conf}"
+                for market, est, edge, conf in zip(
+                    filtered_df["market_price"],
+                    filtered_df["estimated_prob"],
+                    filtered_df["edge"],
+                    filtered_df["confidence"],
+                )
+            ],
+            hovertemplate="%{text}<extra></extra>",
         )
     )
 
@@ -1013,7 +1157,7 @@ def create_probability_calibration_chart_single_model(bet_edge_df: pd.DataFrame,
             mode="lines",
             name="Perfect Calibration",
             line=dict(color="gray", dash="dash"),
-            showlegend=True
+            showlegend=True,
         )
     )
 
@@ -1022,32 +1166,40 @@ def create_probability_calibration_chart_single_model(bet_edge_df: pd.DataFrame,
         yaxis_title="Model Estimated Probability",
         xaxis=dict(range=[0, 1]),
         yaxis=dict(range=[0, 1]),
-        showlegend=True
+        showlegend=True,
     )
 
     apply_template(fig, width=600, height=500)
     return fig
 
 
-def create_bet_amount_vs_confidence_chart_filtered(bet_edge_df: pd.DataFrame, models: List[str], edge_threshold: float = 0.05) -> go.Figure:
+def create_bet_amount_vs_confidence_chart_filtered(
+    bet_edge_df: pd.DataFrame, models: List[str], edge_threshold: float = 0.05
+) -> go.Figure:
     """Create scatter plot showing absolute bet amount vs confidence for specific models."""
     fig = go.Figure()
 
     if bet_edge_df.empty:
-        fig.add_annotation(text="No betting data found",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No betting data found", xref="paper", yref="paper", x=0.5, y=0.5
+        )
         apply_template(fig, width=800, height=600)
         return fig
 
     # Filter by edge threshold and selected models
     filtered_df = bet_edge_df[
-        (bet_edge_df["abs_edge"] > edge_threshold) &
-        (bet_edge_df["model_name"].isin(models))
+        (bet_edge_df["abs_edge"] > edge_threshold)
+        & (bet_edge_df["model_name"].isin(models))
     ]
 
     if filtered_df.empty:
-        fig.add_annotation(text=f"No data for selected models with |edge| > {edge_threshold}",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text=f"No data for selected models with |edge| > {edge_threshold}",
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.5,
+        )
         apply_template(fig, width=800, height=600)
         return fig
 
@@ -1064,18 +1216,16 @@ def create_bet_amount_vs_confidence_chart_filtered(bet_edge_df: pd.DataFrame, mo
                 y=model_data["bet_amount"].abs(),
                 mode="markers",
                 name=f"{model_name} (n={len(model_data)})",
-                marker=dict(
-                    color=color,
-                    size=6,
-                    opacity=0.6
-                ),
-                text=[f"Model: {model_name}<br>Confidence: {conf}<br>Bet: {bet:.3f}<br>Edge: {edge:.3f}"
-                      for conf, bet, edge in zip(
-                          model_data["confidence"],
-                          model_data["bet_amount"],
-                          model_data["edge"]
-                      )],
-                hovertemplate="%{text}<extra></extra>"
+                marker=dict(color=color, size=6, opacity=0.6),
+                text=[
+                    f"Model: {model_name}<br>Confidence: {conf}<br>Bet: {bet:.3f}<br>Edge: {edge:.3f}"
+                    for conf, bet, edge in zip(
+                        model_data["confidence"],
+                        model_data["bet_amount"],
+                        model_data["edge"],
+                    )
+                ],
+                hovertemplate="%{text}<extra></extra>",
             )
         )
 
@@ -1083,20 +1233,23 @@ def create_bet_amount_vs_confidence_chart_filtered(bet_edge_df: pd.DataFrame, mo
     fig.update_layout(
         xaxis_title="Confidence Level",
         yaxis_title="Absolute Bet Amount",
-        showlegend=True
+        showlegend=True,
     )
 
     apply_template(fig, width=800, height=600)
     return fig
 
 
-def create_probability_calibration_chart_filtered(bet_edge_df: pd.DataFrame, models: List[str]) -> go.Figure:
+def create_probability_calibration_chart_filtered(
+    bet_edge_df: pd.DataFrame, models: List[str]
+) -> go.Figure:
     """Create scatter plot comparing estimated probabilities vs market prices for specific models."""
     fig = go.Figure()
 
     if bet_edge_df.empty:
-        fig.add_annotation(text="No betting data found",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No betting data found", xref="paper", yref="paper", x=0.5, y=0.5
+        )
         apply_template(fig, width=800, height=600)
         return fig
 
@@ -1104,8 +1257,9 @@ def create_probability_calibration_chart_filtered(bet_edge_df: pd.DataFrame, mod
     filtered_df = bet_edge_df[bet_edge_df["model_name"].isin(models)]
 
     if filtered_df.empty:
-        fig.add_annotation(text="No data for selected models",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No data for selected models", xref="paper", yref="paper", x=0.5, y=0.5
+        )
         apply_template(fig, width=800, height=600)
         return fig
 
@@ -1122,19 +1276,17 @@ def create_probability_calibration_chart_filtered(bet_edge_df: pd.DataFrame, mod
                 y=model_data["estimated_prob"],
                 mode="markers",
                 name=f"{model_name} (n={len(model_data)})",
-                marker=dict(
-                    color=color,
-                    size=6,
-                    opacity=0.7
-                ),
-                text=[f"Model: {model_name}<br>Market: {market:.3f}<br>Estimated: {est:.3f}<br>Edge: {edge:.3f}<br>Confidence: {conf}"
-                      for market, est, edge, conf in zip(
-                          model_data["market_price"],
-                          model_data["estimated_prob"],
-                          model_data["edge"],
-                          model_data["confidence"]
-                      )],
-                hovertemplate="%{text}<extra></extra>"
+                marker=dict(color=color, size=6, opacity=0.7),
+                text=[
+                    f"Model: {model_name}<br>Market: {market:.3f}<br>Estimated: {est:.3f}<br>Edge: {edge:.3f}<br>Confidence: {conf}"
+                    for market, est, edge, conf in zip(
+                        model_data["market_price"],
+                        model_data["estimated_prob"],
+                        model_data["edge"],
+                        model_data["confidence"],
+                    )
+                ],
+                hovertemplate="%{text}<extra></extra>",
             )
         )
 
@@ -1146,7 +1298,7 @@ def create_probability_calibration_chart_filtered(bet_edge_df: pd.DataFrame, mod
             mode="lines",
             name="Perfect Calibration",
             line=dict(color="gray", dash="dash"),
-            showlegend=True
+            showlegend=True,
         )
     )
 
@@ -1155,20 +1307,23 @@ def create_probability_calibration_chart_filtered(bet_edge_df: pd.DataFrame, mod
         yaxis_title="Model Estimated Probability",
         xaxis=dict(range=[0, 1]),
         yaxis=dict(range=[0, 1]),
-        showlegend=True
+        showlegend=True,
     )
 
     apply_template(fig, width=800, height=600)
     return fig
 
 
-def create_bet_amount_vs_confidence_chart(bet_edge_df: pd.DataFrame, edge_threshold: float = 0.05) -> go.Figure:
+def create_bet_amount_vs_confidence_chart(
+    bet_edge_df: pd.DataFrame, edge_threshold: float = 0.05
+) -> go.Figure:
     """Create scatter plot showing absolute bet amount vs confidence by model, filtered by edge threshold."""
     fig = go.Figure()
 
     if bet_edge_df.empty:
-        fig.add_annotation(text="No betting data found",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No betting data found", xref="paper", yref="paper", x=0.5, y=0.5
+        )
         apply_template(fig, width=800, height=600)
         return fig
 
@@ -1176,8 +1331,13 @@ def create_bet_amount_vs_confidence_chart(bet_edge_df: pd.DataFrame, edge_thresh
     filtered_df = bet_edge_df[bet_edge_df["abs_edge"] > edge_threshold]
 
     if filtered_df.empty:
-        fig.add_annotation(text=f"No data with |edge| > {edge_threshold}",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text=f"No data with |edge| > {edge_threshold}",
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.5,
+        )
         apply_template(fig, width=800, height=600)
         return fig
 
@@ -1194,18 +1354,16 @@ def create_bet_amount_vs_confidence_chart(bet_edge_df: pd.DataFrame, edge_thresh
                 y=model_data["bet_amount"].abs(),
                 mode="markers",
                 name=f"{model_name} (n={len(model_data)})",
-                marker=dict(
-                    color=color,
-                    size=6,
-                    opacity=0.6
-                ),
-                text=[f"Model: {model_name}<br>Confidence: {conf}<br>Bet: {bet:.3f}<br>Edge: {edge:.3f}"
-                      for conf, bet, edge in zip(
-                          model_data["confidence"],
-                          model_data["bet_amount"],
-                          model_data["edge"]
-                      )],
-                hovertemplate="%{text}<extra></extra>"
+                marker=dict(color=color, size=6, opacity=0.6),
+                text=[
+                    f"Model: {model_name}<br>Confidence: {conf}<br>Bet: {bet:.3f}<br>Edge: {edge:.3f}"
+                    for conf, bet, edge in zip(
+                        model_data["confidence"],
+                        model_data["bet_amount"],
+                        model_data["edge"],
+                    )
+                ],
+                hovertemplate="%{text}<extra></extra>",
             )
         )
 
@@ -1215,7 +1373,7 @@ def create_bet_amount_vs_confidence_chart(bet_edge_df: pd.DataFrame, edge_thresh
         height=600,
         width=800,
         xaxis=dict(range=[0, 10]),
-        yaxis=dict(range=[0, None])
+        yaxis=dict(range=[0, None]),
     )
 
     apply_template(fig, width=800, height=600)
@@ -1227,8 +1385,9 @@ def create_decision_consistency_over_time_chart(bet_edge_df: pd.DataFrame) -> go
     fig = go.Figure()
 
     if bet_edge_df.empty:
-        fig.add_annotation(text="No betting data found",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No betting data found", xref="paper", yref="paper", x=0.5, y=0.5
+        )
         apply_template(fig, width=1200, height=800)
         return fig
 
@@ -1240,18 +1399,27 @@ def create_decision_consistency_over_time_chart(bet_edge_df: pd.DataFrame) -> go
         model_data = bet_edge_df[bet_edge_df["model_name"] == model_name]
 
         for event_id in model_data["event_id"].unique():
-            event_decisions = model_data[model_data["event_id"] == event_id].sort_values("date_parsed")
+            event_decisions = model_data[
+                model_data["event_id"] == event_id
+            ].sort_values("date_parsed")
 
             if len(event_decisions) >= 2:  # Need at least 2 decisions over time
-                multi_decision_events.append({
-                    "model_name": model_name,
-                    "event_id": event_id,
-                    "decisions": event_decisions
-                })
+                multi_decision_events.append(
+                    {
+                        "model_name": model_name,
+                        "event_id": event_id,
+                        "decisions": event_decisions,
+                    }
+                )
 
     if not multi_decision_events:
-        fig.add_annotation(text="No events with multiple decisions over time found",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No events with multiple decisions over time found",
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.5,
+        )
         apply_template(fig, width=1200, height=800)
         return fig
 
@@ -1259,17 +1427,21 @@ def create_decision_consistency_over_time_chart(bet_edge_df: pd.DataFrame) -> go
 
     # Create subplots for different metrics
     fig = make_subplots(
-        rows=2, cols=2,
+        rows=2,
+        cols=2,
         subplot_titles=[
             "Estimated Probability Over Time",
             "Bet Amount Over Time",
             "Confidence Over Time",
-            "Edge Over Time"
+            "Edge Over Time",
         ],
-        vertical_spacing=0.12
+        vertical_spacing=0.12,
     )
 
-    model_color_map = {model: get_model_color(model, i) for i, model in enumerate(bet_edge_df["model_name"].unique())}
+    model_color_map = {
+        model: get_model_color(model, i)
+        for i, model in enumerate(bet_edge_df["model_name"].unique())
+    }
 
     # Plot time series for each model-event combination
     for item in multi_decision_events[:20]:  # Limit to top 20 for readability
@@ -1278,7 +1450,9 @@ def create_decision_consistency_over_time_chart(bet_edge_df: pd.DataFrame) -> go
         decisions = item["decisions"]
         color = model_color_map[model_name]
 
-        trace_name = f"{model_name} - Event {event_id[-4:]}"  # Show last 4 chars of event ID
+        trace_name = (
+            f"{model_name} - Event {event_id[-4:]}"  # Show last 4 chars of event ID
+        )
 
         # 1. Estimated Probability
         fig.add_trace(
@@ -1289,9 +1463,10 @@ def create_decision_consistency_over_time_chart(bet_edge_df: pd.DataFrame) -> go
                 name=trace_name,
                 line=dict(color=color),
                 showlegend=True,
-                legendgroup=model_name
+                legendgroup=model_name,
             ),
-            row=1, col=1
+            row=1,
+            col=1,
         )
 
         # 2. Bet Amount
@@ -1303,9 +1478,10 @@ def create_decision_consistency_over_time_chart(bet_edge_df: pd.DataFrame) -> go
                 name=trace_name,
                 line=dict(color=color),
                 showlegend=False,
-                legendgroup=model_name
+                legendgroup=model_name,
             ),
-            row=1, col=2
+            row=1,
+            col=2,
         )
 
         # 3. Confidence
@@ -1317,9 +1493,10 @@ def create_decision_consistency_over_time_chart(bet_edge_df: pd.DataFrame) -> go
                 name=trace_name,
                 line=dict(color=color),
                 showlegend=False,
-                legendgroup=model_name
+                legendgroup=model_name,
             ),
-            row=2, col=1
+            row=2,
+            col=1,
         )
 
         # 4. Edge
@@ -1331,15 +1508,13 @@ def create_decision_consistency_over_time_chart(bet_edge_df: pd.DataFrame) -> go
                 name=trace_name,
                 line=dict(color=color),
                 showlegend=False,
-                legendgroup=model_name
+                legendgroup=model_name,
             ),
-            row=2, col=2
+            row=2,
+            col=2,
         )
 
-    fig.update_layout(
-        height=800,
-        width=1200
-    )
+    fig.update_layout(height=800, width=1200)
 
     # Update axes
     fig.update_xaxes(title_text="Date", row=1, col=1)
@@ -1361,8 +1536,9 @@ def create_decision_correlation_matrix(bet_edge_df: pd.DataFrame) -> go.Figure:
     fig = go.Figure()
 
     if bet_edge_df.empty:
-        fig.add_annotation(text="No betting data found",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No betting data found", xref="paper", yref="paper", x=0.5, y=0.5
+        )
         apply_template(fig, width=800, height=600)
         return fig
 
@@ -1374,9 +1550,13 @@ def create_decision_correlation_matrix(bet_edge_df: pd.DataFrame) -> go.Figure:
         model_data = bet_edge_df[bet_edge_df["model_name"] == model_name]
 
         for event_id in model_data["event_id"].unique():
-            event_decisions = model_data[model_data["event_id"] == event_id].sort_values("date_parsed")
+            event_decisions = model_data[
+                model_data["event_id"] == event_id
+            ].sort_values("date_parsed")
 
-            if len(event_decisions) >= 3:  # Need at least 3 points for meaningful correlation
+            if (
+                len(event_decisions) >= 3
+            ):  # Need at least 3 points for meaningful correlation
                 # Calculate correlations between consecutive time periods
                 metrics = ["estimated_prob", "bet_amount", "confidence", "edge"]
 
@@ -1388,31 +1568,49 @@ def create_decision_correlation_matrix(bet_edge_df: pd.DataFrame) -> go.Figure:
                             prev_values = values[:-1]
                             curr_values = values[1:]
                             if len(set(prev_values)) > 1 and len(set(curr_values)) > 1:
-                                correlation = np.corrcoef(prev_values, curr_values)[0, 1]
+                                correlation = np.corrcoef(prev_values, curr_values)[
+                                    0, 1
+                                ]
                                 if not np.isnan(correlation):
-                                    correlation_data.append({
-                                        "model_name": model_name,
-                                        "event_id": event_id,
-                                        "metric": metric,
-                                        "correlation": correlation,
-                                        "n_decisions": len(event_decisions)
-                                    })
+                                    correlation_data.append(
+                                        {
+                                            "model_name": model_name,
+                                            "event_id": event_id,
+                                            "metric": metric,
+                                            "correlation": correlation,
+                                            "n_decisions": len(event_decisions),
+                                        }
+                                    )
 
     if not correlation_data:
-        fig.add_annotation(text="Insufficient data for correlation analysis",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="Insufficient data for correlation analysis",
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.5,
+        )
         apply_template(fig, width=800, height=600)
         return fig
 
     corr_df = pd.DataFrame(correlation_data)
 
     # Create correlation summary by model and metric
-    summary = corr_df.groupby(["model_name", "metric"])["correlation"].agg(["mean", "count"]).reset_index()
+    summary = (
+        corr_df.groupby(["model_name", "metric"])["correlation"]
+        .agg(["mean", "count"])
+        .reset_index()
+    )
     summary = summary[summary["count"] >= 2]  # Need at least 2 event-model pairs
 
     if summary.empty:
-        fig.add_annotation(text="Insufficient data for correlation summary",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="Insufficient data for correlation summary",
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.5,
+        )
         apply_template(fig, width=800, height=600)
         return fig
 
@@ -1429,15 +1627,12 @@ def create_decision_correlation_matrix(bet_edge_df: pd.DataFrame) -> go.Figure:
             colorbar=dict(title="Avg Correlation"),
             text=np.round(heatmap_data.values, 2),
             texttemplate="%{text}",
-            textfont={"size": 10}
+            textfont={"size": 10},
         )
     )
 
     fig.update_layout(
-        xaxis_title="Decision Metric",
-        yaxis_title="Model",
-        height=600,
-        width=800
+        xaxis_title="Decision Metric", yaxis_title="Model", height=600, width=800
     )
 
     apply_template(fig, width=800, height=600)
@@ -1448,8 +1643,9 @@ def create_calibration_trends_visualization(bet_edge_df: pd.DataFrame) -> go.Fig
     """Create visualization showing calibration improvements over time."""
     if bet_edge_df.empty:
         fig = go.Figure()
-        fig.add_annotation(text="No betting data found",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="No betting data found", xref="paper", yref="paper", x=0.5, y=0.5
+        )
         apply_template(fig, width=1000, height=500)
         return fig
 
@@ -1459,12 +1655,18 @@ def create_calibration_trends_visualization(bet_edge_df: pd.DataFrame) -> go.Fig
     model_trends = []
     for model_name in bet_edge_df["model_name"].unique():
         model_data = bet_edge_df[bet_edge_df["model_name"] == model_name]
-        weekly_stats = model_data.groupby(model_data["date_parsed"].dt.to_period("W")).agg({
-            "consistent": "mean",
-            "abs_edge": "mean",
-            "confidence": "mean",
-            "bet_vs_kelly": "mean"
-        }).reset_index()
+        weekly_stats = (
+            model_data.groupby(model_data["date_parsed"].dt.to_period("W"))
+            .agg(
+                {
+                    "consistent": "mean",
+                    "abs_edge": "mean",
+                    "confidence": "mean",
+                    "bet_vs_kelly": "mean",
+                }
+            )
+            .reset_index()
+        )
         weekly_stats["model_name"] = model_name
         weekly_stats["date_parsed"] = weekly_stats["date_parsed"].dt.to_timestamp()
         if len(weekly_stats) >= 3:  # Only include models with enough time series data
@@ -1472,8 +1674,13 @@ def create_calibration_trends_visualization(bet_edge_df: pd.DataFrame) -> go.Fig
 
     if not model_trends:
         fig = go.Figure()
-        fig.add_annotation(text="Insufficient data for trend analysis",
-                          xref="paper", yref="paper", x=0.5, y=0.5)
+        fig.add_annotation(
+            text="Insufficient data for trend analysis",
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.5,
+        )
         apply_template(fig, width=1000, height=500)
         return fig
 
@@ -1492,7 +1699,7 @@ def create_calibration_trends_visualization(bet_edge_df: pd.DataFrame) -> go.Fig
                 mode="lines+markers",
                 name=model_name,
                 line=dict(color=color, width=2),
-                marker=dict(size=6)
+                marker=dict(size=6),
             )
         )
 
@@ -1501,7 +1708,7 @@ def create_calibration_trends_visualization(bet_edge_df: pd.DataFrame) -> go.Fig
         yaxis_title="Consistency Rate",
         height=500,
         width=1000,
-        yaxis=dict(range=[0, 1])
+        yaxis=dict(range=[0, 1]),
     )
 
     apply_template(fig, width=1000, height=500)
@@ -1546,10 +1753,14 @@ def main():
             "avg_adjustment_speed": price_volatility_df["adjustment_speed"].mean(),
             "median_adjustment_speed": price_volatility_df["adjustment_speed"].median(),
             "avg_initial_shock": price_volatility_df["initial_change"].abs().mean(),
-            "total_significant_moves": len(price_volatility_df)
+            "total_significant_moves": len(price_volatility_df),
         }
-        print(f"Average adjustment speed: {summary_stats['avg_adjustment_speed']:.2f} days")
-        print(f"Median adjustment speed: {summary_stats['median_adjustment_speed']:.2f} days")
+        print(
+            f"Average adjustment speed: {summary_stats['avg_adjustment_speed']:.2f} days"
+        )
+        print(
+            f"Median adjustment speed: {summary_stats['median_adjustment_speed']:.2f} days"
+        )
 
     # Analysis 2: Bet vs Edge consistency
     print("Analyzing bet vs edge consistency...")
@@ -1611,7 +1822,9 @@ def main():
         print("Saved calibration_trends.html and .json (local + frontend)")
 
         # 6. Consistency vs 7-Day Returns Correlation
-        fig_consistency_7day = create_consistency_vs_7day_returns_chart(bet_edge_df, backend_data)
+        fig_consistency_7day = create_consistency_vs_7day_returns_chart(
+            bet_edge_df, backend_data
+        )
         fig_consistency_7day.update_layout(width=1100, height=700)
         fig_consistency_7day.write_html(output_dir / "consistency_vs_7day_returns.html")
         with open(output_dir / "consistency_vs_7day_returns.json", "w") as f:
@@ -1621,7 +1834,9 @@ def main():
         print("Saved consistency_vs_7day_returns.html and .json (local + frontend)")
 
         # 6b. Consistency vs Brier Score Correlation
-        fig_consistency_brier = create_consistency_vs_brier_chart(bet_edge_df, backend_data)
+        fig_consistency_brier = create_consistency_vs_brier_chart(
+            bet_edge_df, backend_data
+        )
         fig_consistency_brier.update_layout(width=1100, height=700)
         fig_consistency_brier.write_html(output_dir / "consistency_vs_brier_score.html")
         with open(output_dir / "consistency_vs_brier_score.json", "w") as f:
@@ -1631,9 +1846,13 @@ def main():
         print("Saved consistency_vs_brier_score.html and .json (local + frontend)")
 
         # 6c. Brier Score vs Market Correlation
-        fig_brier_market_corr = create_brier_vs_market_correlation_chart(bet_edge_df, backend_data)
+        fig_brier_market_corr = create_brier_vs_market_correlation_chart(
+            bet_edge_df, backend_data
+        )
         fig_brier_market_corr.update_layout(width=1100, height=700)
-        fig_brier_market_corr.write_html(output_dir / "brier_vs_market_correlation.html")
+        fig_brier_market_corr.write_html(
+            output_dir / "brier_vs_market_correlation.html"
+        )
         with open(output_dir / "brier_vs_market_correlation.json", "w") as f:
             f.write(fig_brier_market_corr.to_json())
         with open(frontend_json_dir / "brier_vs_market_correlation.json", "w") as f:
@@ -1652,7 +1871,9 @@ def main():
 
         # 7. Bet Amount vs Confidence (with edge threshold)
         edge_threshold = 0.20  # 20% edge threshold
-        fig_bet_confidence = create_bet_amount_vs_confidence_chart(bet_edge_df, edge_threshold)
+        fig_bet_confidence = create_bet_amount_vs_confidence_chart(
+            bet_edge_df, edge_threshold
+        )
         fig_bet_confidence.update_layout(width=1000, height=700)
         fig_bet_confidence.write_html(output_dir / "bet_amount_vs_confidence.html")
         with open(output_dir / "bet_amount_vs_confidence.json", "w") as f:
@@ -1674,7 +1895,9 @@ def main():
         # 9. Decision Correlation Matrix
         fig_correlation_matrix = create_decision_correlation_matrix(bet_edge_df)
         fig_correlation_matrix.update_layout(width=1000, height=700)
-        fig_correlation_matrix.write_html(output_dir / "decision_correlation_matrix.html")
+        fig_correlation_matrix.write_html(
+            output_dir / "decision_correlation_matrix.html"
+        )
         with open(output_dir / "decision_correlation_matrix.json", "w") as f:
             f.write(fig_correlation_matrix.to_json())
         with open(frontend_json_dir / "decision_correlation_matrix.json", "w") as f:
@@ -1683,27 +1906,41 @@ def main():
 
         # 10. Individual Bet Amount vs Confidence Charts for Side-by-Side Display
         # GPT-5 chart
-        fig_bet_confidence_gpt5 = create_bet_amount_vs_confidence_chart_single_model(bet_edge_df, "GPT-5", edge_threshold)
+        fig_bet_confidence_gpt5 = create_bet_amount_vs_confidence_chart_single_model(
+            bet_edge_df, "GPT-5", edge_threshold
+        )
         with open(frontend_json_dir / "bet_amount_vs_confidence_gpt5.json", "w") as f:
             f.write(fig_bet_confidence_gpt5.to_json())
         print("Saved bet_amount_vs_confidence_gpt5.json (frontend)")
 
         # GPT-5 Mini chart
-        fig_bet_confidence_gpt5_mini = create_bet_amount_vs_confidence_chart_single_model(bet_edge_df, "GPT-5 Mini", edge_threshold)
-        with open(frontend_json_dir / "bet_amount_vs_confidence_gpt5_mini.json", "w") as f:
+        fig_bet_confidence_gpt5_mini = (
+            create_bet_amount_vs_confidence_chart_single_model(
+                bet_edge_df, "GPT-5 Mini", edge_threshold
+            )
+        )
+        with open(
+            frontend_json_dir / "bet_amount_vs_confidence_gpt5_mini.json", "w"
+        ) as f:
             f.write(fig_bet_confidence_gpt5_mini.to_json())
         print("Saved bet_amount_vs_confidence_gpt5_mini.json (frontend)")
 
         # 11. Individual Probability Calibration Charts for Side-by-Side Display
         # GPT-5 chart
-        fig_prob_cal_gpt5 = create_probability_calibration_chart_single_model(bet_edge_df, "GPT-5")
+        fig_prob_cal_gpt5 = create_probability_calibration_chart_single_model(
+            bet_edge_df, "GPT-5"
+        )
         with open(frontend_json_dir / "probability_calibration_gpt5.json", "w") as f:
             f.write(fig_prob_cal_gpt5.to_json())
         print("Saved probability_calibration_gpt5.json (frontend)")
 
         # GPT-OSS 120B chart
-        fig_prob_cal_gpt_oss = create_probability_calibration_chart_single_model(bet_edge_df, "GPT-OSS 120B")
-        with open(frontend_json_dir / "probability_calibration_gpt_oss_120b.json", "w") as f:
+        fig_prob_cal_gpt_oss = create_probability_calibration_chart_single_model(
+            bet_edge_df, "GPT-OSS 120B"
+        )
+        with open(
+            frontend_json_dir / "probability_calibration_gpt_oss_120b.json", "w"
+        ) as f:
             f.write(fig_prob_cal_gpt_oss.to_json())
         print("Saved probability_calibration_gpt_oss_120b.json (frontend)")
 
@@ -1717,13 +1954,15 @@ def main():
         print(f"Average Kelly deviation: {avg_kelly_deviation:.3f}")
 
         # Consistency by model
-        model_consistency = bet_edge_df.groupby("model_name")["consistent"].agg(["mean", "count"])
+        model_consistency = bet_edge_df.groupby("model_name")["consistent"].agg(
+            ["mean", "count"]
+        )
         print("\nConsistency by model (excluding baseline):")
         for model_name, stats in model_consistency.iterrows():
             if stats["count"] >= 10:  # Only show models with enough data
                 print(f"  {model_name}: {stats['mean']:.2%} (n={stats['count']})")
 
-    print(f"\nAnalysis complete! Results saved to:")
+    print("\nAnalysis complete! Results saved to:")
     print(f"  HTML files: {output_dir}")
     print(f"  JSON files: {output_dir} and {frontend_json_dir}")
 
