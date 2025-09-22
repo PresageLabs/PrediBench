@@ -8,8 +8,53 @@ from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
+import typer
 from predibench.backend.data_loader import get_data_for_backend
 from predibench.utils import apply_template, get_model_color
+
+app = typer.Typer(help="Comprehensive model performance analysis")
+
+
+# LMSys Arena scores (current as of the provided data)
+ARENA_SCORES = {
+    "grok-4-0709": 1420,
+    "gpt-5": 1430,
+    "gpt-5-mini": 1389,
+    "gpt-4.1": 1411,
+    "o3-deep-research": None,  # N/A (not listed on leaderboard)
+    "openai/gpt-oss-120b": 1350,
+    "Qwen/Qwen3-Coder-480B-A35B-Instruct": 1379,
+    "Qwen/Qwen3-235B-A22B-Instruct-2507": 1398,
+    "deepseek-ai/DeepSeek-R1": 1394,
+    "deepseek-ai/DeepSeek-V3.1": 1417,
+    "meta-llama/Llama-4-Maverick-17B-128E-Instruct": 1325,
+    "meta-llama/Llama-4-Scout-17B-16E-Instruct": 1319,
+    "meta-llama/Llama-3.3-70B-Instruct": 1316,  # N/A (not listed on leaderboard)
+    "gemini-2.5-flash": 1406,
+    "gemini-2.5-pro": 1456,
+    "claude-sonnet-4-20250514": 1386,
+    "claude-opus-4-1-20250805": 1438,
+}
+
+ARTIFICIAL_ANALYSIS_SCORES = {
+    "grok-4-0709": 65,
+    "gpt-5": 66,
+    "gpt-5-mini": 61,
+    "gpt-4.1": 43,
+    "o3-deep-research": None,  # N/A (not listed on leaderboard)
+    "openai/gpt-oss-120b": 58,
+    # "Qwen/Qwen3-Coder-480B-A35B-Instruct": 1379,
+    "Qwen/Qwen3-235B-A22B-Instruct-2507": 57,
+    "deepseek-ai/DeepSeek-R1": 51,
+    "deepseek-ai/DeepSeek-V3.1": 54,
+    "meta-llama/Llama-4-Maverick-17B-128E-Instruct": 36,
+    "meta-llama/Llama-4-Scout-17B-16E-Instruct": 28,
+    "meta-llama/Llama-3.3-70B-Instruct": 28,  # N/A (not listed on leaderboard)
+    "gemini-2.5-flash": 51,
+    "gemini-2.5-pro": 60,
+    "claude-sonnet-4-20250514": 57,
+    "claude-opus-4-1-20250805": 59,
+}
 
 
 def create_model_metadata():
@@ -66,14 +111,6 @@ def create_model_metadata():
     return release_dates, inference_costs
 
 
-def extract_model_name(model_id: str) -> str:
-    """Canonical model key used in metadata lookups.
-
-    For this analysis, we treat the raw model_id as the canonical key.
-    """
-    return model_id
-
-
 def create_performance_dataframe(backend_data):
     """Create a comprehensive dataframe with all model performance metrics."""
 
@@ -82,14 +119,15 @@ def create_performance_dataframe(backend_data):
     performance_data = []
 
     for model_id, performance in backend_data.performance_per_model.items():
-        model_key = extract_model_name(model_id)
-        release_date = release_dates.get(model_key)
-        inference_cost = inference_costs.get(model_key)
+        release_date = release_dates.get(model_id)
+        inference_cost = inference_costs.get(model_id)
+        if model_id not in ARENA_SCORES:
+            continue
+        arena_score = ARENA_SCORES.get(model_id)
 
         performance_data.append(
             {
                 "model_id": model_id,
-                "model_key": model_key,
                 "pretty_name": performance.model_name,  # from BackendData
                 "final_brier_score": performance.final_brier_score,
                 "final_profit": performance.final_profit,
@@ -103,6 +141,7 @@ def create_performance_dataframe(backend_data):
                 "trades_count": performance.trades_count,
                 "release_date": release_date,
                 "inference_cost": inference_cost,
+                "arena_score": arena_score,
             }
         )
 
@@ -253,7 +292,67 @@ def create_release_date_inference_cost_scatter(df):
     return fig
 
 
-def main():
+def create_performance_vs_arena_score_scatter(df, metric_type: str = "brier"):
+    """Create scatter plot comparing model performance vs LMSys Arena score.
+
+    Args:
+        df: DataFrame with model performance data
+        metric_type: Either "brier" for Brier Score or "return" for Average Return
+    """
+
+    # Filter out models without arena scores
+    df_filtered = df[df["arena_score"].notna()].copy()
+
+    if len(df_filtered) == 0:
+        raise ValueError("No models found with LMSys Arena scores")
+
+    fig = go.Figure()
+
+    if metric_type == "brier":
+        y_data = df_filtered["final_brier_score"]
+        y_title = "Brier Score (Lower is Better)"
+    else:
+        y_data = df_filtered["average_return_7d"]
+        y_title = "Average Return - 7 day (%)"
+
+    fig.add_trace(
+        go.Scatter(
+            x=df_filtered["arena_score"],
+            y=y_data,
+            mode="markers+text",
+            text=df_filtered["pretty_name"],
+            textposition="top center",
+            marker=dict(
+                size=12,
+            ),
+            name="Models",
+            showlegend=False,
+        )
+    )
+
+    fig.update_layout(
+        xaxis_title="LMSys Arena Score",
+        yaxis_title=y_title,
+        height=600,
+        width=800,
+    )
+    apply_template(fig)
+
+    return fig
+
+
+@app.command()
+def main(
+    arena_metric: str = typer.Option(
+        "brier",
+        help="Metric to use for arena score comparison: 'brier' for Brier Score or 'return' for Average Return",
+    ),
+):
+    """Generate comprehensive model performance analysis including LMSys Arena comparison."""
+
+    if arena_metric not in ["brier", "return"]:
+        raise typer.BadParameter("arena_metric must be either 'brier' or 'return'")
+
     print("Loading backend data...")
     backend_data = get_data_for_backend()
 
@@ -264,7 +363,13 @@ def main():
     print("\nModel summary:")
     print(
         df[
-            ["pretty_name", "final_brier_score", "average_return_7d", "trades_count"]
+            [
+                "pretty_name",
+                "final_brier_score",
+                "average_return_7d",
+                "trades_count",
+                "arena_score",
+            ]
         ].to_string()
     )
 
@@ -296,6 +401,15 @@ def main():
     fig4 = create_release_date_inference_cost_scatter(df)
     fig4.write_json(output_dir / "release_date_cost_scatter.json")
 
+    # 5. Performance vs LMSys Arena score scatter plot
+    print(
+        f"Creating performance vs LMSys Arena score scatter plot (using {arena_metric})..."
+    )
+    fig5 = create_performance_vs_arena_score_scatter(df, metric_type=arena_metric)
+    fig5.write_json(output_dir / f"performance_vs_arena_score_{arena_metric}.json")
+
+    print(f"\nAll visualizations saved to {output_dir}")
+
 
 if __name__ == "__main__":
-    main()
+    app()

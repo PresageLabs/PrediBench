@@ -476,14 +476,6 @@ def main():
     apply_template(fig5)
     fig5.write_json(output_dir / "correlation_summary.json")
 
-    print(f"\nAnalysis complete! Files saved to {output_dir}")
-    print("Generated files:")
-    print("- sources_vs_brier_score.html")
-    print("- sources_vs_returns.html")
-    print("- webpage_sources_vs_returns.html")
-    print("- google_vs_webpage_sources.html")
-    print("- correlation_summary.html")
-
 
 if __name__ == "__main__":
     main()

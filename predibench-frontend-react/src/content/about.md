@@ -4,10 +4,11 @@ AI models shine on within-distribution tasks, thus cracking standardized math or
 
 We decided to put test this forecasting ability: **Every day, we let AI models bet 1$ on top events from [Polymarket](https://polymarket.com/).**
 
-Tracking the profits on different metrics then yields PrediBench, and the above leaderboard.
+Tracking the profits on different metrics then yields the above leaderboard.
 
-- By nature, benchmark **cannot be overfitted**: since the test events are real-time prediction markets following real-world events, there’s no chance that models have seen the test set in training.
+- By nature, this benchmark **cannot be overfitted**: since the test events are real-time prediction markets following real-world events, there’s no chance that models have seen the test set in training.
 - It is also **generalist**, since the questions picked from Polymarket cover a wide range of newsworthy topic, from economics to pop culture.
+- It tests the **Agentic capability** of models, since they have to perform a series of tool calls towards solving their goal.
 
 We publish the entirety of this work in open source: code, data, experiments, to let the community iterate on it.
 
@@ -17,15 +18,15 @@ Prediction is a difficult science. We believe that in the future, AI models are 
 
 Why could that be? Because the ingredients of foresight are on the way to being mastered by AI models.
 
-Amongst the example of striking prediction ability shown by individuals in history, what these individuals had in common was a combination of profound knowledge and of well-applied, bold judgement (one could define "judgement" as a combination of critical thinking, probabilistic reasoning, and causality understanding). (NOTE: forward-thinking?)
+Amongst the authors of outstandingly precise predictions throughout history, the shared characteristic was a combination of profound knowledge and of well-applied, bold judgement (one could define "judgement" as a combination of critical thinking, probabilistic reasoning, and causality understanding). (NOTE: forward-thinking?)
 
-In 1919, French historian Jacques Bainville predicted that the Treaty of Versailles that had just closed the World war, would have dire consequences[^consequences_politiques]. Far from the optimism of his contemporaneous at the time, he announced an upcoming war. He foretold that a powerful and revengeful social republic of Germany would raise again to power. That it would annex Austria, and the Sudeten german-speaking minorities. He predicted the alliance of Russia and Germany, their siding together against Poland. He warned of the alliance of Italy.
+In 1919, French historian Jacques Bainville predicted that the Treaty of Versailles that had just closed the World war, would have dire consequences[^consequences_politiques]. Far from the optimism of his contemporaneous at the time, he announced an upcoming war. He foretold that a powerful and revengeful social republic of Germany would raise again to power. That it would annex Austria, and the Sudeten german-speaking minorities. He predicted the alliance of Russia and Germany, their siding together against Poland.
 
 When the Second World War broke out, two decades later, the first years followed the exact steps he had predicted.
 
-> Bainville’s stunning prescience was not a product of chance: it was a mechanical application of his immense knowledge of European geopolitics and of his bold judgement, that defied the views of his time.
+> Bainville’s stunning prescience was not a product of chance: it was a mechanical application of his immense knowledge of European geopolitics, articulated through sound judgement.
 
-Knowledge allowed him to draw from history a myriad of situations similar to his present, where each situation's unfolding provided heuristics that could apply again. His good judgement then allowed to weigh and combine these different historical heuristics to assess the probability distribution of different outcomes in the future. 
+Knowledge allowed him to draw from history a myriad of events with similar aspects to his present, providing heuristics that could apply again. His good judgement then allowed to weigh and combine these historical heuristics to assess the probability distribution of different outcomes in the future, thus providing a response that defied the views of his time.
 
 **Knowledge provides the building blocks, judgement assembles them.** On both knowlege and judgement, recent progress has been massive for AI models:
 
@@ -209,12 +210,17 @@ Let us compare our models and the baselines:
 {caption="Brier Score", path=model_performance_comprehensive_analysis/brier_score_ranking.json}
 
 Few observations from these rankings:
-- Average returns and Brier score tend to correlate well with model general performance.
-- While most models tested are not profitable, half of them beat the market baseline. And the mot recent/powerful ones tend to draw a profit.
+- Average returns and Brier score tend to correlate well with model general performance, cf below:
+
+{caption="Brier Score vs LMSys Arena score", path=model_performance_comprehensive_analysis/performance_vs_arena_score_brier.json}
+
+- While most models tested are not profitable, half of them beat the market baseline. And the most recent/powerful ones draw a profit.
+
+This strongly hints that AI models are becoming better at forecasting!
 
 ## Analysis
 
-### Market behaviour
+### News and Prediction markets - Importance of actualisation
 
 News can have a sudden and massive impact on prediction markets, like when the news of [Zohran Mahmadi winning the Democratic primary](https://x.com/GlobeEyeNews/status/1937760643261825210) elicited a 40% change of the rate for his election over less than one hour.
 
@@ -222,20 +228,8 @@ News can have a sudden and massive impact on prediction markets, like when the n
 
 Given this potentially strong effect of news, we expect the information to decay quite quickly through time, leading us to limit the holding period of bets to at most 7 days.
 
-### Model Performance
-
-
-Models provide both probability estimates and corresponding bet amounts for each market. This analysis compares the performance of original model bet amounts versus Kelly criterion-optimized amounts, which theoretically maximize expected growth based on probability estimates and available capital.
-
-{caption="Kelly vs Original Betting Strategy - Comparison of 7-day returns using original bet amounts versus Kelly criterion-derived amounts", path="market_dynamics/bet_strategy_comparison.json"}
-
-Interestingly, most models outperformed Kelly criterion optimization when using their original bet amounts, suggesting that models incorporate risk management considerations beyond pure mathematical optimization (notable exceptions include the DeepSeek family and Gemini Pro, where the application of Kelly optimization improved predictions).
-
-In other words **models are good at predicting, they are also good at betting**.
-
 ### Model Consistency
 
-#### Model Decision Distribution Analysis
 
 To understand how different models make betting decisions, we analyzed the distribution of model choices across 32 runs to predict the ![Federal Reserve interest rates](https://polymarket.com/event/fed-decision-in-october?tid=1758495631699), for the models Qwen3-Coder-480B and GPT-OSS-120B. This analysis reveals the consistency and strategy patterns of each model.
 
@@ -244,14 +238,14 @@ To understand how different models make betting decisions, we analyzed the distr
 The probability distribution reveals significant uncertainty in model predictions, with wide variance around market prices. This uncertainty translates into conservative betting behavior, explaining why the bet amount distribution median approaches zero - models hedge against their own uncertainty by making smaller bets.
 
 
-### Importance of in-depth research
+### Research depth: counting visits
 
 Our agents were given two tools: a general GoogleSearch that returns a list of links and their snippet texts, and a VisitWebpage tool to visit individual webpages.
 One could expect an analyst to increase performance when double-checking sources using VisitWebpage : but often, models did not verify sources, as long as they had elements of answer in the google search snippets. 
 
 It appears that double-checking results increases research quality. Returns grows with the count of webpages visited - Perplexity’s Sonar-Deep-Research is not shown on this graph, visited over 16 webpages on average - which also reinforces the hypothesis that visiting more sources leads to success.
 
-{caption="Performance seems correlated with the count of pages visited" path="sources_vs_performance_analysis/webpage_sources_vs_returns.json"}
+{caption="Performance increases as the model visits more pages" path="sources_vs_performance_analysis/webpage_sources_vs_returns.json"}
 
 
 ### Predicted odds
