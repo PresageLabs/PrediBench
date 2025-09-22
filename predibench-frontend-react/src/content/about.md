@@ -8,11 +8,9 @@ We decided to put test this forecasting ability : this yields Predibench.
 
 Then, we can track the profit and additional metrics such as the Brier score.
 
-This benchmark has the following advantages:
-
-- **Cannot be overfitted**: Since the test events are real-time prediction markets following real-world events, there’s no chance that models have seen the test set in training.
-- **Generalist:** the questions picked from Polymarket are very broad in nature, ranging from economics to celebrities.
-- It evaluates LLMs in agentic mode : they can retrieve information from the Web.
+This benchmark **cannot be overfitted**: since the test events are real-time prediction markets following real-world events, there’s no chance that models have seen the test set in training.
+It is also **generalist** in nature: the questions picked from Polymarket are very broad in nature, ranging from economics to celebrities.
+Finally, it evaluates LLMs agentic abilities : they can retrieve information from the Web.
 
 We make this work entirely open source: code, data, experiments, to let the community iterate on it.
 
@@ -23,16 +21,17 @@ Prediction is a difficult science. We believe that in the future, AI models can 
 What does it take to predict the future? Or at least, to propose reliable estimates of probabilites? 
 Amongst the example of striking prediction ability shown by individuals in history, what these individuals had in common was a combination of profound knowledge and of well-applied, bold judgement (NOTE: forward-thinking?)
 
-In 1919, major French historian Jacques Bainville predicted that the Treaty of Versailles would have dire consequences. Far from the optimism of his contemporaneous at the time, he announced an upcoming war : he announced that a powerful and revengeful social republic of Germany would raise again to power.
+In 1919, major French historian Jacques Bainville predicted that the Treaty of Versailles would have dire consequences[^consequences_politiques]. Far from the optimism of his contemporaneous at the time, he announced an upcoming war : he announced that a powerful and revengeful social republic of Germany would raise again to power.
 He predicted that German would annex Austria, and the Sudeten german-speaking minorities. He announced the alliance of Russia and Germany, their siding together against Poland, and the alliance of Italy and Germany.
 
-When the Second World War broke out, two decades later, it followed the exact steps predicted by Bainville. And in 1940, 4 years after his death, France was defeated, as he had feared.
+When the Second World War broke out, two decades later, it followed the exact steps predicted by Bainville. In 1940, 4 years after Bainville's death, France was defeated, as he had feared.
 
 Bainville’s stunning prescience was not a product of chance: it was a mechanical application of his immense knowledge of European geopolitics and of his bold judgement, that defied the views of his time.
 
 Knowledge is used to gather heuristics : from a-priori data, cause A implies consequence B. Judgement, loosely defined as a combination of critical thinking, probabilistic reasoning, and causality understanding, then allows to weigh and combine these different heuristics to assess the outcome’s probability distribution.
 
-Knowledge and judgement : AI is already gathering these two ingredients.
+Knowledge and judgement are key elements that AI models.
+
 
 - Knowledge : Leading models already know more in most areas of science than PhD students specialized in these areas. These models possess a knowledge of both superhuman breadth and depth.
 - Judgement : models have historically been struggling with causality and critical thinking, but recent progress has brought them nearly up to human skill (SOURCE)
@@ -47,9 +46,9 @@ This hybrid setup let us maximize performance across models while keeping the ev
 Then on regular decision dates (thrice per week for the first month), each model is provided with a list of featured events on which to place bets.
 
 - Event Choice Strategy : We focus on the **top 10 trending Polymarket events**, ranked by one-week trading volume.
-    - To keep things fresh, we only pick markets that **end within two months**, avoiding stagnant bets.
-    - We also **exclude crypto events**: their extreme volatility goes against our goal of testing reasoning from fundamentals.
+    - To avoid stagnant bets, we only pick markets that **end within two months**.
     - By rotating through fast-moving, high-attention markets, our leaderboard stays dynamic and captures the **real pulse of prediction markets**.
+    - We also **exclude crypto events**: their extreme volatility goes against our goal of testing reasoning from fundamentals.
 
 The agent run can go as follows:
 
@@ -88,7 +87,7 @@ News can suddenly change the price of some markets, like the news of [Zohran Mah
 
 {caption="On June 25, 2025, the market for Zohran mahmadi becoming Mayor of NYC jumped up - but the transition took one full hour." path="sudden_price_change/nyc_election_mahmadi.json"}
 
-Since news can have such a strong effe
+Since news can have such a strong effect, we expect the mutual information
 
 ### Model Performance
 
@@ -97,7 +96,7 @@ Models provide both probability estimates and corresponding bet amounts for each
 
 {caption="Kelly vs Original Betting Strategy - Comparison of 7-day returns using original bet amounts versus Kelly criterion-derived amounts", path="market_dynamics/bet_strategy_comparison.json"}
 
-Interestingly, most models outperformed Kelly criterion optimization when using their original bet amounts, suggesting that models incorporate risk management considerations beyond pure mathematical optimization. Notable exceptions include the DeepSeek family and Gemini Pro, where the application of Kelly optimization improved predictions, hinting that their own betting reasoning was suboptimal.
+Interestingly, most models outperformed Kelly criterion optimization when using their original bet amounts, suggesting that models incorporate risk management considerations beyond pure mathematical optimization (notable exceptions include the DeepSeek family and Gemini Pro, where the application of Kelly optimization improved predictions).
 
 In other words **models are good at predicting, they are also good at betting**.
 
@@ -147,13 +146,7 @@ Since this work aimed to evaluate the current prediction ability of models,
 
 Each event decision can be commented via [giscus](https://giscus.app/), and the comments will appear directly under the repo's [discussions page](https://github.com/clairvoyance-tech/PrediBench/discussions): we invite the community to hop in and help us annotate model decisions.
 
-In the next months, we are going to push this boundary to a superhuman level. This is going to be called Clairvoyance.
-
-![image.png](About%20Page%2025e8d6bd102f80ce8f3be27e7ed42698/image%208.png)
-
-![image.png](About%20Page%2025e8d6bd102f80ce8f3be27e7ed42698/image%209.png)
-
-![image.png](About%20Page%2025e8d6bd102f80ce8f3be27e7ed42698/image%2010.png)
+In the next months, we plan to push the boundary of AI mdoels prediction capabilities. This is going to be called Clairvoyance AI.
 
 
 ### Citation
@@ -166,3 +159,7 @@ In the next months, we are going to push this boundary to a superhuman level. Th
   year =         {2025}
 }
 ```
+
+
+[^consequences_politiques] Bainville, J. (1919). Les conséquences politiques de la paix. Full text: https://classiques.uqam.ca/classiques/bainville_jacques/consequences_pol_paix/consequences_pol_paix.pdf
+

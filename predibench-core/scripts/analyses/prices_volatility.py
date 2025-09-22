@@ -211,20 +211,13 @@ def calculate_mutual_information_decay(price_series: pd.Series) -> dict:
     lags = []
     mi_values = []
 
-    # Calculate MI for lags up to available horizons
-    horizon_hours = [_horizon_to_hours(h) for h in HORIZONS]
-    max_available_lag = min(max(horizon_hours), len(returns) // 2)  # Use available data
+    # Calculate MI for lags up to 14 days (markets are pre-filtered to have this much data)
+    max_available_lag = _horizon_to_hours("14d")  # 336 hours
 
     for lag in range(1, max_available_lag + 1):
-        if len(returns) <= lag:
-            break
-
         # Create lagged series
         r_t = returns.iloc[lag:].values
         r_t_lag = returns.iloc[:-lag].values
-
-        if len(r_t) < 10:  # Need minimum samples for MI estimation
-            break
 
         # Calculate mutual information using binning
         mi = _estimate_mutual_information_binned(r_t, r_t_lag)
@@ -281,7 +274,10 @@ def calculate_autocorrelation_half_life(price_series: pd.Series) -> dict:
 
     # Calculate autocorrelation function
     horizon_hours = [_horizon_to_hours(h) for h in HORIZONS]
-    max_available_lag = min(max(horizon_hours), len(returns) // 2)  # Use available data
+    # Be less restrictive - allow up to 30 days if we have at least 30 days + some buffer
+    max_available_lag = min(
+        max(horizon_hours), len(returns) - 50
+    )  # Keep 50 points minimum for correlation
 
     lags = list(range(1, max_available_lag + 1))
     acf_values = []
@@ -586,7 +582,12 @@ def analyze_market_volatility_measures(events: list[EventBackend]) -> pd.DataFra
                 data_span_hours.append(time_span_hours)
 
                 # Apply all three measures
-                mi_result = calculate_mutual_information_decay(price_series)
+                # For MI: only include markets with at least 14 days for consistent corpus across all lags
+                if time_span_hours >= _horizon_to_hours("14d"):  # 336 hours
+                    mi_result = calculate_mutual_information_decay(price_series)
+                else:
+                    mi_result = {"lags": [], "mi_values": [], "half_life": None}
+
                 acf_result = calculate_autocorrelation_half_life(price_series)
                 wavelet_result = calculate_wavelet_variance(price_series)
 
@@ -767,8 +768,8 @@ def create_volatility_analysis_plots(
         mi_stats.columns = ["mean_mi", "std_mi", "count"]
         mi_stats = mi_stats.reset_index()
         mi_stats = mi_stats[
-            mi_stats["count"] >= 3
-        ]  # Only lags with at least 3 observations
+            mi_stats["count"] >= 5
+        ]  # Only lags with at least 5 observations for stable estimates
 
         fig2 = go.Figure()
 
@@ -778,25 +779,9 @@ def create_volatility_analysis_plots(
                 x=mi_stats["lag"],
                 y=mi_stats["mean_mi"],
                 mode="lines+markers",
-                name="Mean MI",
                 line=dict(width=3, color="blue"),
             )
         )
-
-        # Add error bands
-        if mi_stats["std_mi"].notna().any():
-            fig2.add_trace(
-                go.Scatter(
-                    x=list(mi_stats["lag"]) + list(mi_stats["lag"][::-1]),
-                    y=list(mi_stats["mean_mi"] + mi_stats["std_mi"])
-                    + list((mi_stats["mean_mi"] - mi_stats["std_mi"])[::-1]),
-                    fill="toself",
-                    fillcolor="rgba(100,150,255,0.2)",
-                    line=dict(color="rgba(255,255,255,0)"),
-                    name="±1 Std Dev",
-                    showlegend=True,
-                )
-            )
 
         # Create enhanced tick labels that show hours with horizon labels when available
         horizon_hours_map = {_horizon_to_hours(h): h for h in HORIZONS}
@@ -811,15 +796,15 @@ def create_volatility_analysis_plots(
             _horizon_to_hours(h) for h in HORIZONS if _horizon_to_hours(h) <= max_lag
         ]
 
-        # Combine nice intervals with horizon hours, but exclude 6h to avoid overlap
-        nice_intervals = [1, 12, 24, 48, 72, 168, 336, 720]
-        horizon_hours_filtered = [h for h in horizon_hours if h != 6]  # Remove 6h
+        # Combine nice intervals with horizon hours (up to 14d)
+        nice_intervals = [1, 6, 12, 24, 48, 72, 168, 336]
+        horizon_hours_filtered = horizon_hours  # Include all horizon hours
         all_ticks = sorted(set(nice_intervals + horizon_hours_filtered))
         all_ticks = [t for t in all_ticks if t <= max_lag]
 
         for hours in all_ticks:
             tick_vals.append(hours)
-            if hours in horizon_hours_map and hours != 6:  # Skip 6h horizon label
+            if hours in horizon_hours_map:
                 tick_texts.append(f"{hours} ({horizon_hours_map[hours]})")
             else:
                 tick_texts.append(str(hours))
@@ -828,7 +813,8 @@ def create_volatility_analysis_plots(
             xaxis_title="Lag (hours)",
             yaxis_title="Mutual Information (bits)",
             height=600,
-            xaxis=dict(tickmode="array", tickvals=tick_vals, ticktext=tick_texts),
+            xaxis=dict(type="log", tickmode="array", tickvals=tick_vals, ticktext=tick_texts),
+            showlegend=False,
         )
         apply_template(fig2)
 
@@ -855,8 +841,8 @@ def create_volatility_analysis_plots(
         acf_stats.columns = ["mean_acf", "std_acf", "count"]
         acf_stats = acf_stats.reset_index()
         acf_stats = acf_stats[
-            acf_stats["count"] >= 3
-        ]  # Only lags with at least 3 observations
+            acf_stats["count"] >= 10
+        ]  # Only lags with at least 10 observations for stable estimates
 
         fig3 = go.Figure()
 
@@ -1257,13 +1243,13 @@ def load_full_market_data(events: list) -> dict:
                 and len(market.outcomes) >= 1
                 and market.outcomes[0].clob_token_id
             ):
-                # Calculate start datetime: 45 days before event end to ensure sufficient data
+                # Calculate start datetime: 90 days before event end to ensure sufficient data for 30d analysis
                 end_dt = (
                     _to_utc(event.end_datetime)
                     if event.end_datetime
                     else datetime.now(timezone.utc)
                 )
-                start_dt = end_dt - timedelta(days=60)
+                start_dt = end_dt - timedelta(days=90)
 
                 ts_request = _HistoricalTimeSeriesRequest(
                     clob_token_id=market.outcomes[0].clob_token_id,
