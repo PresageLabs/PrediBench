@@ -1,4 +1,3 @@
-import React from 'react'
 import { CheckCircle, Clock, Search, Globe } from 'lucide-react'
 
 interface AgentExampleProps {
