@@ -30,10 +30,17 @@ export function HomePage({ leaderboard, loading = false }: HomePageProps) {
           loading={loading}
           initialVisibleModels={10}
         />
-        <div className="text-center mt-6">
+        <div className="text-center mt-6 space-y-3">
           <RedirectButton href="/leaderboard">
             Detailed leaderboard and profit curves
           </RedirectButton>
+          <div className="text-sm text-muted-foreground">
+            Quick links:
+            <a href="#methods" className="text-primary hover:underline mx-2">Methods</a>•
+            <a href="#metrics" className="text-primary hover:underline mx-2">Metrics</a>•
+            <a href="#results" className="text-primary hover:underline mx-2">Results</a>•
+            <a href="#how-an-agent-runs" className="text-primary hover:underline mx-2">How Agents Work</a>
+          </div>
         </div>
       </div>
 
@@ -48,6 +55,16 @@ export function HomePage({ leaderboard, loading = false }: HomePageProps) {
           {/* Main Content */}
           <div className="flex-1 max-w-3xl">
             <MarkdownRenderer content={aboutContent} />
+
+            {/* Back to top button */}
+            <div className="text-center mt-12 pt-8 border-t border-border">
+              <button
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                className="text-sm text-primary hover:underline"
+              >
+                ↑ Back to top
+              </button>
+            </div>
           </div>
         </div>
       </div>

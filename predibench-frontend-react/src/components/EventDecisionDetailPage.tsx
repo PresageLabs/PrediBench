@@ -40,10 +40,12 @@ export function EventDecisionDetailPage({ }: EventDecisionDetailPageProps) {
 
   // Get navigation source from URL params
   const sourceType = searchParams.get('source') || 'event' // 'event' or 'model'
-  const decisionDatetime = searchParams.get('decisionDatetime')
-  const modelName = searchParams.get('modelName')
-  const eventTitle = searchParams.get('eventTitle')
-  const decisionDatesForEvent = searchParams.get('decisionDatesForEvent')?.split(',') || []
+
+  // These will be fetched from the API instead of URL params
+  const [modelName, setModelName] = useState<string | null>(null)
+  const [eventTitle, setEventTitle] = useState<string | null>(null)
+  const [decisionDatesForEvent, setDecisionDatesForEvent] = useState<string[]>([])
+  const [decisionDatetime, setDecisionDatetime] = useState<string | null>(null)
 
   // Only show agent logs for decisions strictly after this date (YYYY-MM-DD)
   const AGENT_LOGS_CUTOFF_DATE = '2025-09-09'
@@ -53,8 +55,8 @@ export function EventDecisionDetailPage({ }: EventDecisionDetailPageProps) {
 
   const headerTitle = useMemo(() => {
     const evt = eventTitle || eventDecision?.event_title || 'Event'
-    return { evt, modelName }
-  }, [eventTitle, eventDecision?.event_title, modelName])
+    return { evt, modelName: modelName || modelId }
+  }, [eventTitle, eventDecision?.event_title, modelName, modelId])
 
   // Load event decision data
   useEffect(() => {
@@ -81,6 +83,39 @@ export function EventDecisionDetailPage({ }: EventDecisionDetailPageProps) {
         }
 
         setEventDecision(eventDecisionData)
+
+        // Set the datetime from the model result
+        setDecisionDatetime(modelResult.decision_datetime)
+
+        // Fetch model name from leaderboard API if not set
+        if (!modelName) {
+          try {
+            const leaderboard = await apiService.getLeaderboard()
+            const model = leaderboard.find(m => m.model_id === decodeSlashes(modelId))
+            if (model) {
+              setModelName(model.model_name)
+            }
+          } catch (e) {
+            console.warn('Failed to fetch model name:', e)
+          }
+        }
+
+        // Set event title from the decision data
+        if (eventDecisionData.event_title) {
+          setEventTitle(eventDecisionData.event_title)
+        }
+
+        // Fetch all decision dates for this event
+        try {
+          const allModelResults = await apiService.getModelResultsById(decodeSlashes(modelId))
+          const datesForEvent = allModelResults
+            .filter(mr => mr.event_investment_decisions.some(ed => ed.event_id === eventId))
+            .map(mr => mr.target_date)
+            .sort()
+          setDecisionDatesForEvent(datesForEvent)
+        } catch (e) {
+          console.warn('Failed to fetch decision dates:', e)
+        }
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Failed to load event decision')

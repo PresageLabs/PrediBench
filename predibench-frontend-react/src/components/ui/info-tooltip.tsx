@@ -72,12 +72,12 @@ export function InfoTooltip({ content }: InfoTooltipProps) {
 
 export function BrierScoreInfoTooltip() {
   return (
-    <InfoTooltip content="How well the model's confidence matches actual outcomes (0 = perfect, 1 = worst). More precisely, it measures model calibration, through the Mean Squared Error between the model's predictions and the actual outcomes." />
+    <InfoTooltip content="How well the model's confidence matches actual outcomes (0 = perfect, 1 = worst). More precisely, it measures model calibration, through the Mean Squared Error between the model's predictions and the actual outcomes. [Learn more about our metrics](/#metrics)" />
   )
 }
 
 export function PnLTooltip() {
   return (
-    <InfoTooltip content="Daily returns over the lates prediction ; when we run a prediction, we allocate 1$ per event. This graphs track how well each investment did." />
+    <InfoTooltip content="Daily returns over the latest prediction; when we run a prediction, we allocate 1$ per event. This graph tracks how well each investment did. [See our investment process](/#investment-process)" />
   )
 }

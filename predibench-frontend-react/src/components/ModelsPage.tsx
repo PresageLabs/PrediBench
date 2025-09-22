@@ -88,17 +88,10 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     navigate(`/models?selected=${encodeSlashes(modelId)}`, { replace: true })
   }
 
-  const handleEventClick = (eventDecision: any, decisionDate: string, decisionDatetime: string) => {
+  const handleEventClick = (eventDecision: any, decisionDate: string) => {
+    // Only include source parameter to indicate navigation origin
     const searchParams = new URLSearchParams({
-      source: 'model',
-      decisionDatetime: decisionDatetime,
-      modelName: selectedModelData?.model_name || selectedModelId,
-      eventTitle: eventDecision.event_title,
-      decisionDatesForEvent: modelDecisions
-        .filter(md => md.event_investment_decisions.some(ed => ed.event_id === eventDecision.event_id))
-        .map(md => md.target_date)
-        .sort()
-        .join(',')
+      source: 'model'
     })
     navigate(`/decision/${encodeSlashes(selectedModelId)}/${eventDecision.event_id}/${decisionDate}?${searchParams.toString()}`)
   }
@@ -246,7 +239,12 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
     <div className="container mx-auto px-4 py-8">
       {/* Header with title and model selection */}
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold">Model performance</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Model performance</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Detailed analysis of individual model predictions. <a href="/#how-an-agent-runs" className="text-primary hover:underline">Learn how agents work →</a>
+          </p>
+        </div>
 
         <Select.Root value={selectedModelId} onValueChange={handleModelSelect}>
           <Select.Trigger className="inline-flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 min-w-[100px]">
@@ -467,8 +465,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                             topBet={topBet}
                             decisionsCount={eventDecision.market_investment_decisions.length}
                             onClick={() => {
-                              const decision = modelDecisions.find(d => d.target_date === selectedDate)
-                              handleEventClick(eventDecision, selectedDate, decision?.decision_datetime || '')
+                              handleEventClick(eventDecision, selectedDate)
                             }}
                           />
                         )
