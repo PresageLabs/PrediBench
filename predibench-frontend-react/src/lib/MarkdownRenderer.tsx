@@ -23,11 +23,17 @@ export function MarkdownRenderer({ content, className }: Props) {
     | { type: 'heading'; level: number; text: string }
     | { type: 'paragraph'; text: string }
     | { type: 'blockquote'; text: string }
-    | { type: 'ul'; items: string[] }
-    | { type: 'ol'; items: string[] }
+    | { type: 'ul'; items: ListItem[] }
+    | { type: 'ol'; items: ListItem[] }
     | { type: 'code'; text: string }
     | { type: 'plotly'; caption: string; path: string; secondPath?: string }
     | { type: 'footnote'; id: string; text: string }
+
+  type ListItem = {
+    text: string
+    level: number
+    children?: ListItem[]
+  }
 
   const blocks: Block[] = []
   // Pre-scan for footnotes before processing other blocks
@@ -48,7 +54,7 @@ export function MarkdownRenderer({ content, className }: Props) {
   let inCode = false
   let codeBuffer: string[] = []
   let paraBuffer: string[] = []
-  let listBuffer: string[] = []
+  let listBuffer: ListItem[] = []
   let listType: 'ul' | 'ol' | null = null
 
   const flushParagraph = () => {
@@ -57,9 +63,36 @@ export function MarkdownRenderer({ content, className }: Props) {
       paraBuffer = []
     }
   }
+  const buildNestedList = (items: ListItem[]): ListItem[] => {
+    const result: ListItem[] = []
+    const stack: ListItem[] = []
+
+    for (const item of items) {
+      // Pop from stack until we find the correct parent level
+      while (stack.length > 0 && stack[stack.length - 1].level >= item.level) {
+        stack.pop()
+      }
+
+      if (stack.length === 0) {
+        // Top level item
+        result.push(item)
+        stack.push(item)
+      } else {
+        // Nested item
+        const parent = stack[stack.length - 1]
+        if (!parent.children) parent.children = []
+        parent.children.push(item)
+        stack.push(item)
+      }
+    }
+
+    return result
+  }
+
   const flushList = () => {
     if (listType && listBuffer.length) {
-      blocks.push({ type: listType, items: listBuffer })
+      const nestedItems = buildNestedList(listBuffer)
+      blocks.push({ type: listType, items: nestedItems })
     }
     listType = null
     listBuffer = []
@@ -159,25 +192,41 @@ export function MarkdownRenderer({ content, className }: Props) {
       continue
     }
 
-    // Lists
-    const ulMatch = line.match(/^\s*[-*]\s+(.*)$/)
-    const olMatch = line.match(/^\s*\d+\.\s+(.*)$/)
+    // Lists (with indentation support)
+    const ulMatch = line.match(/^(\s*)[-*]\s+(.*)$/)
+    const olMatch = line.match(/^(\s*)\d+\.\s+(.*)$/)
     if (ulMatch || olMatch) {
       flushParagraph()
-      const item = (ulMatch ? ulMatch[1] : olMatch![1]).trim()
+      const indentation = (ulMatch ? ulMatch[1] : olMatch![1]).length
+      const item = (ulMatch ? ulMatch[2] : olMatch![2]).trim()
       const type: 'ul' | 'ol' = ulMatch ? 'ul' : 'ol'
+      const level = Math.floor(indentation / 4) // 4 spaces = 1 level
+
       if (listType && listType !== type) {
         // switch list type
         flushList()
       }
       listType = type
-      listBuffer.push(item)
+      listBuffer.push({ text: item, level, children: [] })
       i++
       continue
     }
 
-    // Default: accumulate paragraph
-    paraBuffer.push(line.trim())
+    // Default: treat as paragraph line
+    if (line.trim()) {
+      paraBuffer.push(line.trim())
+      // Immediately flush single-line paragraphs that follow list items
+      if (listType && paraBuffer.length === 1) {
+        // Check if next line is empty or another list item - if so, flush now
+        const nextLine = i + 1 < lines.length ? lines[i + 1] : ''
+        if (!nextLine.trim() || nextLine.match(/^\s*[-*]\s+/) || nextLine.match(/^\s*\d+\.\s+/)) {
+          flushParagraph()
+        }
+      }
+    } else {
+      // Empty line - flush current paragraph
+      flushParagraph()
+    }
     i++
   }
 
@@ -365,6 +414,19 @@ export function MarkdownRenderer({ content, className }: Props) {
     return finalParts.length > 0 ? finalParts : [text]
   }
 
+  const renderListItems = (items: ListItem[], keyPrefix: string): React.ReactNode[] => {
+    return items.map((item, idx) => (
+      <li key={`${keyPrefix}-${idx}`}>
+        {renderInline(item.text, `${keyPrefix}-${idx}`)}
+        {item.children && item.children.length > 0 && (
+          <ul className="list-disc pl-6 space-y-1 mt-1" style={{ color: 'hsl(var(--content-foreground))' }}>
+            {renderListItems(item.children, `${keyPrefix}-${idx}-child`)}
+          </ul>
+        )}
+      </li>
+    ))
+  }
+
   return (
     <div className={className}>
       {blocks.map((b, idx) => {
@@ -394,17 +456,13 @@ export function MarkdownRenderer({ content, className }: Props) {
           case 'ul':
             return (
               <ul key={idx} className="list-disc pl-6 space-y-1 mb-4" style={{ color: 'hsl(var(--content-foreground))' }}>
-                {b.items.map((it, i2) => (
-                  <li key={i2}>{renderInline(it, `ul-${idx}-${i2}`)}</li>
-                ))}
+                {renderListItems(b.items, `ul-${idx}`)}
               </ul>
             )
           case 'ol':
             return (
               <ol key={idx} className="list-decimal pl-6 space-y-1 mb-4" style={{ color: 'hsl(var(--content-foreground))' }}>
-                {b.items.map((it, i2) => (
-                  <li key={i2}>{renderInline(it, `ol-${idx}-${i2}`)}</li>
-                ))}
+                {renderListItems(b.items, `ol-${idx}`)}
               </ol>
             )
           case 'code':

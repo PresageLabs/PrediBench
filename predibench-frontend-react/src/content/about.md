@@ -37,6 +37,7 @@ Thus we expect AI models to become good forecasters: we built PrediBench to put 
 ## Methods
 
 - Agents Framework: All models ran under a **shared [smolagents](https://github.com/huggingface/smolagents) setup**. We defaulted to **CodeAgent** but switched to **ToolCallingAgent** when it reduced errors. In practice: **OpenAI** and **DeepSeek** models worked best with ToolCalling, while **Gemini** models were stronger with CodeAgent. **DeepResearch models** used their own native framework. 
+
 This hybrid setup let us maximize performance across models while keeping the evaluation pipeline consistent.
 
 Then on regular decision dates (thrice per week for the first month), each model is provided with a list of featured events on which to place bets.
@@ -104,11 +105,15 @@ To understand how different models make betting decisions, we analyzed the distr
 The probability distribution reveals significant uncertainty in model predictions, with wide variance around market prices. This uncertainty translates into conservative betting behavior, explaining why the bet amount distribution median approaches zero - models hedge against their own uncertainty by making smaller bets.
 
 
-### Importance of retrieving sources
+### Importance of in-depth research
 
-Average returns grows with the count of webpages visited - Perplexity’s Sonar-Deep-Research is not shown on this graph, visited over 16 webpages on average - which also reinforces the hypothesis that visiting more sources leads to success.
+Our agents were given two tools: a general GoogleSearch that returns a list of links and their snippet texts, and a VisitWebpage tool to visit individual webpages.
+One could expect an analyst to increase performance when double-checking sources using VisitWebpage : but often, models did not verify sources, as long as they had elements of answer in the google search snippets. 
+
+It appears that double-checking results increases research quality. Returns grows with the count of webpages visited - Perplexity’s Sonar-Deep-Research is not shown on this graph, visited over 16 webpages on average - which also reinforces the hypothesis that visiting more sources leads to success.
 
 {caption="Performance seems correlated with the count of pages visited" path="sources_vs_performance_analysis/webpage_sources_vs_returns.json"}
+
 
 ### Predicted odds
 
@@ -127,7 +132,7 @@ We find that this bet-edge consistency correlates well with the general strength
 - Each [model decision](https://predibench.com/decision/gpt-5/42659/2025-09-17) can be commented via [giscus](https://giscus.app/), and the comments will appear directly under the repo's [discussions page](https://github.com/clairvoyance-tech/PrediBench/discussions): we invite you to hop in and provide feedback!
 - Do contact us about anything : contact form.
 
-In the next months, we plan to push the boundary of AI models prediction capabilities. This is going to be called [Clairvoyance AI](https://clairvoyance-ai.co).
+In the next months, we plan to push the boundary of AI models prediction capabilities: we are starting [Clairvoyance AI](https://clairvoyance-ai.co).
 
 ## Citation
 
