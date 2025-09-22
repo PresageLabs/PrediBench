@@ -121,11 +121,11 @@ We looked into **bet-edge consistency**. A bet is considered consistent if:
 
 We find that this bet-edge consistency correlates quite well with being a strong model.
 
-![image.png](About%20Page%2025e8d6bd102f80ce8f3be27e7ed42698/image%206.png)
+{caption="Bet-Edge Consistency by Model - Models with higher consistency rates between their betting decisions and estimated market edge tend to perform better", path="market_dynamics/consistency_rates.json"}
 
-And this translates into returns, the 7 day average return is correlated with the consistency rate. 
+And this translates into returns, the 7 day average return is correlated with the consistency rate.
 
-![image.png](About%20Page%2025e8d6bd102f80ce8f3be27e7ed42698/image%207.png)
+{caption="Consistency vs Returns - Strong positive correlation between bet-edge consistency and 7-day average returns across models", path="market_dynamics/consistency_vs_7day_returns.json"}
 
 ## Next steps
 
