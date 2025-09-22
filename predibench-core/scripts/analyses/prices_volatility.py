@@ -31,7 +31,7 @@ logger = get_logger(__name__)
 # We treat prices <= 0.05 as NO resolved, and >= 0.95 as YES resolved
 EPSILON_TERMINAL = 0.05
 
-HORIZONS = ["1h", "6h", "12h", "1d", "2d", "3d", "7d", "14d", "30d"]
+HORIZONS = ["1h", "6h", "12h", "1d", "2d", "4d", "7d", "14d", "30d"]
 
 
 def _horizon_to_hours(horizon: str) -> int:
@@ -771,6 +771,18 @@ def create_volatility_analysis_plots(
             mi_stats["count"] >= 5
         ]  # Only lags with at least 5 observations for stable estimates
 
+        # Apply rolling average smoothing for lags above 12 hours to reduce noise
+        smoothed_mi = mi_stats["mean_mi"].copy()
+        long_lag_mask = mi_stats["lag"] > 12
+        if long_lag_mask.sum() > 2:  # Need at least 3 points for rolling average
+            window_size = min(3, long_lag_mask.sum())
+            smoothed_mi.loc[long_lag_mask] = (
+                mi_stats.loc[long_lag_mask, "mean_mi"]
+                .rolling(window=window_size, center=True, min_periods=1)
+                .mean()
+            )
+        mi_stats["mean_mi"] = smoothed_mi
+
         fig2 = go.Figure()
 
         # Add mean line
@@ -797,7 +809,7 @@ def create_volatility_analysis_plots(
         ]
 
         # Combine nice intervals with horizon hours (up to 14d)
-        nice_intervals = [1, 6, 12, 24, 48, 72, 168, 336]
+        nice_intervals = [1, 6, 12, 24, 48, 96, 168, 336]
         horizon_hours_filtered = horizon_hours  # Include all horizon hours
         all_ticks = sorted(set(nice_intervals + horizon_hours_filtered))
         all_ticks = [t for t in all_ticks if t <= max_lag]
@@ -813,7 +825,9 @@ def create_volatility_analysis_plots(
             xaxis_title="Lag (hours)",
             yaxis_title="Mutual Information (bits)",
             height=600,
-            xaxis=dict(type="log", tickmode="array", tickvals=tick_vals, ticktext=tick_texts),
+            xaxis=dict(
+                type="log", tickmode="array", tickvals=tick_vals, ticktext=tick_texts
+            ),
             showlegend=False,
         )
         apply_template(fig2)
@@ -1067,7 +1081,7 @@ def create_brier_score_analysis_plots(df: pd.DataFrame) -> None:
         "12h",
         "1d",
         "2d",
-        "3d",
+        "4d",
         "7d",
         "14d",
         "30d",
@@ -1078,7 +1092,7 @@ def create_brier_score_analysis_plots(df: pd.DataFrame) -> None:
         12,
         24,
         48,
-        72,
+        96,
         168,
         336,
         720,
