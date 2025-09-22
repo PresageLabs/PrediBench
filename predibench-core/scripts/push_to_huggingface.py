@@ -177,7 +177,7 @@ def main():
     parser.add_argument(
         '--dataset-name',
         type=str,
-        default='charles-azam/predibench',
+        default='ClairvoyanceAI/predibench',
         help='Name of the Hugging Face dataset (format: username/dataset-name)'
     )
     parser.add_argument(
