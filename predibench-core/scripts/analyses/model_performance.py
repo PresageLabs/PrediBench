@@ -18,7 +18,7 @@ app = typer.Typer(help="Comprehensive model performance analysis")
 # LMSys Arena scores (current as of the provided data)
 ARENA_SCORES = {
     "grok-4-0709": 1420,
-    "gpt-5": 1430,
+    "gpt-5": 1440,
     "gpt-5-mini": 1389,
     "gpt-4.1": 1411,
     "o3-deep-research": None,  # N/A (not listed on leaderboard)
@@ -121,8 +121,6 @@ def create_performance_dataframe(backend_data):
     for model_id, performance in backend_data.performance_per_model.items():
         release_date = release_dates.get(model_id)
         inference_cost = inference_costs.get(model_id)
-        if model_id not in ARENA_SCORES:
-            continue
         arena_score = ARENA_SCORES.get(model_id)
 
         performance_data.append(

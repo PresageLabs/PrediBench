@@ -79,7 +79,7 @@ class SingleInvestmentDecision:
 
 ### How an Agent Runs
 
-The agents use the **[smolagents](https://github.com/huggingface/smolagents)** framework with two main tools:
+The agents are built with **[smolagents](https://github.com/huggingface/smolagents)**, and they are provided with two tools:
 
 - **`web_search`**: Performs Google searches to gather current information about events, candidates, and market trends
 - **`visit_webpage`**: Retrieves and analyzes specific web pages for detailed information, official statements, and primary sources
@@ -234,16 +234,16 @@ Let us compare our models and the baselines:
 
 {caption="Brier Score", path=model_performance_comprehensive_analysis/brier_score_ranking.json}
 
-Few observations from these rankings:
-- Average returns and Brier score tend to correlate well with general performance, which we can visualize by comparing Brier scores to model scores on LMSys Arena[^arena].
+- While most models tested are not profitable, half of them beat the market baseline. And the most recent/powerful ones draw a profit.
+
+This shows that AI models are becoming better at forecasting!
+
+### Predictive ability correlates well with general performance
+
+Average returns and Brier score tend to correlate well with general performance, which we can visualize by comparing Brier scores to model scores on LMSys Arena[^arena].
 
 {caption="Brier Score vs LMSys Arena score", path=model_performance_comprehensive_analysis/performance_vs_arena_score_brier.json}
 
-- While most models tested are not profitable, half of them beat the market baseline. And the most recent/powerful ones draw a profit.
-
-This strongly hints that AI models are becoming better at forecasting!
-
-## Analysis
 
 
 ### Model Consistency

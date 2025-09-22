@@ -34,6 +34,7 @@ export function MarkdownRenderer({ content, className }: Props) {
   type ListItem = {
     text: string
     level: number
+    number?: string  // For ordered lists, store the original number
     children?: ListItem[]
   }
 
@@ -257,15 +258,18 @@ export function MarkdownRenderer({ content, className }: Props) {
 
     // Lists (with indentation support)
     const ulMatch = line.match(/^(\s*)[-*]\s+(.*)$/)
-    const olMatch = line.match(/^(\s*)\d+\.\s+(.*)$/)
+    const olMatch = line.match(/^(\s*)(\d+)\.\s+(.*)$/)
     if (ulMatch || olMatch) {
       flushParagraph()
       const indentation = (ulMatch ? ulMatch[1] : olMatch![1]).length
-      const item = (ulMatch ? ulMatch[2] : olMatch![2]).trim()
+      const item = (ulMatch ? ulMatch[3] || ulMatch[2] : olMatch![3]).trim()
+      const originalNumber = olMatch ? olMatch[2] : undefined
       const type: 'ul' | 'ol' = ulMatch ? 'ul' : 'ol'
       const level = Math.floor(indentation / 4) // 4 spaces = 1 level
 
       // Special handling for mixed ordered and unordered lists
+      let itemLevel = level
+
       if (olMatch && level === 0) {
         // For top-level ordered items, keep the ordered list going
         if (listType !== 'ol') {
@@ -278,11 +282,7 @@ export function MarkdownRenderer({ content, className }: Props) {
       } else if (ulMatch && level === 0 && listType === 'ol') {
         // Special case: unordered list items following ordered list items
         // should be treated as nested under the last ordered item
-        // Increase the level to make them nested
-        const adjustedLevel = 1
-        listBuffer.push({ text: item, level: adjustedLevel, children: [] })
-        i++
-        continue
+        itemLevel = 1
       } else if (ulMatch && level === 0) {
         // For standalone top-level unordered items
         if (listType === 'ol') {
@@ -291,10 +291,9 @@ export function MarkdownRenderer({ content, className }: Props) {
         if (listType !== 'ul') {
           listType = 'ul'
         }
-      } else {
-        // For already nested items, don't change the current list type
-        listBuffer.push({ text: item, level, children: [] })
       }
+
+      listBuffer.push({ text: item, level: itemLevel, number: originalNumber, children: [] })
       i++
       continue
     }
@@ -501,15 +500,22 @@ export function MarkdownRenderer({ content, className }: Props) {
     return finalParts.length > 0 ? finalParts : [text]
   }
 
-  const renderListItems = (items: ListItem[], keyPrefix: string): React.ReactNode[] => {
+  const renderListItems = (items: ListItem[], keyPrefix: string, isOrdered: boolean = false): React.ReactNode[] => {
     return items.map((item, idx) => (
-      <li key={`${keyPrefix}-${idx}`}>
-        {renderInline(item.text, `${keyPrefix}-${idx}`)}
-        {item.children && item.children.length > 0 && (
-          <ul className="list-disc pl-6 space-y-1 mt-1" style={{ color: 'hsl(var(--content-foreground))' }}>
-            {renderListItems(item.children, `${keyPrefix}-${idx}-child`)}
-          </ul>
-        )}
+      <li key={`${keyPrefix}-${idx}`} style={item.number ? { listStyleType: 'none' } : undefined}>
+        <div className="flex">
+          {item.number && (
+            <span className="mr-2 font-medium">{item.number}.</span>
+          )}
+          <div className="flex-1">
+            {renderInline(item.text, `${keyPrefix}-${idx}`)}
+            {item.children && item.children.length > 0 && (
+              <ul className="list-disc pl-6 space-y-1 mt-1" style={{ color: 'hsl(var(--content-foreground))' }}>
+                {renderListItems(item.children, `${keyPrefix}-${idx}-child`, false)}
+              </ul>
+            )}
+          </div>
+        </div>
       </li>
     ))
   }
@@ -543,13 +549,13 @@ export function MarkdownRenderer({ content, className }: Props) {
           case 'ul':
             return (
               <ul key={idx} className="list-disc pl-6 space-y-1 mb-4" style={{ color: 'hsl(var(--content-foreground))' }}>
-                {renderListItems(b.items, `ul-${idx}`)}
+                {renderListItems(b.items, `ul-${idx}`, false)}
               </ul>
             )
           case 'ol':
             return (
-              <ol key={idx} className="list-decimal pl-6 space-y-1 mb-4" style={{ color: 'hsl(var(--content-foreground))' }}>
-                {renderListItems(b.items, `ol-${idx}`)}
+              <ol key={idx} className="list-none pl-6 space-y-1 mb-4" style={{ color: 'hsl(var(--content-foreground))' }}>
+                {renderListItems(b.items, `ol-${idx}`, true)}
               </ol>
             )
           case 'code':
