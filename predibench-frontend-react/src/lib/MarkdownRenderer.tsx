@@ -527,8 +527,14 @@ export function MarkdownRenderer({ content, className }: Props) {
             const Tag = (`h${Math.min(6, Math.max(1, b.level))}` as unknown) as keyof JSX.IntrinsicElements
             const size = b.level === 1 ? 'text-4xl' : b.level === 2 ? 'text-2xl' : b.level === 3 ? 'text-xl' : 'text-lg'
             const spacing = b.level === 1 ? 'mt-2 mb-6' : 'mt-6 mb-3'
+            const id = b.text
+              .toLowerCase()
+              .replace(/[^a-z0-9\s-]/g, '')
+              .replace(/\s+/g, '-')
+              .replace(/-+/g, '-')
+              .replace(/^-|-$/g, '')
             return (
-              <Tag key={idx} className={`${size} font-semibold ${spacing}`}>
+              <Tag key={idx} id={id} className={`${size} font-semibold ${spacing}`}>
                 {renderInline(b.text, `h-${idx}`)}
               </Tag>
             )
