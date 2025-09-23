@@ -242,7 +242,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
         <div>
           <h1 className="text-2xl font-bold">Model performance</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Detailed analysis of individual model predictions. <a href="/#how-an-agent-runs" className="text-primary hover:underline">Learn how agents work →</a>
+            Detailed analysis of individual model predictions. <a href="/#how-an-agent-runs" className="text-primary hover:underline">Learn how these agents work →</a>
           </p>
         </div>
 

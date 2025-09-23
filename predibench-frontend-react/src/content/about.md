@@ -37,7 +37,7 @@ Thus we expect AI models to become good forecasters: we built PrediBench to put 
 
 ## Methods
 
-### News and Prediction markets - Importance of actualisation
+### News and Prediction markets
 
 We let LLMs place bets on prediction markets from [Polymarket](https://polymarket.com/).
 
@@ -206,7 +206,7 @@ output: FINAL STRUCTURED OUTPUT:
 
 {/agent_example}
 
-You can explore more real agent decisions with full logs [on our platform](https://predibench.com/decisions).
+You can explore more agent decisions with full logs [on our platform](https://predibench.com/events/20459).
 
 ### Metrics
 
