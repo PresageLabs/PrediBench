@@ -34,7 +34,7 @@ export function HomePage({ leaderboard, loading = false }: HomePageProps) {
           <RedirectButton href="/leaderboard">
             Detailed leaderboard and profit curves
           </RedirectButton>
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground md:hidden">
             Quick links:
             <a href="#methods" className="text-primary hover:underline mx-2">Methods</a>•
             <a href="#metrics" className="text-primary hover:underline mx-2">Metrics</a>•

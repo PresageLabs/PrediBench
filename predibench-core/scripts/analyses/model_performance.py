@@ -201,7 +201,7 @@ def create_average_return_ranking(df):
     fig.add_trace(
         go.Bar(
             x=df_return["pretty_name"],
-            y=df_return["average_return_7d"],
+            y=df_return["average_return_7d"] * 100,
             name="7-day Average Return",
             marker=dict(color=colors),
             showlegend=False,
@@ -210,7 +210,7 @@ def create_average_return_ranking(df):
 
     fig.update_layout(
         xaxis_title="Model",
-        yaxis_title="Average Return (%)",
+        yaxis_title="Average Returns (%)",
         xaxis_tickangle=45,
         height=600,
         width=1000,
@@ -228,7 +228,7 @@ def create_brier_vs_return_scatter(df):
     fig.add_trace(
         go.Scatter(
             x=df["final_brier_score"],
-            y=df["average_return_7d"],
+            y=df["average_return_7d"] * 100,
             mode="markers+text",
             text=df["pretty_name"],
             textposition="top center",
@@ -268,7 +268,7 @@ def create_release_date_inference_cost_scatter(df):
             textposition="middle center",
             marker=dict(
                 size=40,
-                color=df["average_return_7d"],
+                color=df["average_return_7d"] * 100,
                 colorscale="RdYlGn",
                 cmid=0,
                 symbol="square",
@@ -310,10 +310,10 @@ def create_performance_vs_arena_score_scatter(df, metric_type: str = "brier"):
         y_data = df_filtered["final_brier_score"]
         y_title = "Brier Score (Lower is Better)"
     else:
-        y_data = df_filtered["average_return_7d"]
+        y_data = df_filtered["average_return_7d"] * 100
         y_title = "Average Return - 7 day (%)"
 
-    df_filtered["pretty_name"] = df_filtered["pretty_name"].apply(
+    df_filtered["pretty_name_filtered"] = df_filtered["pretty_name"].apply(
         lambda x: x
         if ("Sonnet" in x or "Gemini" in x or "GPT" in x or "Grok" in x or "R1" in x)
         else ""
@@ -324,12 +324,13 @@ def create_performance_vs_arena_score_scatter(df, metric_type: str = "brier"):
             x=df_filtered["arena_score"],
             y=y_data,
             mode="markers+text",
-            text=df_filtered["pretty_name"],
+            text=df_filtered["pretty_name_filtered"],
             textposition="top center",
             marker=dict(
                 size=12,
                 color=BLUE,
             ),
+            hovertext=df_filtered["pretty_name"],
             name="Models",
             showlegend=False,
         )
@@ -397,14 +398,14 @@ def main(
     fig2.write_json(output_dir / "average_return_ranking.json")
 
     # 3. Brier vs Return scatter plot
-    print("Creating Brier vs Return scatter plot...")
-    fig3 = create_brier_vs_return_scatter(df)
-    fig3.write_json(output_dir / "brier_vs_return_scatter.json")
+    # print("Creating Brier vs Return scatter plot...")
+    # fig3 = create_brier_vs_return_scatter(df)
+    # fig3.write_json(output_dir / "brier_vs_return_scatter.json")
 
     # 4. Release date and inference cost scatter plot
-    print("Creating release date and inference cost analysis...")
-    fig4 = create_release_date_inference_cost_scatter(df)
-    fig4.write_json(output_dir / "release_date_cost_scatter.json")
+    # print("Creating release date and inference cost analysis...")
+    # fig4 = create_release_date_inference_cost_scatter(df)
+    # fig4.write_json(output_dir / "release_date_cost_scatter.json")
 
     # 5. Performance vs LMSys Arena score scatter plot
     print(
