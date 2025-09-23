@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Card, CardCaption, CardContent, CardLegend } from './card'
 // Use the installed plotly.js bundle (no CDN)
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-expect-error - no types provided by the bundle
