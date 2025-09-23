@@ -24,6 +24,12 @@ export function TableOfContents({ content, className }: TableOfContentsProps) {
       if (headingMatch) {
         const level = headingMatch[1].length
         const title = headingMatch[2].trim()
+
+        // Skip Citation heading from table of contents
+        if (title.toLowerCase() === 'citation') {
+          return
+        }
+
         const id = title
           .toLowerCase()
           .replace(/[^a-z0-9\s-]/g, '')

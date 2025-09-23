@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from predibench.backend.data_loader import get_data_for_backend
-from predibench.utils import apply_template
+from predibench.utils import BLUE, apply_template
 from scipy import stats
 
 
@@ -276,13 +276,12 @@ def create_webpage_sources_vs_returns_scatter(df):
             mode="markers+text",
             text=text_labels,
             textposition="top right",
-            marker=dict(size=10),
+            marker=dict(size=10, color=BLUE),
             hovertemplate=(
                 "<b>%{customdata}</b><br>"
+                "Decisions: " + df_no_sonar["decisions_count"].astype(str) + "<br>"
                 "Mean Visited Webpages: %{x:.1f}<br>"
                 "7d Avg Return: %{y:.3f}%<br>"
-                "Trades: " + df_no_sonar["trades_count"].astype(str) + "<br>"
-                "Decisions: " + df_no_sonar["decisions_count"].astype(str) + "<br>"
                 "<extra></extra>"
             ),
             customdata=df_no_sonar[
@@ -342,6 +341,7 @@ def create_sources_breakdown_scatter(df):
         yaxis_title="Mean Webpage Sources Count",
         height=600,
         width=800,
+        color_discrete_sequence=[BLUE],
     )
     apply_template(fig)
     return fig

@@ -185,7 +185,10 @@ export function VisxLineChart({
   }, [series, safeXAccessor, safeYAccessor, yDomain, xDomain, margin, chartHeight, containerWidth])
 
   const chartTheme = useMemo(() => {
-    const colors = series.map(s => s.stroke)
+    // Use blue-500 (#3b83f6) when there's only one curve, otherwise use original colors
+    const colors = series.length === 1
+      ? ['#3b83f6']
+      : series.map(s => s.stroke)
     return buildChartTheme({
       backgroundColor: 'transparent',
       colors,

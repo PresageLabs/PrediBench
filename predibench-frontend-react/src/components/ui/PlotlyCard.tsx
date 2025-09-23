@@ -106,8 +106,9 @@ export function PlotlyCard({ caption, path, secondPath }: { caption: string; pat
 
         const config = {
           responsive: true,
+          displayModeBar: false,
           displaylogo: false,
-          modeBarButtonsToRemove: ['toImage'],
+          modeBarButtonsToRemove: ['toImage', 'pan2d', 'select2d', 'lasso2d', 'zoom2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d'],
           ...(fig1.config || {}),
         }
 
@@ -115,8 +116,17 @@ export function PlotlyCard({ caption, path, secondPath }: { caption: string; pat
         const fg = getSimpleFg()
         const dims1 = (() => {
           const el = containerRef1.current!
-          const w = Math.max(0, Math.round(el.getBoundingClientRect().width))
-          const h = Math.max(320, Math.round(w * 0.6))
+          // Get the available width more reliably, accounting for mobile constraints
+          let w = Math.max(0, Math.round(el.getBoundingClientRect().width))
+
+          // On mobile, ensure we don't exceed viewport width
+          if (window.innerWidth <= 768) {
+            const viewportWidth = window.innerWidth
+            const maxAllowedWidth = viewportWidth - 32 // Account for some padding
+            w = Math.min(w, maxAllowedWidth)
+          }
+
+          const h = Math.max(280, Math.round(w * 0.6))
           return { w, h }
         })()
         const themedLayout1 = {
@@ -153,8 +163,17 @@ export function PlotlyCard({ caption, path, secondPath }: { caption: string; pat
         if (containerRef2.current && fig2) {
           const dims2 = (() => {
             const el = containerRef2.current!
-            const w = Math.max(0, Math.round(el.getBoundingClientRect().width))
-            const h = Math.max(320, Math.round(w * 0.6))
+            // Get the available width more reliably, accounting for mobile constraints
+            let w = Math.max(0, Math.round(el.getBoundingClientRect().width))
+
+            // On mobile, ensure we don't exceed viewport width
+            if (window.innerWidth <= 768) {
+              const viewportWidth = window.innerWidth
+              const maxAllowedWidth = viewportWidth - 32 // Account for some padding
+              w = Math.min(w, maxAllowedWidth)
+            }
+
+            const h = Math.max(280, Math.round(w * 0.6))
             return { w, h }
           })()
           const themedLayout2 = {
@@ -194,8 +213,16 @@ export function PlotlyCard({ caption, path, secondPath }: { caption: string; pat
           ro1 = new ResizeObserver(() => {
             try {
               const el = containerRef1.current!
-              const w = Math.max(0, Math.round(el.getBoundingClientRect().width))
-              const h = Math.max(320, Math.round(w * 0.6))
+              let w = Math.max(0, Math.round(el.getBoundingClientRect().width))
+
+              // On mobile, ensure we don't exceed viewport width
+              if (window.innerWidth <= 768) {
+                const viewportWidth = window.innerWidth
+                const maxAllowedWidth = viewportWidth - 32 // Account for some padding
+                w = Math.min(w, maxAllowedWidth)
+              }
+
+              const h = Math.max(280, Math.round(w * 0.6))
               Plotly.relayout(el, { width: w, height: h })
             } catch { }
           })
@@ -205,8 +232,16 @@ export function PlotlyCard({ caption, path, secondPath }: { caption: string; pat
           ro2 = new ResizeObserver(() => {
             try {
               const el = containerRef2.current!
-              const w = Math.max(0, Math.round(el.getBoundingClientRect().width))
-              const h = Math.max(320, Math.round(w * 0.6))
+              let w = Math.max(0, Math.round(el.getBoundingClientRect().width))
+
+              // On mobile, ensure we don't exceed viewport width
+              if (window.innerWidth <= 768) {
+                const viewportWidth = window.innerWidth
+                const maxAllowedWidth = viewportWidth - 32 // Account for some padding
+                w = Math.min(w, maxAllowedWidth)
+              }
+
+              const h = Math.max(280, Math.round(w * 0.6))
               Plotly.relayout(el, { width: w, height: h })
             } catch { }
           })
@@ -285,25 +320,60 @@ export function PlotlyCard({ caption, path, secondPath }: { caption: string; pat
   }, [theme])
 
   return (
-    <Card className="mb-6">
-      <CardLegend>
-        <CardCaption>{caption}</CardCaption>
-      </CardLegend>
-      <CardContent>
-        {error && <div className="text-red-500 text-sm mb-2">{error}</div>}
-        {secondPath ? (
-          <div className="grid md:grid-cols-2 gap-6">
-            <div ref={containerRef1} className="w-full overflow-hidden" style={{ minHeight: 360 }} />
-            <div ref={containerRef2} className="w-full overflow-hidden" style={{ minHeight: 360 }} />
+    <div className="mb-6">
+      {/* Responsive container: Card on desktop, horizontal separators on mobile */}
+      <div className="
+        /* Desktop styles */
+        md:rounded-xl md:border md:bg-card md:text-card-foreground md:shadow
+        /* Mobile styles */
+        md:mb-0 mb-0
+      ">
+        {/* Top border for mobile only */}
+        <div className="h-px bg-border -mx-4 md:hidden" />
+
+        {/* Background area */}
+        <div className="
+          /* Desktop: transparent (card background shows through) */
+          md:bg-transparent
+          /* Mobile: same card background color extending to screen edges */
+          bg-card -mx-4 md:mx-0
+        ">
+          {/* Caption */}
+          <div className="
+            /* Desktop: card legend styling with padding */
+            md:flex md:flex-col md:space-y-1.5 md:p-6
+            /* Mobile: centered with minimal padding */
+            py-4 text-center px-4 md:text-left
+          ">
+            <h3 className="italic leading-none tracking-tight">{caption}</h3>
           </div>
-        ) : (
-          <div ref={containerRef1} className="w-full overflow-hidden" style={{ minHeight: 360 }} />
-        )}
-        {loading && !error && (
-          <div className="text-sm text-muted-foreground mt-2">Loading chart…</div>
-        )}
-      </CardContent>
-    </Card>
+
+          {/* Content area */}
+          <div className="
+            /* Desktop: card content padding */
+            md:p-6 md:pt-0
+            /* Mobile: no horizontal padding */
+            px-0 pb-0 md:pb-0
+          ">
+            {error && <div className="text-red-500 text-sm mb-2 px-4 md:px-0">{error}</div>}
+            {secondPath ? (
+              <div className="grid md:grid-cols-2 gap-6 md:gap-6 space-y-4 md:space-y-0">
+                <div ref={containerRef1} className="w-full overflow-hidden max-w-full" style={{ minHeight: window.innerWidth <= 768 ? 280 : 360 }} />
+                <div ref={containerRef2} className="w-full overflow-hidden max-w-full" style={{ minHeight: window.innerWidth <= 768 ? 280 : 360 }} />
+              </div>
+            ) : (
+              <div ref={containerRef1} className="w-full overflow-hidden max-w-full" style={{ minHeight: window.innerWidth <= 768 ? 280 : 360 }} />
+            )}
+            {loading && !error && (
+              <div className="text-sm text-muted-foreground mt-2 py-4 text-center md:text-left md:py-0">Loading chart…</div>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom border for mobile only */}
+        <div className="h-px bg-border -mx-4 md:hidden" />
+      </div>
+    </div>
   )
 }
 

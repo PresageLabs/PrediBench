@@ -25,7 +25,7 @@ import pandas as pd
 import plotly.express as px
 import requests
 from predibench.logger_config import get_logger
-from predibench.utils import apply_template
+from predibench.utils import BLUE, apply_template
 from pydantic import BaseModel
 
 logger = get_logger(__name__)
@@ -254,7 +254,9 @@ def main():
     df = window_ts.rename("price").to_frame()
     df = df.reset_index().rename(columns={"index": "datetime"})
 
-    fig = px.line(df, x="datetime", y="price", markers=True)
+    fig = px.line(
+        df, x="datetime", y="price", markers=True, color_discrete_sequence=[BLUE]
+    )
     fig.update_layout(xaxis_title="UTC time", yaxis_title="Price (Yes)")
     apply_template(fig)
     fig.update_layout(width=800, height=600)
