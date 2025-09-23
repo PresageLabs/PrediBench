@@ -48,11 +48,6 @@ export function MarkdownRenderer({ content, className }: Props) {
     }
   })
 
-  // Debug: Log found footnotes for about.md
-  if (content.includes('consequences_politiques') || content.includes('GPQA')) {
-    console.log('About.md footnotes found:', Object.keys(footnotes))
-  }
-
   let i = 0
   let inCode = false
   let codeBuffer: string[] = []
@@ -520,7 +515,7 @@ export function MarkdownRenderer({ content, className }: Props) {
   }
 
   return (
-    <div className={className}>
+    <div className={`${className} min-w-0 max-w-full`}>
       {blocks.map((b, idx) => {
         switch (b.type) {
           case 'heading': {
@@ -584,8 +579,8 @@ export function MarkdownRenderer({ content, className }: Props) {
             }
 
             return (
-              <pre key={idx} className="bg-muted rounded-md p-4 overflow-auto text-sm mb-4">
-                <code>
+              <pre key={idx} className="bg-muted rounded-md p-4 overflow-x-auto overflow-y-hidden text-sm mb-4 max-w-full">
+                <code className="block max-w-full">
                   {renderCodeWithComments(b.text)}
                 </code>
               </pre>

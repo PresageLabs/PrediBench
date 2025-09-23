@@ -105,7 +105,7 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
               onChange={(e) => setCutoffIndex(parseInt(e.target.value))}
               className="w-[100px] h-1 accent-primary self-center my-0"
             />
-            <div className="text-xs tabular-nums whitespace-nowrap min-w-[9ch] leading-none self-center">
+            <div className="text-xs tabular-nums min-w-[9ch] md:min-w-[9ch] sm:min-w-0 leading-none self-center break-words">
               {predictionDates.length ? formatDate(new Date(cutoffDate), 'd MMMM') : '—'}
             </div>
           </div>

@@ -1,8 +1,0 @@
-{
-  "total_markets_analyzed": 66,
-  "unique_events": 11,
-  "mi_half_life_median": 5.0,
-  "ar1_half_life_median": 1.0,
-  "acf_zero_crossing_median": 4.0,
-  "wavelet_elbow_scale_median": 1.0
-}

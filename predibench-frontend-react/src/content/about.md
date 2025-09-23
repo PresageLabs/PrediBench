@@ -20,9 +20,9 @@ Why could that be? Because the ingredients of foresight are on the way to being 
 
 Amongst the authors of outstandingly precise predictions throughout history, the shared characteristic was a combination of profound knowledge and of well-applied, bold judgement (one could define "judgement" as a combination of critical thinking, probabilistic reasoning, and causality understanding). (NOTE: forward-thinking?)
 
-In 1919, French historian Jacques Bainville predicted that the Treaty of Versailles that had just closed the World war, would have dire consequences[^consequences_politiques]. Far from the optimism of his contemporaneous at the time, he announced an upcoming war. He foretold that a powerful and revengeful social republic of Germany would raise again to power. That it would annex Austria, and the Sudeten german-speaking minorities. He predicted the alliance of Russia and Germany, their siding together against Poland.
+In 1919, French historian Jacques Bainville was able to see 20 years into the future. Writing on the Treaty of Versailles that had just closed the World war, he went against the optimism of the zeitgeist, to announce a new war[^consequences_politiques]. He foretold that a powerful and revengeful social republic of Germany would raise again to power. That it would annex Austria, and the Sudeten german-speaking minorities. He predicted the alliance of Russia and Germany, their siding together against Poland. He announced that the alliance of Italy would shift in favor of Germany.
 
-When the Second World War broke out, two decades later, the first years followed the exact steps he had predicted.
+When the Second World War broke out, two decades later, it started in the exact steps that Bainville had predicted.
 
 > Bainville’s stunning prescience was not a product of chance: it was a mechanical application of his immense knowledge of European geopolitics, articulated through sound judgement.
 
@@ -232,7 +232,7 @@ Let us compare our models and the baselines:
 
 {caption="Average returns (7 days)", path=model_performance_comprehensive_analysis/average_return_ranking.json}
 
-{caption="Brier Score", path=model_performance_comprehensive_analysis/brier_score_ranking.json}
+{caption="Brier Score (lower is better)", path=model_performance_comprehensive_analysis/brier_score_ranking.json}
 
 - While most models tested are not profitable, half of them beat the market baseline. And the most recent/powerful ones draw a profit.
 
@@ -252,7 +252,7 @@ One could expect an analyst to increase performance when double-checking sources
 
 It appears that double-checking results increases research quality. Returns grows with the count of webpages visited - Perplexity’s Sonar-Deep-Research is not shown on this graph, visited over 16 webpages on average - which also reinforces the hypothesis that visiting more sources leads to success.
 
-{caption="Performance increases as the model visits more pages" path="sources_vs_performance_analysis/webpage_sources_vs_returns.json"}
+{caption="Performance increases with the count of pages visits" path="sources_vs_performance_analysis/webpage_sources_vs_returns.json"}
 
 
 ## Next steps

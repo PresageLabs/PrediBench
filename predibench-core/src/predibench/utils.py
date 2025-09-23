@@ -10,6 +10,8 @@ logger = get_logger(__name__)
 FONT_FAMILY = "Arial"
 BOLD_FONT_FAMILY = "Arial"
 
+BLUE = "#3B82F6"
+
 
 def date_to_string(date: datetime) -> str:
     """Convert a datetime object to YYYY-MM-DD string format."""
@@ -67,6 +69,7 @@ def apply_template(
     # if title is not None:
     #     layout_updates["title"] = title
     fig.update_layout(layout_updates)
+
     fig.update_xaxes(
         title_font_family=FONT_FAMILY,
         tickfont_family=FONT_FAMILY,

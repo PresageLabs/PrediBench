@@ -46,15 +46,17 @@ export function HomePage({ leaderboard, loading = false }: HomePageProps) {
 
       {/* Intro Section (moved from About page) */}
       <div className="mb-16" id="about">
-        <div className="flex gap-8 max-w-7xl mx-auto">
+        <div className="flex gap-8 max-w-7xl mx-auto min-w-0">
           {/* Table of Contents */}
           <div className="hidden lg:block w-64 flex-shrink-0">
             <TableOfContents content={aboutContent} />
           </div>
 
           {/* Main Content */}
-          <div className="flex-1 max-w-3xl">
-            <MarkdownRenderer content={aboutContent} />
+          <div className="flex-1 max-w-3xl min-w-0">
+            <div className="min-w-0 max-w-full">
+              <MarkdownRenderer content={aboutContent} />
+            </div>
 
             {/* Back to top button */}
             <div className="text-center mt-12 pt-8 border-t border-border">

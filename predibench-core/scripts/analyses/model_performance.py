@@ -10,7 +10,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import typer
 from predibench.backend.data_loader import get_data_for_backend
-from predibench.utils import apply_template, get_model_color
+from predibench.utils import BLUE, apply_template, get_model_color
 
 app = typer.Typer(help="Comprehensive model performance analysis")
 
@@ -180,7 +180,7 @@ def create_brier_score_ranking(df):
         xaxis_tickangle=45,
     )
     apply_template(fig)
-    fig.update_layout(margin=dict(b=200, r=70))
+    fig.update_layout(margin=dict(b=150, r=70))
 
     return fig
 
@@ -216,7 +216,7 @@ def create_average_return_ranking(df):
         width=1000,
     )
     apply_template(fig)
-    fig.update_layout(margin=dict(b=200, r=70))
+    fig.update_layout(margin=dict(b=150, r=70))
     return fig
 
 
@@ -313,6 +313,12 @@ def create_performance_vs_arena_score_scatter(df, metric_type: str = "brier"):
         y_data = df_filtered["average_return_7d"]
         y_title = "Average Return - 7 day (%)"
 
+    df_filtered["pretty_name"] = df_filtered["pretty_name"].apply(
+        lambda x: x
+        if ("Sonnet" in x or "Gemini" in x or "GPT" in x or "Grok" in x or "R1" in x)
+        else ""
+    )
+
     fig.add_trace(
         go.Scatter(
             x=df_filtered["arena_score"],
@@ -322,6 +328,7 @@ def create_performance_vs_arena_score_scatter(df, metric_type: str = "brier"):
             textposition="top center",
             marker=dict(
                 size=12,
+                color=BLUE,
             ),
             name="Models",
             showlegend=False,

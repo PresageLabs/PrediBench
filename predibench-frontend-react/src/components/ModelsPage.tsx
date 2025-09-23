@@ -342,7 +342,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
                   onChange={(e) => setCutoffIndex(parseInt(e.target.value))}
                   className="w-[100px] h-1 accent-primary"
                 />
-                <div className="text-xs tabular-nums whitespace-nowrap min-w-[9ch] leading-none self-center">
+                <div className="text-xs tabular-nums min-w-[9ch] md:min-w-[9ch] sm:min-w-0 leading-none self-center break-words">
                   {predictionDates.length ? formatDate(new Date(cutoffDate), 'd MMMM') : '—'}
                 </div>
               </div>
