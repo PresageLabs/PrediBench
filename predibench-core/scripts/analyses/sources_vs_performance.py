@@ -201,7 +201,7 @@ def create_sources_vs_returns_scatter(df):
     fig.add_trace(
         go.Scatter(
             x=df["mean_total_sources"],
-            y=df["average_return_7d"],
+            y=df["average_return_7d"] * 100,
             mode="markers",
             marker=dict(
                 size=10,
@@ -213,7 +213,7 @@ def create_sources_vs_returns_scatter(df):
             hovertemplate=(
                 "<b>%{text}</b><br>"
                 "Mean Total Sources: %{x:.1f}<br>"
-                "7d Avg Return: %{y:.3f}%<br>"
+                "7d Avg Return: %{y:.2f}%<br>"
                 "Trades: " + df["trades_count"].astype(str) + "<br>"
                 "Decisions: " + df["decisions_count"].astype(str) + "<br>"
                 "<extra></extra>"
@@ -224,7 +224,7 @@ def create_sources_vs_returns_scatter(df):
 
     # Add trendline
     if len(df) > 1:
-        z = np.polyfit(df["mean_total_sources"], df["average_return_7d"], 1)
+        z = np.polyfit(df["mean_total_sources"], df["average_return_7d"] * 100, 1)
         p = np.poly1d(z)
         x_trend = np.linspace(
             df["mean_total_sources"].min(), df["mean_total_sources"].max(), 100
@@ -272,7 +272,7 @@ def create_webpage_sources_vs_returns_scatter(df):
     fig.add_trace(
         go.Scatter(
             x=df_no_sonar["mean_webpage_sources"],
-            y=df_no_sonar["average_return_7d"],
+            y=df_no_sonar["average_return_7d"] * 100,
             mode="markers+text",
             text=text_labels,
             textposition="top right",
@@ -281,7 +281,7 @@ def create_webpage_sources_vs_returns_scatter(df):
                 "<b>%{customdata}</b><br>"
                 "Decisions: " + df_no_sonar["decisions_count"].astype(str) + "<br>"
                 "Mean Visited Webpages: %{x:.1f}<br>"
-                "7d Avg Return: %{y:.3f}%<br>"
+                "7d Avg Return: %{y:.2f}%<br>"
                 "<extra></extra>"
             ),
             customdata=df_no_sonar[
@@ -316,7 +316,7 @@ def create_sources_breakdown_scatter(df):
             mode="markers",
             marker=dict(
                 size=12,
-                color=df["average_return_7d"],
+                color=df["average_return_7d"] * 100,
                 colorscale="RdYlGn",
                 cmid=0,
                 colorbar=dict(title="7d Avg Return (%)"),
@@ -328,7 +328,7 @@ def create_sources_breakdown_scatter(df):
                 "<b>%{text}</b><br>"
                 "Mean Google Sources: %{x:.1f}<br>"
                 "Mean Webpage Sources: %{y:.1f}<br>"
-                "7d Avg Return: %{marker.color:.3f}%<br>"
+                "7d Avg Return: %{marker.color:.2f}%<br>"
                 "Decisions: " + df["decisions_count"].astype(str) + "<br>"
                 "<extra></extra>"
             ),
@@ -447,16 +447,16 @@ def main():
     print(f"\nCreating visualizations in {output_dir}...")
 
     # 1. Sources vs Brier Score
-    print("Creating sources vs Brier score plot...")
-    fig1 = create_sources_vs_brier_scatter(df_filtered)
-    apply_template(fig1)
-    fig1.write_json(output_dir / "sources_vs_brier_score.json")
+    # print("Creating sources vs Brier score plot...")
+    # fig1 = create_sources_vs_brier_scatter(df_filtered)
+    # apply_template(fig1)
+    # fig1.write_json(output_dir / "sources_vs_brier_score.json")
 
     # 2. Sources vs Returns
-    print("Creating sources vs returns plot...")
-    fig2 = create_sources_vs_returns_scatter(df_filtered)
-    apply_template(fig2)
-    fig2.write_json(output_dir / "sources_vs_returns.json")
+    # print("Creating sources vs returns plot...")
+    # fig2 = create_sources_vs_returns_scatter(df_filtered)
+    # apply_template(fig2)
+    # fig2.write_json(output_dir / "sources_vs_returns.json")
 
     # 3. Webpage Sources vs Returns
     print("Creating webpage sources vs returns plot...")
@@ -465,16 +465,16 @@ def main():
     fig3.write_json(output_dir / "webpage_sources_vs_returns.json")
 
     # 4. Sources breakdown
-    print("Creating sources breakdown plot...")
-    fig4 = create_sources_breakdown_scatter(df_filtered)
-    apply_template(fig4)
-    fig4.write_json(output_dir / "google_vs_webpage_sources.json")
+    # print("Creating sources breakdown plot...")
+    # fig4 = create_sources_breakdown_scatter(df_filtered)
+    # apply_template(fig4)
+    # fig4.write_json(output_dir / "google_vs_webpage_sources.json")
 
     # 5. Correlation summary table
-    print("Creating correlation summary table...")
-    fig5 = create_correlation_summary_table(correlations)
-    apply_template(fig5)
-    fig5.write_json(output_dir / "correlation_summary.json")
+    # print("Creating correlation summary table...")
+    # fig5 = create_correlation_summary_table(correlations)
+    # apply_template(fig5)
+    # fig5.write_json(output_dir / "correlation_summary.json")
 
 
 if __name__ == "__main__":

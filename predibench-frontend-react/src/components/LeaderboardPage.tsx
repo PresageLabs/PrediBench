@@ -160,12 +160,10 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
       {/* Link to full benchmark details */}
       <div>
         <div className="max-w-4xl mx-auto">
-          <div className="bg-card rounded-xl border border-border/30 p-8 relative z-10">
-            <div className="text-center">
-              <RedirectButton href="/#predibench-testing-ai-models-on-prediction-markets">
-                More detail on the benchmark
-              </RedirectButton>
-            </div>
+          <div className="text-center">
+            <RedirectButton href="/#predibench-testing-ai-models-on-prediction-markets">
+              More detail on the benchmark
+            </RedirectButton>
           </div>
         </div>
       </div>
