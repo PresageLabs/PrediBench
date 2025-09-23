@@ -1,5 +1,5 @@
 import { ArrowDown, ChevronDown } from 'lucide-react'
-import { useMemo, useState, useEffect, useRef } from 'react'
+import { useMemo, useState } from 'react'
 import type { DecisionReturns, DecisionSharpe, LeaderboardEntry } from '../api'
 import { encodeSlashes } from '../lib/utils'
 import { CompanyDisplay } from './ui/company-display'
@@ -22,28 +22,11 @@ export function LeaderboardTable({
 }: LeaderboardTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('average_returns')
   const [leaderboardExpanded, setLeaderboardExpanded] = useState<boolean>(false)
-  const [returnsTimeHorizon, setReturnsTimeHorizon] = useState<TimeHorizon>('seven_day')
-  const [sharpeTimeHorizon, setSharpeTimeHorizon] = useState<'one_day' | 'two_day' | 'seven_day'>('seven_day')
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const [returnsDropdownOpen, setReturnsDropdownOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-  const returnsDropdownRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setDropdownOpen(false)
-      }
-      if (returnsDropdownRef.current && !returnsDropdownRef.current.contains(event.target as Node)) {
-        setReturnsDropdownOpen(false)
-      }
-    }
+  // Fixed to 7-day horizon for cleaner headers
+  const returnsTimeHorizon: TimeHorizon = 'seven_day'
+  const sharpeTimeHorizon: 'one_day' | 'two_day' | 'seven_day' = 'seven_day'
 
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [])
 
   const getReturnForHorizon = (returns: DecisionReturns, horizon: TimeHorizon): number => {
     switch (horizon) {
@@ -117,7 +100,7 @@ export function LeaderboardTable({
           return 0
       }
     })
-  }, [leaderboard, sortKey, returnsTimeHorizon, sharpeTimeHorizon])
+  }, [leaderboard, sortKey])
 
 
   const handleSort = (key: SortKey) => {
@@ -132,7 +115,7 @@ export function LeaderboardTable({
       min: Math.min(...vals),
       max: Math.max(...vals)
     }
-  }, [leaderboard, returnsTimeHorizon])
+  }, [leaderboard])
 
   return (
     <div>
@@ -160,140 +143,34 @@ export function LeaderboardTable({
                     <th className="text-center py-4 px-3 font-semibold"></th>
                     <th className="text-left py-4 px-4 font-semibold">Model Name</th>
                     <th className="text-center py-3 px-4 font-semibold">
-                      <div className="flex flex-col items-center space-y-1 w-full">
-                        <div className="flex items-center space-x-1">
-                          <button
-                            onClick={() => handleSort('average_returns')}
-                            className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
-                          >
-                            <ArrowDown className={`h-4 w-4 ${sortKey === 'average_returns' ? 'text-primary' : 'opacity-40'}`} />
-                            <span>Average Returns</span>
-                          </button>
-                          <InfoTooltip content="Average return per prediction across all bets. Each bet's return is calculated at the selected time horizon. [Learn about our metrics](/#metrics)" />
-                        </div>
-                        <div className="relative" ref={returnsDropdownRef}>
-                          <button
-                            onClick={() => setReturnsDropdownOpen(!returnsDropdownOpen)}
-                            className="text-xs font-medium border border-border rounded-md px-2 py-1 bg-background text-foreground hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors cursor-pointer flex items-center gap-1 min-w-[70px]"
-                          >
-                            <span>
-                              {returnsTimeHorizon === 'one_day' ? '1 Day' :
-                               returnsTimeHorizon === 'two_day' ? '2 Days' :
-                               returnsTimeHorizon === 'seven_day' ? '7 Days' : 'All Time'}
-                            </span>
-                            <ChevronDown className={`h-3 w-3 transition-transform ${returnsDropdownOpen ? 'rotate-180' : ''}`} />
-                          </button>
-                          {returnsDropdownOpen && (
-                            <div className="absolute top-full left-0 mt-1 w-full bg-background border border-border rounded-md overflow-hidden z-50">
-                              <button
-                                onClick={() => {
-                                  setReturnsTimeHorizon('one_day')
-                                  setReturnsDropdownOpen(false)
-                                }}
-                                className="w-full text-left text-xs font-medium px-2 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
-                              >
-                                1 Day
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setReturnsTimeHorizon('two_day')
-                                  setReturnsDropdownOpen(false)
-                                }}
-                                className="w-full text-left text-xs font-medium px-2 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
-                              >
-                                2 Days
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setReturnsTimeHorizon('seven_day')
-                                  setReturnsDropdownOpen(false)
-                                }}
-                                className="w-full text-left text-xs font-medium px-2 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
-                              >
-                                7 Days
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setReturnsTimeHorizon('all_time')
-                                  setReturnsDropdownOpen(false)
-                                }}
-                                className="w-full text-left text-xs font-medium px-2 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
-                              >
-                                All Time
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                      <div
+                        onClick={() => handleSort('average_returns')}
+                        className="flex items-center justify-center gap-0.5 hover:text-primary transition-colors cursor-pointer"
+                      >
+                        <ArrowDown className={`h-4 w-4 flex-shrink-0 ${sortKey === 'average_returns' ? 'text-primary' : 'opacity-40'}`} />
+                        <span className="text-center leading-tight">Average Returns</span>
+                        <div className="flex-shrink-0"><InfoTooltip content="Average return per prediction across all bets. Each bet's return is calculated at 7 days. [Learn about our metrics](/#metrics)" /></div>
                       </div>
                     </th>
                     <th className="text-center py-3 px-4 font-semibold">
-                      <div className="flex items-center justify-center space-x-1 w-full">
-                        <button
-                          onClick={() => handleSort('brier_score')}
-                          className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
-                          title="Brier Score - Lower values indicate better prediction accuracy (0 = perfect, 1 = worst)"
-                        >
-                          <ArrowDown className={`h-4 w-4 ${sortKey === 'brier_score' ? 'text-primary' : 'opacity-40'}`} />
-                          <span>Brier Score</span>
-                        </button>
-                        <BrierScoreInfoTooltip />
+                      <div
+                        onClick={() => handleSort('brier_score')}
+                        className="flex items-center justify-center gap-0.5 hover:text-primary transition-colors cursor-pointer"
+                        title="Brier Score - Lower values indicate better prediction accuracy (0 = perfect, 1 = worst)"
+                      >
+                        <ArrowDown className={`h-4 w-4 flex-shrink-0 ${sortKey === 'brier_score' ? 'text-primary' : 'opacity-40'}`} />
+                        <span className="text-center leading-tight">Brier Score</span>
+                        <div className="flex-shrink-0"><BrierScoreInfoTooltip /></div>
                       </div>
                     </th>
                     <th className="hidden md:table-cell text-center py-3 px-4 font-semibold">
-                      <div className="flex flex-col items-center space-y-1 w-full">
-                        <div className="flex items-center space-x-1">
-                          <button
-                            onClick={() => handleSort('sharpe')}
-                            className="flex items-center space-x-1 hover:text-primary transition-colors whitespace-nowrap"
-                          >
-                            <ArrowDown className={`h-4 w-4 ${sortKey === 'sharpe' ? 'text-primary' : 'opacity-40'}`} />
-                            <span>Annualized Sharpe</span>
-                          </button>
-                          <InfoTooltip content="Risk-adjusted return metric: Sharpe ratio is the ratio of the average return to the standard deviation of the returns. Green indicates statistically significant positive performance, computed using 5% significance t-statistic using the number of bets placed. [Learn more about our metrics](/#metrics)" />
-                        </div>
-                        <div className="relative" ref={dropdownRef}>
-                          <button
-                            onClick={() => setDropdownOpen(!dropdownOpen)}
-                            className="text-xs font-medium border border-border rounded-md px-2 py-1 bg-background text-foreground hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors cursor-pointer flex items-center gap-1 min-w-[60px]"
-                          >
-                            <span>
-                              {sharpeTimeHorizon === 'one_day' ? '1 Day' :
-                               sharpeTimeHorizon === 'two_day' ? '2 Days' : '7 Days'}
-                            </span>
-                            <ChevronDown className={`h-3 w-3 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
-                          </button>
-                          {dropdownOpen && (
-                            <div className="absolute top-full left-0 mt-1 w-full bg-background border border-border rounded-md overflow-hidden z-50">
-                              <button
-                                onClick={() => {
-                                  setSharpeTimeHorizon('one_day')
-                                  setDropdownOpen(false)
-                                }}
-                                className="w-full text-left text-xs font-medium px-2 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
-                              >
-                                1 Day
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setSharpeTimeHorizon('two_day')
-                                  setDropdownOpen(false)
-                                }}
-                                className="w-full text-left text-xs font-medium px-2 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
-                              >
-                                2 Days
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setSharpeTimeHorizon('seven_day')
-                                  setDropdownOpen(false)
-                                }}
-                                className="w-full text-left text-xs font-medium px-2 py-1 hover:bg-accent hover:text-accent-foreground transition-colors"
-                              >
-                                7 Days
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                      <div
+                        onClick={() => handleSort('sharpe')}
+                        className="flex items-center justify-center gap-0.5 hover:text-primary transition-colors cursor-pointer"
+                      >
+                        <ArrowDown className={`h-4 w-4 flex-shrink-0 ${sortKey === 'sharpe' ? 'text-primary' : 'opacity-40'}`} />
+                        <span className="text-center leading-tight">Annualized Sharpe</span>
+                        <div className="flex-shrink-0"><InfoTooltip content="Risk-adjusted return metric: Sharpe ratio is the ratio of the average 7-day return to the standard deviation of the returns. Green indicates statistically significant positive performance, computed using 5% significance t-statistic using the number of bets placed. [Learn more about our metrics](/#metrics)" /></div>
                       </div>
                     </th>
                     <th className="hidden md:table-cell text-center py-3 px-2 text-sm font-medium">

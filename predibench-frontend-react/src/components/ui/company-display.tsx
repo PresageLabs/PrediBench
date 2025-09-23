@@ -16,6 +16,23 @@ export function CompanyDisplay({ modelName, className = "" }: CompanyDisplayProp
     )
   }
 
+  // Special handling for baseline models - show descriptive text instead of logos
+  if (modelName === 'Market baseline') {
+    return (
+      <span className={`text-muted-foreground text-sm ${className}`}>
+        Bet on the top-rated outcome
+      </span>
+    )
+  }
+
+  if (modelName === 'Random Baseline') {
+    return (
+      <span className={`text-muted-foreground text-sm ${className}`}>
+        Bet at random
+      </span>
+    )
+  }
+
   const needsColorInversion = companyInfo.name === 'OpenAI' || companyInfo.name === 'Anthropic' || companyInfo.name === 'xAI'
 
   return (
