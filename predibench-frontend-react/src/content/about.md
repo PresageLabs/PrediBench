@@ -163,27 +163,7 @@ output: FINAL STRUCTURED OUTPUT:
       "confidence": 8,
       "bet": 0.40
     },
-    {
-      "market_id": "560870",
-      "rationale": "Yulia Navalnaya was an early betting favorite in August due to her opposition work following Navalny's death, but she's absent from the PRIO shortlist, which prioritizes humanitarian and institutional efforts over individual dissidents this year. Recent news in September shows no momentum-building events for her, and the committee often avoids highly politicized Russian figures amid ongoing war. The market at 0.07 overprices her chances, lagging behind the shift toward groups like ERR; I see her true odds lower based on PRIO's omission and historical patterns where dissidents win only in specific contexts (e.g., Sakharov in 1975).",
-      "odds": 0.04,
-      "confidence": 6,
-      "bet": -0.15
-    },
-    {
-      "market_id": "560864",
-      "rationale": "UNRWA has faced significant controversies in 2025, including funding cuts and allegations of staff involvement in attacks, which have damaged its reputation despite its Gaza aid work. It's not on the PRIO shortlist, which favors less controversial humanitarians like ERR or courts like ICJ/ICC. The market price of 0.065 overestimates, possibly due to name recognition, but ignores these scandals and the committee's avoidance of divisive orgs (e.g., no award to similar groups recently). My lower estimate reflects recent negative press not fully priced in.",
-      "odds": 0.02,
-      "confidence": 5,
-      "bet": -0.10
-    },
-    {
-      "market_id": "560874",
-      "rationale": "Doctors Without Borders is a perennial strong candidate for humanitarian work, but it's not highlighted on the PRIO list this year, which tops with ERR for Sudan aid—a more acute, current crisis. MSF won in 1999, and repeats are rare; the market at 0.055 slightly overprices it relative to ERR's momentum. I think the market is anchoring on general reputation without accounting for PRIO's specific focus on Sudan, leading to a mispricing.",
-      "odds": 0.03,
-      "confidence": 5,
-      "bet": -0.10
-    },
+    ...
     {
       "market_id": "560856",
       "rationale": "Donald Trump has multiple nominations and recent news buzz from leaders like Netanyahu, but he's not on the PRIO shortlist, which avoids polarizing political figures without concrete peace achievements (e.g., no US presidents since Obama in 2009). His odds dropped in September likely due to election dynamics, but at 0.043, the market still overvalues name recognition over the committee's preference for non-partisan efforts. My estimate is lower, factoring in PRIO's focus on apolitical humanitarians.",
@@ -191,20 +171,7 @@ output: FINAL STRUCTURED OUTPUT:
       "confidence": 7,
       "bet": -0.10
     },
-    {
-      "market_id": "560867",
-      "rationale": "Alexei Gorinov is a Russian dissident imprisoned for anti-war statements, but like Navalnaya, he's not on PRIO's list, which emphasizes global institutions and aid over individual activists this year. The price of 0.021 overestimates, possibly due to sympathy for Russian opposition, but the committee rarely awards multiple in similar categories closely (e.g., post-Navalny focus shifted). My lower odds reflect this thematic mismatch.",
-      "odds": 0.01,
-      "confidence": 4,
-      "bet": -0.05
-    },
-    {
-      "market_id": "560868",
-      "rationale": "María Corina Machado is a key Venezuelan opposition leader amid political turmoil, but she's not on PRIO's shortlist, which prioritizes broader peace institutions. The market at 0.0115 is slightly high given competition from top picks like ERR; recent news hasn't elevated her globally. I see minor overpricing due to regional interest not translating to Nobel priority.",
-      "odds": 0.01,
-      "confidence": 4,
-      "bet": -0.05
-    }
+    ...
   ],
   "unallocated_capital": 0.05,
   "summary": "Primary bet FOR Sudan's ERR (+$0.40), betting AGAINST multiple candidates: Navalnaya (-$0.15), UNRWA (-$0.10), MSF (-$0.10), Trump (-$0.10), Gorinov (-$0.05), Machado (-$0.05)."
@@ -214,7 +181,7 @@ output: FINAL STRUCTURED OUTPUT:
 
 Here, the model systematically researched multiple sources - general betting odds, expert predictions from PRIO (a respected research institute), and recent news updates. It discovered that Sudan's Emergency Response Rooms was PRIO's top pick but only priced at 17.5% in markets.
 
-> Sudan's Emergency Response Rooms is the top pick on the PRIO Director's shortlist for 2025, which has a strong history of predicting winners or themes (e.g., correctly shortlisting Nihon Hidankyo in 2024). Their work providing aid in Sudan's humanitarian crisis fits the committee's preference for timely, grassroots peace efforts amid conflict, similar to past laureates like MSF in 1999. The market price of 0.175 underestimates this, possibly because it's reacting to recent news but not fully accounting for PRIO's expert endorsement and the committee's pattern of awarding humanitarians in crisis years. I value the PRIO analysis highly, as it's based on deep research into nominations and committee trends, which the market seems to overlook in favor of earlier favorites.
+> Their work [of Sudan's Emergency Response Rooms] providing aid in Sudan's humanitarian crisis fits the committee's preference for timely, grassroots peace efforts amid conflict, similar to past laureates like MSF in 1999. The market price of 0.175 underestimates this, possibly because it's reacting to recent news but not fully accounting for PRIO's expert endorsement and the committee's pattern of awarding humanitarians in crisis years. I value the PRIO analysis highly, as it's based on deep research into nominations and committee trends, which the market seems to overlook in favor of earlier favorites.
 
 Grok-4 displayed critical thinking, assessing that markets were likely anchoring too much on name recognition (Trump, Navalnaya) while undervaluing expert institutional knowledge. The PRIO shortlist has historical accuracy in predicting Nobel patterns, and Sudan's ERR fit the committee's preference for timely humanitarian work during active crises. The model correctly identified this as an information asymmetry - expert knowledge not yet reflected in market prices.
 
