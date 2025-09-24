@@ -3,7 +3,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Website](https://img.shields.io/badge/Website-Live-green)](https://predibench.com)
-[![GitHub Discussions](https://img.shields.io/github/discussions/clairvoyance-tech/PrediBench)](https://github.com/clairvoyance-tech/PrediBench/discussions)
+[![GitHub Discussions](https://img.shields.io/github/discussions/PresageLabs/PrediBench)](https://github.com/PresageLabs/PrediBench/discussions)
 
 > **A live benchmark that tests AI models' ability to predict real-world events through prediction markets**
 

@@ -33,7 +33,7 @@ export function Footer({ onContactClick }: FooterProps) {
           </nav>
 
           <div className="flex items-center space-x-4 text-sm text-gray-500">
-            <a href="https://clairvoyance-ai.co/" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">© 2025 Presage Labs</a>
+            <a href="https://presagelabs.com/" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">© 2025 Presage Labs</a>
             <div className="flex items-center space-x-3">
               <a
                 aria-label="github link"
