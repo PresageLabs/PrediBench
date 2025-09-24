@@ -212,9 +212,11 @@ output: FINAL STRUCTURED OUTPUT:
 
 {/agent_example}
 
-**What Grok-4 did**: The model systematically researched multiple sources - general betting odds, expert predictions from PRIO (a respected research institute), and recent news updates. It discovered that Sudan's Emergency Response Rooms was PRIO's top pick but only priced at 17.5% in markets.
+Here, the model systematically researched multiple sources - general betting odds, expert predictions from PRIO (a respected research institute), and recent news updates. It discovered that Sudan's Emergency Response Rooms was PRIO's top pick but only priced at 17.5% in markets.
 
-**Why this rationale worked**: Grok-4 recognized that markets were likely anchoring on name recognition (Trump, Navalnaya) while undervaluing expert institutional knowledge. The PRIO shortlist has historical accuracy in predicting Nobel patterns, and Sudan's ERR fit the committee's preference for timely humanitarian work during active crises. The model correctly identified this as an information asymmetry - expert knowledge not yet reflected in market prices.
+> Sudan's Emergency Response Rooms is the top pick on the PRIO Director's shortlist for 2025, which has a strong history of predicting winners or themes (e.g., correctly shortlisting Nihon Hidankyo in 2024). Their work providing aid in Sudan's humanitarian crisis fits the committee's preference for timely, grassroots peace efforts amid conflict, similar to past laureates like MSF in 1999. The market price of 0.175 underestimates this, possibly because it's reacting to recent news but not fully accounting for PRIO's expert endorsement and the committee's pattern of awarding humanitarians in crisis years. I value the PRIO analysis highly, as it's based on deep research into nominations and committee trends, which the market seems to overlook in favor of earlier favorites.
+
+Grok-4 displayed critical thinking, assessing that markets were likely anchoring too much on name recognition (Trump, Navalnaya) while undervaluing expert institutional knowledge. The PRIO shortlist has historical accuracy in predicting Nobel patterns, and Sudan's ERR fit the committee's preference for timely humanitarian work during active crises. The model correctly identified this as an information asymmetry - expert knowledge not yet reflected in market prices.
 
 You can explore more agent decisions with full logs [on our platform](https://predibench.com/events/20459).
 
