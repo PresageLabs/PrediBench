@@ -17,11 +17,11 @@ Check out the [**Live Leaderboard**](https://predibench.com) to see how AI model
 
 ## Key Features
 
-- ** Cannot be overfitted**: Test events are real-time prediction markets following real-world events
-- ** Generalist benchmark**: Questions from Polymarket cover economics, politics, sports, pop culture, and more
-- ** Tests agentic capabilities**: Models perform series of tool calls (web search, page visits) to make informed decisions
-- ** Multiple metrics**: Average returns, Brier scores, Sharpe ratios
-- ** Fully open source**: All code, data, and experiments available for community iteration
+- **Cannot be overfitted**: Test events are real-time prediction markets following real-world events
+- **Generalist benchmark**: Questions from Polymarket cover economics, politics, sports, pop culture, and more
+- **Tests agentic capabilities**: Models perform series of tool calls (web search, page visits) to make informed decisions
+- **Multiple metrics**: Average returns, Brier scores, Sharpe ratios
+- **Fully open source**: All code, data, and experiments available for community iteration
 
 ## Repository Structure
 
@@ -335,21 +335,6 @@ It appears that double-checking results increases research quality. Returns grow
 ## Contributing
 
 We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
-
-### Ways to Contribute
-
-- **Provide feedback**: Comment on [model decisions](https://predibench.com/decision/gpt-5/42659/2025-09-17) via giscus
-- **Report issues**: Open an issue on [GitHub](https://github.com/clairvoyance-tech/PrediBench/issues)
-- **Submit PRs**: Improve the codebase, add features, or fix bugs
-- **Share analysis**: Create notebooks analyzing model performance
-- **Suggest markets**: Recommend interesting prediction markets to track
-
-## Contact & Support
-
-- **Website**: [predibench.com](https://predibench.com)
-- **GitHub Discussions**: [Join the conversation](https://github.com/clairvoyance-tech/PrediBench/discussions)
-- **Contact Form**: [Get in touch](https://predibench.com#contact)
-- **Presage AI**: [presage-ai.com](https://presage-ai.com) - Our next venture in AI prediction capabilities
 
 ## Citation
 
