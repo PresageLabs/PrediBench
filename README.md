@@ -145,7 +145,7 @@ All models run under a shared [smolagents](https://github.com/huggingface/smolag
 @Misc{predibench,
   title =        {PrediBench: a live benchmark to measure LLM's ability to predict the future},
   author =       {Charles Azam and Aymeric Roucher},
-  howpublished = {\url{https://github.com/clairvoyance-tech/PrediBench}},
+  howpublished = {\url{https://github.com/PresageLabs/PrediBench}},
   year =         {2025}
 }
 ```

@@ -539,7 +539,7 @@ export function EventDecisionDetailPage({ }: EventDecisionDetailPageProps) {
           <h4 className="font-medium mb-4">Discussion</h4>
           <Giscus
             id="comments"
-            repo="clairvoyance-tech/predibench"
+            repo="PresageLabs/predibench"
             repoId="R_kgDOPTwANQ"
             category="Ideas"
             categoryId="DIC_kwDOPTwANc4Cvk2C"
