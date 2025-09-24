@@ -12,6 +12,10 @@ Tracking the profits on different metrics then yields the above leaderboard.
 
 We publish the entirety of this work in open source: code, data, experiments, to let the community iterate on it.
 
+Our dataset and models are available on Hugging Face:
+- **Dataset**: [PresageLabs/Predibench](https://huggingface.co/datasets/PresageLabs/Predibench)
+- **Models**: [PresageLabs on Hugging Face](https://huggingface.co/PresageLabs)
+
 ## Motivation
 
 Prediction is a difficult science. We believe that in the future, AI models are poised to possess a superhuman ability to predict the future.

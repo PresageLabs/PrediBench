@@ -23,6 +23,12 @@ Check out the [**Live Leaderboard**](https://predibench.com) to see how AI model
 - **Multiple metrics**: Average returns, Brier scores, Sharpe ratios
 - **Fully open source**: All code, data, and experiments available for community iteration
 
+## Dataset & Models
+
+Our dataset and models are available on Hugging Face:
+- **Dataset**: [PresageLabs/Predibench](https://huggingface.co/datasets/PresageLabs/Predibench)
+- **Models**: [PresageLabs on Hugging Face](https://huggingface.co/PresageLabs)
+
 ## Repository Structure
 
 ```
