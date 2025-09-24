@@ -485,7 +485,7 @@ export function ModelsPage({ leaderboard }: ModelsPageProps) {
           <h3 className="text-xl font-semibold mb-6">Leave feedback for {selectedModelData.model_name}</h3>
           <Giscus
             id="model-comments"
-            repo="clairvoyance-tech/predibench"
+            repo="PresageLabs/predibench"
             repoId="R_kgDOPTwANQ"
             category="Ideas"
             categoryId="DIC_kwDOPTwANc4Cvk2C"

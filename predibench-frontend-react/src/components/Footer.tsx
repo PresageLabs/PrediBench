@@ -23,8 +23,8 @@ export function Footer({ onContactClick }: FooterProps) {
                 href={link.href}
                 onClick={link.onClick ? (e) => { e.preventDefault(); link.onClick!(); } : undefined}
                 className={`text-sm font-medium transition-colors cursor-pointer ${link.name === 'Contact'
-                    ? 'text-blue-500 hover:text-blue-600'
-                    : 'text-muted-foreground hover:text-foreground'
+                  ? 'text-blue-500 hover:text-blue-600'
+                  : 'text-muted-foreground hover:text-foreground'
                   }`}
               >
                 {link.name}
@@ -37,7 +37,7 @@ export function Footer({ onContactClick }: FooterProps) {
             <div className="flex items-center space-x-3">
               <a
                 aria-label="github link"
-                href="https://github.com/clairvoyance-tech/PrediBench"
+                href="https://github.com/PresageLabs/PrediBench"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-muted-foreground hover:text-foreground transition-colors"
