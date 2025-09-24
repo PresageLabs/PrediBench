@@ -65,6 +65,21 @@ export function HomePage({ leaderboard, loading = false }: HomePageProps) {
           </div>
         </div>
       </div>
+
+      {/* X.com Social Link - Bottom Right */}
+      <div className="fixed bottom-8 right-8 z-50">
+        <a
+          aria-label="Follow Presage Labs on X"
+          href="https://x.com/presage_labs"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center w-12 h-12 bg-background border border-border rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-110 text-muted-foreground hover:text-foreground"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M13.3021 10.8029L17.5685 5.84351L17.7862 5.59053H17.4524H16.4233H16.353L16.3072 5.64379L12.6657 9.87668L9.76624 5.65694L9.72061 5.59053H9.64004H6.16602H5.87501L6.03981 5.83037L10.5278 12.362L6.04994 17.5668L5.83228 17.8198H6.16602H7.19527H7.26553L7.31135 17.7666L11.1641 13.288L14.2325 17.7534L14.2781 17.8198H14.3587H17.8327H18.1237L17.9589 17.58L13.3021 10.8029ZM14.9226 16.774L11.8527 12.3829V12.3826L11.8251 12.3431L11.3636 11.6831L11.3636 11.683L7.86001 6.67158H9.06721L11.9848 10.845L11.9848 10.845L12.4463 11.5051L12.4463 11.5051L16.1299 16.774H14.9226Z" fill="currentColor" stroke="currentColor" strokeWidth="0.30625" />
+          </svg>
+        </a>
+      </div>
     </div>
   )
 }
