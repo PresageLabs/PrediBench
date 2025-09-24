@@ -12,9 +12,8 @@ Tracking the profits on different metrics then yields the above leaderboard.
 
 We publish the entirety of this work in open source: code, data, experiments, to let the community iterate on it.
 
-Our dataset and models are available on Hugging Face:
+Our dataset are available on Hugging Face:
 - **Dataset**: [PresageLabs/Predibench](https://huggingface.co/datasets/PresageLabs/Predibench)
-- **Models**: [PresageLabs on Hugging Face](https://huggingface.co/PresageLabs)
 
 ## Motivation
 
