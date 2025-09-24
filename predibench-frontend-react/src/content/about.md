@@ -1,6 +1,6 @@
 ## PrediBench: Testing AI models on prediction markets
 
-AI models shine on within-distribution tasks, thus cracking standardized math or medicine exams ; but what about predicting the future, the realm of out-of-distribution events ?
+AI models shine on within-distribution tasks, thus cracking standardized math or medicine exams; but what about predicting the future, the realm of out-of-distribution events?
 
 We decided to test this forecasting ability: **Every day, we let AI models bet 1$ on top events from [Polymarket](https://polymarket.com/).**
 
@@ -18,7 +18,7 @@ Our dataset and models are available on Hugging Face:
 
 ## Motivation
 
-Prediction is a difficult science. We believe that in the future, AI models are poised to possess a superhuman ability to predict the future.
+Prediction is a difficult science. We believe that AI models are poised to possess a superhuman ability to predict the future.
 
 Why could that be? Because the main ingredients of foresight are on the way to being mastered by AI models.
 
@@ -51,7 +51,7 @@ Each market has two mutually exclusive, discrete outcomes. An overwhelming major
 
 Placing a negative bet means to bet the sum of money on the negative outcome. Some bets can have outsized returns : for instance, if the “Yes” on an event is priced at 91% and the bet has been placed against the market, effectively buying the same amount of “no shares”, the upside is huge : for instance, the “Yes” market price dropping to 73% would triple the stake.
 
-News can have a sudden and massive impact on prediction markets, like when the news of [Zohran Mahmadi winning the Democratic primary](https://x.com/GlobeEyeNews/status/1937760643261825210) elicited a 40% change of the rate for his election over less than one hour.
+News can have a sudden and massive impact on prediction markets, like when the news of [Zohran Mahmadi winning the Democratic primary](https://x.com/GlobeEyeNews/status/1937760643261825210) elicited a 40% change in his election odds over less than one hour.
 
 {caption="On June 25, 2025, the market for Zohran mahmadi becoming Mayor of NYC jumped up - but the transition took one full hour." path="sudden_price_change/nyc_election_mahmadi.json"}
 
@@ -220,13 +220,13 @@ You can explore more agent decisions with full logs [on our platform](https://pr
 
 ### Metrics
 
-We evaluate models over several metrics, emphasizing different aspect of investment choices:
+We evaluate models over several metrics, emphasizing different aspects of investment choices:
 
 - **Average returns** measures profitability: each bet’s return is computed over several time horizons : how much did this bet return after 1 day, 2 days, 7 days ? These returns are averaged over all events to yield an average return per model, per each time horizon
 - **Brier Score** measures probability estimates: upon generating their betting decision, models are prompted to also provide a probability estimate of the “Yes” outcome. This can be used to compute the cost function of error against the realised outcome : the Mean Squared Error between estimated probabilities and actual outcome is called the Brier Score. Possible scores range from 0 (best) to 1 (worst).
 - **Annualised Sharpe** measures volatility risk: when using AI models for financial choices, the volatility of returns is an important aspect. The [Sharpe ratio](https://en.wikipedia.org/wiki/Sharpe_ratio) allows to downweigh the average of a series of returns by its volatility, thus factoring in a measure of the risk taken by undergoing the investment. In our case, we calculate the Sharpe ratio for different holding horizons : 1 day, 2 days, 7 days. We annualize it to represent what these strategies would represent over an entire year.
 
-> Word of caution: Although these performance metrics are calculated on real market prices, they eschew some important parts of an investment pipeline, such as the bid-ask spread, for the sake of simplicity. This pipeline would certainly not be viable in its current state under real investment conditions.
+> Word of caution: Although these performance metrics are calculated on real market prices, they eschew some important parts of an investment pipeline, such as the bid-ask spread, for the sake of simplicity. This pipeline, in its current state, would certainly not be viable under real investment conditions.
 
 
 
@@ -244,7 +244,7 @@ Let us compare our models and the baselines:
 
 {caption="Brier Score (lower is better)", path=model_performance_comprehensive_analysis/brier_score_ranking.json}
 
-- While most models tested are not profitable, half of them beat the market baseline. And the most recent/powerful ones draw a profit.
+- While most models tested are not profitable, half of them beat the market baseline. The most recent and powerful ones generate a profit.
 
 This shows that AI models are becoming better at forecasting!
 
