@@ -246,7 +246,7 @@ The exellent performance of Sonar Deep Research, the only model used in Deep res
 
 {caption="Brier Score (lower is better)", path=model_performance_comprehensive_analysis/brier_score_ranking.json}
 
-### Predictive ability correlates well with general performance
+### Predictive ability correlates with general performance
 
 Average returns and Brier score tend to correlate well with general performance, which we can visualize by comparing Brier scores to model scores on LMSys Arena[^arena].
 
