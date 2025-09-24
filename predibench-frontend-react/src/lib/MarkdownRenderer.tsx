@@ -5,6 +5,7 @@ import PlotlyCard from '../components/ui/PlotlyCard'
 type Props = {
   content: string
   className?: string
+  onContactClick?: () => void
 }
 
 // Very lightweight Markdown renderer supporting:
@@ -17,7 +18,7 @@ type Props = {
 // - Links [text](url)
 // - Footnotes [^id] and footnote definitions [^id]: content
 // This avoids adding a new dependency while keeping content readable.
-export function MarkdownRenderer({ content, className }: Props) {
+export function MarkdownRenderer({ content, className, onContactClick }: Props) {
   const lines = content.replace(/\r\n?/g, '\n').split('\n')
 
   type Block =
@@ -414,11 +415,31 @@ export function MarkdownRenderer({ content, className }: Props) {
         if (linkMatch.index > linkLastIndex) {
           linkParts.push(part.slice(linkLastIndex, linkMatch.index))
         }
-        linkParts.push(
-          <a key={`${keyPrefix}-link-${idx}-${linkCount}`} href={linkMatch[2]} className="underline hover:no-underline" target={linkMatch[2].startsWith('/') ? undefined : '_blank'} rel="noreferrer">
-            {linkMatch[1]}
-          </a>
-        )
+        // Special case for "contact form" - make it clickable to open modal
+        if (linkMatch[1].toLowerCase().includes('contact form')) {
+          const handleContactClick = onContactClick || (() => {
+            // Fallback to global window function
+            if ((window as any).openContactModal) {
+              (window as any).openContactModal()
+            }
+          })
+
+          linkParts.push(
+            <button
+              key={`${keyPrefix}-link-${idx}-${linkCount}`}
+              onClick={(e) => { e.preventDefault(); handleContactClick(); }}
+              className="underline hover:no-underline text-blue-500 hover:text-blue-600 bg-transparent border-none cursor-pointer font-inherit text-inherit p-0"
+            >
+              {linkMatch[1]}
+            </button>
+          )
+        } else {
+          linkParts.push(
+            <a key={`${keyPrefix}-link-${idx}-${linkCount}`} href={linkMatch[2]} className="underline hover:no-underline" target={linkMatch[2].startsWith('/') ? undefined : '_blank'} rel="noreferrer">
+              {linkMatch[1]}
+            </a>
+          )
+        }
         linkLastIndex = linkMatch.index + linkMatch[0].length
         linkCount++
       }

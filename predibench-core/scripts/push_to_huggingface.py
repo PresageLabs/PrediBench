@@ -5,18 +5,19 @@ This script reads model_investment_decisions.json files and creates a dataset
 that can be viewed as a DataFrame on Hugging Face.
 """
 
+import argparse
 import json
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict, List
+
 import pandas as pd
 from datasets import Dataset
-from huggingface_hub import HfApi, login
-import argparse
+from huggingface_hub import login
 
 
 def load_model_investment_decision(file_path: Path) -> Dict[str, Any]:
     """Load a single model investment decision JSON file."""
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         return json.load(f)
 
 
@@ -28,85 +29,105 @@ def flatten_investment_decision(data: Dict[str, Any]) -> List[Dict[str, Any]]:
     rows = []
 
     # Extract base model information
-    model_id = data.get('model_id', '')
-    target_date = data.get('target_date', '')
-    decision_datetime = data.get('decision_datetime', '')
+    model_id = data.get("model_id", "")
+    target_date = data.get("target_date", "")
+    decision_datetime = data.get("decision_datetime", "")
 
     # Extract model info if present
-    model_info = data.get('model_info', {})
-    model_pretty_name = model_info.get('model_pretty_name', '')
-    inference_provider = model_info.get('inference_provider', '')
-    company_pretty_name = model_info.get('company_pretty_name', '')
-    open_weights = model_info.get('open_weights', False)
-    agent_type = model_info.get('agent_type', 'code')
+    model_info = data.get("model_info", {})
+    model_pretty_name = model_info.get("model_pretty_name", "")
+    inference_provider = model_info.get("inference_provider", "")
+    company_pretty_name = model_info.get("company_pretty_name", "")
+    open_weights = model_info.get("open_weights", False)
+    agent_type = model_info.get("agent_type", "code")
 
     # Process each event
-    for event in data.get('event_investment_decisions', []):
-        event_id = event.get('event_id', '')
-        event_title = event.get('event_title', '')
-        event_description = event.get('event_description', '')
-        unallocated_capital = event.get('unallocated_capital', 0.0)
+    for event in data.get("event_investment_decisions", []):
+        event_id = event.get("event_id", "")
+        event_title = event.get("event_title", "")
+        event_description = event.get("event_description", "")
+        unallocated_capital = event.get("unallocated_capital", 0.0)
 
         # Token usage and timing
-        token_usage = json.dumps(event.get('token_usage', {})) if event.get('token_usage') else None
-        timing = json.dumps(event.get('timing', {})) if event.get('timing') else None
+        token_usage = (
+            json.dumps(event.get("token_usage", {}))
+            if event.get("token_usage")
+            else None
+        )
+        timing = json.dumps(event.get("timing", {})) if event.get("timing") else None
 
         # Sources
-        sources_google = json.dumps(event.get('sources_google', [])) if event.get('sources_google') else None
-        sources_visit_webpage = json.dumps(event.get('sources_visit_webpage', [])) if event.get('sources_visit_webpage') else None
+        sources_google = (
+            json.dumps(event.get("sources_google", []))
+            if event.get("sources_google")
+            else None
+        )
+        sources_visit_webpage = (
+            json.dumps(event.get("sources_visit_webpage", []))
+            if event.get("sources_visit_webpage")
+            else None
+        )
 
         # Event returns
-        event_returns = json.dumps(event.get('returns', {})) if event.get('returns') else None
+        event_returns = (
+            json.dumps(event.get("returns", {})) if event.get("returns") else None
+        )
 
         # Process each market decision within the event
-        for market_decision in event.get('market_investment_decisions', []):
-            market_id = market_decision.get('market_id', '')
-            market_question = market_decision.get('market_question', '')
+        for market_decision in event.get("market_investment_decisions", []):
+            market_id = market_decision.get("market_id", "")
+            market_question = market_decision.get("market_question", "")
 
             # Decision details
-            decision = market_decision.get('decision', {})
-            rationale = decision.get('rationale', '')
-            estimated_probability = decision.get('estimated_probability', 0.0)
-            bet = decision.get('bet', 0.0)
-            confidence = decision.get('confidence', 0)
+            decision = market_decision.get("decision", {})
+            rationale = decision.get("rationale", "")
+            estimated_probability = decision.get("estimated_probability", 0.0)
+            bet = decision.get("bet", 0.0)
+            confidence = decision.get("confidence", 0)
 
             # Market returns and metrics
-            net_gains_at_decision_end = market_decision.get('net_gains_at_decision_end')
-            market_returns = json.dumps(market_decision.get('returns', {})) if market_decision.get('returns') else None
-            brier_score_pair = json.dumps(market_decision.get('brier_score_pair_current', [])) if market_decision.get('brier_score_pair_current') else None
+            net_gains_at_decision_end = market_decision.get("net_gains_at_decision_end")
+            market_returns = (
+                json.dumps(market_decision.get("returns", {}))
+                if market_decision.get("returns")
+                else None
+            )
+            brier_score_pair = (
+                json.dumps(market_decision.get("brier_score_pair_current", []))
+                if market_decision.get("brier_score_pair_current")
+                else None
+            )
 
             row = {
                 # Model metadata
-                'model_id': model_id,
-                'model_pretty_name': model_pretty_name,
-                'inference_provider': inference_provider,
-                'company_pretty_name': company_pretty_name,
-                'open_weights': open_weights,
-                'agent_type': agent_type,
-                'target_date': target_date,
-                'decision_datetime': decision_datetime,
-
+                "model_id": model_id,
+                "model_pretty_name": model_pretty_name,
+                "inference_provider": inference_provider,
+                "company_pretty_name": company_pretty_name,
+                "open_weights": open_weights,
+                "agent_type": agent_type,
+                "target_date": target_date,
+                "decision_datetime": decision_datetime,
                 # Event metadata
-                'event_id': event_id,
-                'event_title': event_title,
-                'event_description': event_description,
-                'event_unallocated_capital': unallocated_capital,
-                'event_token_usage': token_usage,
-                'event_timing': timing,
-                'event_sources_google': sources_google,
-                'event_sources_visit_webpage': sources_visit_webpage,
-                'event_returns': event_returns,
-
+                "event_id": event_id,
+                "event_title": event_title,
+                "event_description": event_description,
+                "event_unallocated_capital": unallocated_capital,
+                "event_token_usage": token_usage,
+                "event_timing": timing,
+                "event_sources_google": sources_google,
+                "event_sources_visit_webpage": sources_visit_webpage,
+                "event_returns": event_returns,
                 # Market decision
-                'market_id': market_id,
-                'market_question': market_question,
-                'decision_rationale': rationale,
-                'decision_estimated_probability': estimated_probability,
-                'decision_bet': bet,
-                'decision_confidence': confidence,
-                'market_net_gains_at_decision_end': net_gains_at_decision_end,
-                'market_returns': market_returns,
-                'market_brier_score_pair': brier_score_pair,
+                "market_id": market_id,
+                "market_question": market_question,
+                "decision_rationale": rationale,
+                "decision_estimated_probability": estimated_probability,
+                "decision_bet": bet,
+                "decision_confidence": confidence,
+                "market_net_gains_at_decision_end": net_gains_at_decision_end,
+                "market_returns": market_returns,
+                "market_brier_score_pair": brier_score_pair,
             }
 
             rows.append(row)
@@ -137,8 +158,8 @@ def collect_all_decisions(bucket_path: Path) -> pd.DataFrame:
     df = pd.DataFrame(all_rows)
 
     # Sort by date and model
-    if not df.empty and 'target_date' in df.columns:
-        df = df.sort_values(['target_date', 'model_id', 'event_id', 'market_id'])
+    if not df.empty and "target_date" in df.columns:
+        df = df.sort_values(["target_date", "model_id", "event_id", "market_id"])
 
     return df
 
@@ -158,38 +179,42 @@ def push_to_huggingface(df: pd.DataFrame, dataset_name: str, token: str = None):
     dataset.push_to_hub(
         dataset_name,
         private=False,  # Make it public
-        commit_message="Update model investment decisions dataset"
+        commit_message="Update model investment decisions dataset",
     )
 
-    print(f"Successfully pushed dataset to: https://huggingface.co/datasets/{dataset_name}")
+    print(
+        f"Successfully pushed dataset to: https://huggingface.co/datasets/{dataset_name}"
+    )
     print(f"Total rows: {len(df)}")
     print(f"Columns: {list(df.columns)}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Push model investment decisions to Hugging Face dataset')
-    parser.add_argument(
-        '--bucket-path',
-        type=str,
-        default='/Users/charlesazam/charloupioupiou/market-bench/bucket-prod/model_results',
-        help='Path to the bucket directory containing model results'
+    parser = argparse.ArgumentParser(
+        description="Push model investment decisions to Hugging Face dataset"
     )
     parser.add_argument(
-        '--dataset-name',
+        "--bucket-path",
         type=str,
-        default='ClairvoyanceAI/predibench',
-        help='Name of the Hugging Face dataset (format: username/dataset-name)'
+        default="/Users/charlesazam/charloupioupiou/market-bench/bucket-prod/model_results",
+        help="Path to the bucket directory containing model results",
     )
     parser.add_argument(
-        '--token',
+        "--dataset-name",
+        type=str,
+        default="PresageLabs/predibench",
+        help="Name of the Hugging Face dataset (format: username/dataset-name)",
+    )
+    parser.add_argument(
+        "--token",
         type=str,
         default=None,
-        help='Hugging Face API token (optional if already logged in)'
+        help="Hugging Face API token (optional if already logged in)",
     )
     parser.add_argument(
-        '--preview',
-        action='store_true',
-        help='Preview the data without uploading to Hugging Face'
+        "--preview",
+        action="store_true",
+        help="Preview the data without uploading to Hugging Face",
     )
 
     args = parser.parse_args()
@@ -210,9 +235,9 @@ def main():
     # Show preview
     print("\nDataset Preview:")
     print(f"Shape: {df.shape}")
-    print(f"\nFirst few rows:")
+    print("\nFirst few rows:")
     print(df.head())
-    print(f"\nData types:")
+    print("\nData types:")
     print(df.dtypes)
 
     if args.preview:

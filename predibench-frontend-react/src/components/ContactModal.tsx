@@ -95,7 +95,7 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
               </div>
               <div>
                 <h2 className="text-lg font-semibold">Get in Touch</h2>
-                <p className="text-sm text-muted-foreground">We'd love to hear from you</p>
+                <p className="text-sm text-muted-foreground">Any request? Contact us below.</p>
               </div>
             </div>
             <button
@@ -166,7 +166,7 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
                     required
                     rows={4}
                     className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
-                    placeholder="Tell us what's on your mind..."
+                    placeholder="Your message..."
                   />
                 </div>
                 {error && (
@@ -207,29 +207,3 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
   )
 }
 
-export function FloatingContactButton({ onClick }: { onClick: () => void }) {
-  const [isHovered, setIsHovered] = useState(false)
-
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className="fixed bottom-6 right-6 z-30 group"
-      aria-label="Contact us"
-    >
-      <div className="relative">
-        {/* Pulse animation */}
-        <div className="absolute inset-0 rounded-full bg-primary animate-ping opacity-25" />
-
-        {/* Main button */}
-        <div className="relative flex items-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-full shadow-lg hover:shadow-xl transform transition-all hover:scale-105">
-          <MessageCircle className="w-5 h-5" />
-          <span className={`font-medium transition-all ${isHovered ? 'max-w-[100px] opacity-100' : 'max-w-0 opacity-0'} overflow-hidden whitespace-nowrap`}>
-            Contact
-          </span>
-        </div>
-      </div>
-    </button>
-  )
-}
