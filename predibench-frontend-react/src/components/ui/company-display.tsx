@@ -10,26 +10,30 @@ export function CompanyDisplay({ modelName, className = "" }: CompanyDisplayProp
 
   if (!companyInfo) {
     return (
-      <span className={`text-muted-foreground text-sm ${className}`}>
-        Unknown
-      </span>
+      <div className={`flex items-center gap-1.5 h-4 ${className}`}>
+        <span className="text-sm font-normal text-muted-foreground">Unknown</span>
+      </div>
     )
   }
 
   // Special handling for baseline models - show descriptive text instead of logos
   if (modelName === 'Market baseline') {
     return (
-      <span className={`text-muted-foreground text-sm ${className}`}>
-        Bet on the top-rated outcome
-      </span>
+      <div className={`flex items-center gap-1.5 h-4 ${className}`}>
+        <span className="text-sm font-normal text-muted-foreground">
+          Bet on the top-rated outcome
+        </span>
+      </div>
     )
   }
 
   if (modelName === 'Random Baseline') {
     return (
-      <span className={`text-muted-foreground text-sm ${className}`}>
-        Bet at random
-      </span>
+      <div className={`flex items-center gap-1.5 h-4 ${className}`}>
+        <span className="text-sm font-normal text-muted-foreground">
+          Bet at random
+        </span>
+      </div>
     )
   }
 
