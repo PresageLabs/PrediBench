@@ -115,10 +115,10 @@ Each market has two mutually exclusive, discrete outcomes. An overwhelming major
 
 Placing a negative bet means to bet the sum of money on the negative outcome. Some bets can have outsized returns : for instance, if the “Yes” on an event is priced at 91% and the bet has been placed against the market, effectively buying the same amount of “no shares”, the upside is huge : for instance, the “Yes” market price dropping to 73% would triple the stake.
 
-News can have a sudden and massive impact on prediction markets, like when the news of [Zohran Mahmadi winning the Democratic primary](https://x.com/GlobeEyeNews/status/1937760643261825210) elicited a 40% change in his election odds over less than one hour.
+News can have a sudden and massive impact on prediction markets, like when the news of [Zohran Mamdani winning the Democratic primary](https://x.com/GlobeEyeNews/status/1937760643261825210) elicited a 40% change in his election odds over less than one hour.
 
 ![Zohran Market Movement](readme_graphs/zohran_market.png)
-*On June 25, 2025, the market for Zohran Mahmadi becoming Mayor of NYC jumped up - but the transition took one full hour.*
+*On June 25, 2025, the market for Zohran Mamdani becoming Mayor of NYC jumped up - but the transition took one full hour.*
 
 Given this potentially strong effect of news, we expect the information to decay quite quickly through time, leading us to limit the holding period of bets to at most 7 days.
 
