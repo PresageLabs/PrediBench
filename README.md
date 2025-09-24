@@ -316,6 +316,8 @@ Let us compare our models and the baselines:
 
 - While most models tested are not profitable, half of them beat the market baseline. The most recent and powerful ones generate a profit.
 
+Currently, [Grok is performing well with a +6% return](https://predibench.com/decision/grok-4-0709/31406/2025-09-17?source=model), to be continued as more data comes in.
+
 This shows that AI models are becoming better at forecasting!
 
 ### Predictive ability correlates well with general performance

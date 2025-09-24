@@ -246,6 +246,8 @@ While most models tested are not profitable, half of them beat the market baseli
 
 And some of the most recent/powerful ones, like GPT-5, DeepSeek R1, or Grok-4, achieve positive average returns. This profitability is confirmed by the Sharpe ratio of these models, which a Student t-test confirms to be significant at the 5% level.
 
+Currently, [Grok is performing well with a +6% return](https://predibench.com/decision/grok-4-0709/31406/2025-09-17?source=model), to be continued as more data comes in.
+
 The exellent performance of Sonar Deep Research, the only model used in Deep research mode, hints that this setup draws a strong advantage from going broader in its research, to get a richer context.
 
 {caption="Brier Score (lower is better)", path=model_performance_comprehensive_analysis/brier_score_ranking.json}
