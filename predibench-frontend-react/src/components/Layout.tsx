@@ -1,4 +1,4 @@
-import { BarChart3, Mail, Menu, Newspaper, TrendingUpDown, Trophy, X } from 'lucide-react'
+import { BarChart3, CircleHelp, Mail, Menu, Newspaper, TrendingUpDown, Trophy, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { ContactModal } from './ContactModal'
@@ -23,6 +23,7 @@ export function Layout({ children, currentPage }: LayoutProps) {
   }, [])
 
   const pages = [
+    { id: 'about', name: 'About', href: '/#predibench-testing-ai-models-on-prediction-markets', icon: CircleHelp },
     { id: 'leaderboard', name: 'Leaderboard', href: '/leaderboard', icon: Trophy },
     { id: 'models', name: 'Models', href: '/models', icon: BarChart3 },
     { id: 'events', name: 'Events', href: '/events', icon: Newspaper }

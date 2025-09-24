@@ -1,4 +1,4 @@
-import { Trophy } from 'lucide-react'
+import { Trophy, CircleHelp } from 'lucide-react'
 import { useAnalytics } from '../hooks/useAnalytics'
 
 interface NavigationProps {
@@ -6,18 +6,31 @@ interface NavigationProps {
   onPageChange: (page: string) => void
 }
 
+interface Page {
+  id: string
+  name: string
+  icon: any
+  isExternal?: boolean
+  href?: string
+}
+
 export function Navigation({ currentPage, onPageChange }: NavigationProps) {
   const { trackUserAction } = useAnalytics()
   
-  const pages = [
+  const pages: Page[] = [
+    { id: 'about', name: 'About', icon: CircleHelp, isExternal: true, href: '/#predibench-testing-ai-models-on-prediction-markets' },
     { id: 'leaderboard', name: 'Leaderboard', icon: Trophy },
     { id: 'models', name: 'Models', icon: null },
     { id: 'events', name: 'Events', icon: null }
   ]
 
-  const handlePageChange = (pageId: string) => {
+  const handlePageChange = (pageId: string, isExternal?: boolean, href?: string) => {
     trackUserAction('navigation_click', 'navigation', pageId)
-    onPageChange(pageId)
+    if (isExternal && href) {
+      window.location.href = href
+    } else {
+      onPageChange(pageId)
+    }
   }
 
   return (
@@ -25,7 +38,7 @@ export function Navigation({ currentPage, onPageChange }: NavigationProps) {
       {pages.map((page) => (
         <button
           key={page.id}
-          onClick={() => handlePageChange(page.id)}
+          onClick={() => handlePageChange(page.id, page.isExternal, page.href)}
           className={`
             px-4 py-2 font-medium text-sm transition-colors duration-200
             ${currentPage === page.id
