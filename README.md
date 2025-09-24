@@ -9,17 +9,15 @@
 
 AI models shine on within-distribution tasks, thus cracking standardized math or medicine exams; but what about predicting the future, the realm of out-of-distribution events?
 
-We decided to test this forecasting ability: **Every day, we let AI models bet $1 on top events from [Polymarket](https://polymarket.com/).**
+We decided to test this forecasting ability: **Every day, we let AI models bet 1$ on top events from [Polymarket](https://polymarket.com/).**
 
-## Key Features
+Tracking the profits on different metrics then yields the above leaderboard.
 
-- **Cannot be overfitted**: Test events are real-time prediction markets following real-world events
-- **Generalist benchmark**: Questions from Polymarket cover economics, politics, sports, pop culture, and more
-- **Tests agentic capabilities**: Models perform series of tool calls (web search, page visits) to make informed decisions
-- **Multiple metrics**: Average returns, Brier scores, Sharpe ratios
-- **Fully open source**: All code, data, and experiments available for community iteration
+- By nature, this benchmark **cannot be overfitted**: since the test events are real-time prediction markets following real-world events, there’s no chance that models have seen the test set in training.
+- It is also **generalist**, since the questions picked from Polymarket cover a wide range of newsworthy topics, from economics to pop culture.
+- It tests the **Agentic capability** of models, since they have to perform a series of tool calls towards solving their goal.
 
-## Dataset & Models
+We publish the entirety of this work in open source: code, data, experiments, to let the community iterate on it.
 
 Our dataset are available on Hugging Face:
 - **Dataset**: [PresageLabs/Predibench](https://huggingface.co/datasets/PresageLabs/Predibench)
@@ -96,7 +94,7 @@ Reflecting on the Treaty of Versailles that had just closed the World war, he we
 
 When the Second World War broke out, two decades later, it started in the exact steps that Bainville had predicted.
 
-> Bainville's stunning prescience was not a product of chance: it was a mechanical application of his immense knowledge of European geopolitics, articulated through sound judgement.
+> Bainville’s stunning prescience was not a product of chance: it was a mechanical application of his immense knowledge of European geopolitics, articulated through sound judgement.
 
 Knowledge allowed him to draw from history a myriad of events with similar aspects to his present, providing heuristics that could apply again. His good judgement then allowed to weigh and combine these historical heuristics to assess the probability distribution of different outcomes in the future, thus providing a response that defied the views of his time.
 
@@ -113,9 +111,9 @@ Thus we expect AI models to become good forecasters: we built PrediBench to put 
 
 We let LLMs place bets on prediction markets from [Polymarket](https://polymarket.com/).
 
-Each market has two mutually exclusive, discrete outcomes. An overwhelming majority of outcome couples are "Yes vs No", exceptions being for instance the two opponents of a sports match. Let us place ourselves in the "Yes vs No" alternative.
+Each market has two mutually exclusive, discrete outcomes. An overwhelming majority of outcome couples are "Yes vs No", exceptions being for instance the two opponents of a sports match. Let us place ourselves in the “Yes vs No” alternative.
 
-Placing a negative bet means to bet the sum of money on the negative outcome. Some bets can have outsized returns : for instance, if the "Yes" on an event is priced at 91% and the bet has been placed against the market, effectively buying the same amount of "no shares", the upside is huge : for instance, the "Yes" market price dropping to 73% would triple the stake.
+Placing a negative bet means to bet the sum of money on the negative outcome. Some bets can have outsized returns : for instance, if the “Yes” on an event is priced at 91% and the bet has been placed against the market, effectively buying the same amount of “no shares”, the upside is huge : for instance, the “Yes” market price dropping to 73% would triple the stake.
 
 News can have a sudden and massive impact on prediction markets, like when the news of [Zohran Mahmadi winning the Democratic primary](https://x.com/GlobeEyeNews/status/1937760643261825210) elicited a 40% change in his election odds over less than one hour.
 
@@ -130,14 +128,14 @@ Given this potentially strong effect of news, we expect the information to decay
 The investment pipeline runs for all models on regular decision dates (thrice per week for the first month). It goes as follows:
 
 1. Selection of 10 events
-- Event Choice Strategy : We focus on the **top 10 trending Polymarket events**, ranked by one-week trading volume.
-    - To avoid stagnant bets, we only pick markets that **end within two months**.
-    - By rotating through fast-moving, high-attention markets, our leaderboard stays dynamic and captures the **real pulse of prediction markets**.
-    - We also **exclude crypto events**, since their high volatility goes against our goal of testing reasoning from fundamentals.
+- Event Choice Strategy : We focus on the **top 10 trending Polymarket events**, ranked by one-week trading volume.
+    - To avoid stagnant bets, we only pick markets that **end within two months**.
+    - By rotating through fast-moving, high-attention markets, our leaderboard stays dynamic and captures the **real pulse of prediction markets**.
+    - We also **exclude crypto events**, since their high volatility goes against our goal of testing reasoning from fundamentals.
 
 2. Each model places $1 on each of the 10 events.
-- Each model is running with an agent Framework: All models ran under a **shared [smolagents](https://github.com/huggingface/smolagents) setup**. We defaulted to **CodeAgent** but switched to **ToolCallingAgent** when it reduced errors. In practice: **OpenAI** and **DeepSeek** models worked best with ToolCalling, while **Gemini** models were stronger with CodeAgent. **DeepResearch models** used their own native framework. This hybrid setup let us maximize performance across models while keeping the evaluation pipeline consistent.
-- Importantly the model is asked to provide for each market the following:
+- Each model is running with an agent Framework: All models ran under a **shared [smolagents](https://github.com/huggingface/smolagents) setup**. We defaulted to **CodeAgent** but switched to **ToolCallingAgent** when it reduced errors. In practice: **OpenAI** and **DeepSeek** models worked best with ToolCalling, while **Gemini** models were stronger with CodeAgent. **DeepResearch models** used their own native framework. This hybrid setup let us maximize performance across models while keeping the evaluation pipeline consistent.
+- Importantly the model is asked to provide for each market the following: 
 ```python
 class SingleInvestmentDecision:
     rationale: str  # Explanation for your decision and why you think this market is mispriced (or correctly priced if skipping).
@@ -231,27 +229,7 @@ output: FINAL STRUCTURED OUTPUT:
       "confidence": 8,
       "bet": 0.40
     },
-    {
-      "market_id": "560870",
-      "rationale": "Yulia Navalnaya was an early betting favorite in August due to her opposition work following Navalny's death, but she's absent from the PRIO shortlist, which prioritizes humanitarian and institutional efforts over individual dissidents this year. Recent news in September shows no momentum-building events for her, and the committee often avoids highly politicized Russian figures amid ongoing war. The market at 0.07 overprices her chances, lagging behind the shift toward groups like ERR; I see her true odds lower based on PRIO's omission and historical patterns where dissidents win only in specific contexts (e.g., Sakharov in 1975).",
-      "odds": 0.04,
-      "confidence": 6,
-      "bet": -0.15
-    },
-    {
-      "market_id": "560864",
-      "rationale": "UNRWA has faced significant controversies in 2025, including funding cuts and allegations of staff involvement in attacks, which have damaged its reputation despite its Gaza aid work. It's not on the PRIO shortlist, which favors less controversial humanitarians like ERR or courts like ICJ/ICC. The market price of 0.065 overestimates, possibly due to name recognition, but ignores these scandals and the committee's avoidance of divisive orgs (e.g., no award to similar groups recently). My lower estimate reflects recent negative press not fully priced in.",
-      "odds": 0.02,
-      "confidence": 5,
-      "bet": -0.10
-    },
-    {
-      "market_id": "560874",
-      "rationale": "Doctors Without Borders is a perennial strong candidate for humanitarian work, but it's not highlighted on the PRIO list this year, which tops with ERR for Sudan aid—a more acute, current crisis. MSF won in 1999, and repeats are rare; the market at 0.055 slightly overprices it relative to ERR's momentum. I think the market is anchoring on general reputation without accounting for PRIO's specific focus on Sudan, leading to a mispricing.",
-      "odds": 0.03,
-      "confidence": 5,
-      "bet": -0.10
-    },
+    ...
     {
       "market_id": "560856",
       "rationale": "Donald Trump has multiple nominations and recent news buzz from leaders like Netanyahu, but he's not on the PRIO shortlist, which avoids polarizing political figures without concrete peace achievements (e.g., no US presidents since Obama in 2009). His odds dropped in September likely due to election dynamics, but at 0.043, the market still overvalues name recognition over the committee's preference for non-partisan efforts. My estimate is lower, factoring in PRIO's focus on apolitical humanitarians.",
@@ -259,20 +237,7 @@ output: FINAL STRUCTURED OUTPUT:
       "confidence": 7,
       "bet": -0.10
     },
-    {
-      "market_id": "560867",
-      "rationale": "Alexei Gorinov is a Russian dissident imprisoned for anti-war statements, but like Navalnaya, he's not on PRIO's list, which emphasizes global institutions and aid over individual activists this year. The price of 0.021 overestimates, possibly due to sympathy for Russian opposition, but the committee rarely awards multiple in similar categories closely (e.g., post-Navalny focus shifted). My lower odds reflect this thematic mismatch.",
-      "odds": 0.01,
-      "confidence": 4,
-      "bet": -0.05
-    },
-    {
-      "market_id": "560868",
-      "rationale": "María Corina Machado is a key Venezuelan opposition leader amid political turmoil, but she's not on PRIO's shortlist, which prioritizes broader peace institutions. The market at 0.0115 is slightly high given competition from top picks like ERR; recent news hasn't elevated her globally. I see minor overpricing due to regional interest not translating to Nobel priority.",
-      "odds": 0.01,
-      "confidence": 4,
-      "bet": -0.05
-    }
+    ...
   ],
   "unallocated_capital": 0.05,
   "summary": "Primary bet FOR Sudan's ERR (+$0.40), betting AGAINST multiple candidates: Navalnaya (-$0.15), UNRWA (-$0.10), MSF (-$0.10), Trump (-$0.10), Gorinov (-$0.05), Machado (-$0.05)."
@@ -280,9 +245,11 @@ output: FINAL STRUCTURED OUTPUT:
 
 </details>
 
-**What Grok-4 did**: The model systematically researched multiple sources - general betting odds, expert predictions from PRIO (a respected research institute), and recent news updates. It discovered that Sudan's Emergency Response Rooms was PRIO's top pick but only priced at 17.5% in markets.
+Here, the model systematically researched multiple sources - general betting odds, expert predictions from PRIO (a respected research institute), and recent news updates. It discovered that Sudan's Emergency Response Rooms was PRIO's top pick but only priced at 17.5% in markets.
 
-**Why this rationale worked**: Grok-4 recognized that markets were likely anchoring on name recognition (Trump, Navalnaya) while undervaluing expert institutional knowledge. The PRIO shortlist has historical accuracy in predicting Nobel patterns, and Sudan's ERR fit the committee's preference for timely humanitarian work during active crises. The model correctly identified this as an information asymmetry - expert knowledge not yet reflected in market prices.
+> "Their work providing aid in Sudan's humanitarian crisis fits the committee's preference for timely, grassroots peace efforts amid conflict, similar to past laureates like MSF in 1999. The market price of 0.175 underestimates this, possibly because it's reacting to recent news but not fully accounting for PRIO's expert endorsement and the committee's pattern of awarding humanitarians in crisis years."
+
+Grok-4 displayed critical thinking, assessing that markets were likely anchoring too much on name recognition (Trump, Navalnaya) while undervaluing expert institutional knowledge. The model correctly identified this as an information asymmetry - expert knowledge not yet reflected in market prices.
 
 You can explore more agent decisions with full logs [on our platform](https://predibench.com/events/20459).
 
@@ -342,9 +309,13 @@ It appears that double-checking results increases research quality. Returns grow
 *Performance increases with the number of webpage visits during research*
 
 
-## Contributing
+## Next steps
 
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+- Please provide us feedback! Each [model decision](https://predibench.com/decision/gpt-5/42659/2025-09-17) can be commented via [giscus](https://giscus.app/), and the comments will appear directly under the repo's [discussions page](https://github.com/PresageLabs/PrediBench/discussions)
+- Do contact us about anything : [contact form](#contact).
+
+In the next months, we plan to push the boundary of AI models prediction capabilities: we are starting [Presage](https://presagelabs.com).
+
 
 ## Citation
 
@@ -370,12 +341,6 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- [Polymarket](https://polymarket.com/) for providing real-time prediction markets
-- [smolagents](https://github.com/huggingface/smolagents) for the agent framework
-- All contributors and the open-source community
 
 ---
 
