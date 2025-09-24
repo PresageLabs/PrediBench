@@ -141,7 +141,8 @@ export function DecisionAnnotation({ decision, nextDecision, onEventClick }: Dec
                       color: 'inherit',
                       cursor: 'pointer',
                       textDecoration: 'underline',
-                      transition: 'color 0.2s ease'
+                      transition: 'color 0.2s ease',
+                      textAlign: 'center'
                     }}
                     onMouseEnter={(e) => { e.currentTarget.style.color = 'hsl(var(--primary))' }}
                     onMouseLeave={(e) => { e.currentTarget.style.color = 'inherit' }}
