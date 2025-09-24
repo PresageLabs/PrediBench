@@ -2,12 +2,12 @@
 
 AI models shine on within-distribution tasks, thus cracking standardized math or medicine exams ; but what about predicting the future, the realm of out-of-distribution events ?
 
-We decided to put test this forecasting ability: **Every day, we let AI models bet 1$ on top events from [Polymarket](https://polymarket.com/).**
+We decided to test this forecasting ability: **Every day, we let AI models bet 1$ on top events from [Polymarket](https://polymarket.com/).**
 
 Tracking the profits on different metrics then yields the above leaderboard.
 
 - By nature, this benchmark **cannot be overfitted**: since the test events are real-time prediction markets following real-world events, there’s no chance that models have seen the test set in training.
-- It is also **generalist**, since the questions picked from Polymarket cover a wide range of newsworthy topic, from economics to pop culture.
+- It is also **generalist**, since the questions picked from Polymarket cover a wide range of newsworthy topics, from economics to pop culture.
 - It tests the **Agentic capability** of models, since they have to perform a series of tool calls towards solving their goal.
 
 We publish the entirety of this work in open source: code, data, experiments, to let the community iterate on it.
@@ -30,7 +30,7 @@ When the Second World War broke out, two decades later, it started in the exact 
 
 Knowledge allowed him to draw from history a myriad of events with similar aspects to his present, providing heuristics that could apply again. His good judgement then allowed to weigh and combine these historical heuristics to assess the probability distribution of different outcomes in the future, thus providing a response that defied the views of his time.
 
-**Knowledge provides the building blocks, judgement assembles them.** On both knowlege and judgement, recent progress has been massive for AI models:
+**Knowledge provides the building blocks, judgement assembles them.** On both knowledge and judgement, recent progress has been massive for AI models:
 
 - **Knowledge:** Leading models already know more in most areas of science than PhD students specialized in these areas [^GPQA]. These models possess a knowledge of both superhuman breadth and depth.
 - **Judgement:** models have historically been struggling with causality and critical thinking, but recent progress has brought them nearly up to human skill[^gold_IMO].
@@ -58,7 +58,7 @@ Given this potentially strong effect of news, we expect the information to decay
 
 The investment pipeline runs for all models on regular decision dates (thrice per week for the first month). It goes as follows:
 
-1. Seletion of 10 events
+1. Selection of 10 events
 - Event Choice Strategy : We focus on the **top 10 trending Polymarket events**, ranked by one-week trading volume.
     - To avoid stagnant bets, we only pick markets that **end within two months**.
     - By rotating through fast-moving, high-attention markets, our leaderboard stays dynamic and captures the **real pulse of prediction markets**.
@@ -70,7 +70,7 @@ The investment pipeline runs for all models on regular decision dates (thrice pe
 ```python
 class SingleInvestmentDecision:
     rationale: str  # Explanation for your decision and why you think this market is mispriced (or correctly priced if skipping).
-    estimated_probability: float # Betwen 0 and 1, Your estimate for the true probability of the market
+    estimated_probability: float # Between 0 and 1, Your estimate for the true probability of the market
     bet: float # The amount in dollars that you bet on this market (can be negative to buy the opposite of the market)
     confidence: int = # Your confidence in the estimated_probability and your bet. 0 for absolute uncertainty, 10 for absolute certainty
 ```
@@ -208,6 +208,10 @@ output: FINAL STRUCTURED OUTPUT:
 
 {/agent_example}
 
+**What Grok-4 did**: The model systematically researched multiple sources - general betting odds, expert predictions from PRIO (a respected research institute), and recent news updates. It discovered that Sudan's Emergency Response Rooms was PRIO's top pick but only priced at 17.5% in markets.
+
+**Why this rationale worked**: Grok-4 recognized that markets were likely anchoring on name recognition (Trump, Navalnaya) while undervaluing expert institutional knowledge. The PRIO shortlist has historical accuracy in predicting Nobel patterns, and Sudan's ERR fit the committee's preference for timely humanitarian work during active crises. The model correctly identified this as an information asymmetry - expert knowledge not yet reflected in market prices.
+
 You can explore more agent decisions with full logs [on our platform](https://predibench.com/events/20459).
 
 ### Metrics
@@ -218,7 +222,7 @@ We evaluate models over several metrics, emphasizing different aspect of investm
 - **Brier Score** measures probability estimates: upon generating their betting decision, models are prompted to also provide a probability estimate of the “Yes” outcome. This can be used to compute the cost function of error against the realised outcome : the Mean Squared Error between estimated probabilities and actual outcome is called the Brier Score. Possible scores range from 0 (best) to 1 (worst).
 - **Annualised Sharpe** measures volatility risk: when using AI models for financial choices, the volatility of returns is an important aspect. The [Sharpe ratio](https://en.wikipedia.org/wiki/Sharpe_ratio) allows to downweigh the average of a series of returns by its volatility, thus factoring in a measure of the risk taken by undergoing the investment. In our case, we calculate the Sharpe ratio for different holding horizons : 1 day, 2 days, 7 days. We annualize it to represent what these strategies would represent over an entire year.
 
-> Word of caution: Although these performance metrics are calculated on real market prices, they eschew some important parts of an investment pipeline, such as the bid-ask sprea, for ths sake of simplicity. This pipeline would certainly not be viable in its current state under real investment conditions.
+> Word of caution: Although these performance metrics are calculated on real market prices, they eschew some important parts of an investment pipeline, such as the bid-ask spread, for the sake of simplicity. This pipeline would certainly not be viable in its current state under real investment conditions.
 
 
 
