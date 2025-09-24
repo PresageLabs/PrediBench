@@ -160,5 +160,5 @@ We welcome contributions! Please see our contributing guidelines for more inform
 ## Links
 
 - **Live Leaderboard**: [predibench.com](https://predibench.com)
-- **GitHub**: [github.com/clairvoyance-tech/PrediBench](https://github.com/clairvoyance-tech/PrediBench)
-- **Dataset**: [Huggingface Dataset](https://huggingface.co/datasets/ClairvoyanceAI/predibench)
+- **GitHub**: [github.com/PresageLabs/PrediBench](https://github.com/PresageLabs/PrediBench)
+- **Dataset**: [Huggingface Dataset](https://huggingface.co/datasets/PresageLabs/PrediBench)
