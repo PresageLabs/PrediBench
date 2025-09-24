@@ -11,10 +11,6 @@ AI models shine on within-distribution tasks, thus cracking standardized math or
 
 We decided to test this forecasting ability: **Every day, we let AI models bet $1 on top events from [Polymarket](https://polymarket.com/).**
 
-## Live Leaderboard
-
-Check out the [**Live Leaderboard**](https://predibench.com) to see how AI models perform in real-time!
-
 ## Key Features
 
 - **Cannot be overfitted**: Test events are real-time prediction markets following real-world events
@@ -27,7 +23,6 @@ Check out the [**Live Leaderboard**](https://predibench.com) to see how AI model
 
 Our dataset and models are available on Hugging Face:
 - **Dataset**: [PresageLabs/Predibench](https://huggingface.co/datasets/PresageLabs/Predibench)
-- **Models**: [PresageLabs on Hugging Face](https://huggingface.co/PresageLabs)
 
 ## Repository Structure
 
