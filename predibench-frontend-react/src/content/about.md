@@ -183,7 +183,7 @@ Here, the model systematically researched multiple sources - general betting odd
 
 > "Their work providing aid in Sudan's humanitarian crisis fits the committee's preference for timely, grassroots peace efforts amid conflict, similar to past laureates like MSF in 1999. The market price of 0.175 underestimates this, possibly because it's reacting to recent news but not fully accounting for PRIO's expert endorsement and the committee's pattern of awarding humanitarians in crisis years."
 
-Grok-4 displayed critical thinking, assessing that markets were likely anchoring too much on name recognition (Trump, Navalnaya) while undervaluing expert institutional knowledge. The PRIO shortlist has historical accuracy in predicting Nobel patterns, and Sudan's ERR fit the committee's preference for timely humanitarian work during active crises. The model correctly identified this as an information asymmetry - expert knowledge not yet reflected in market prices.
+Grok-4 displayed critical thinking, assessing that markets were likely anchoring too much on name recognition (Trump, Navalnaya) while undervaluing expert institutional knowledge. The model correctly identified this as an information asymmetry - expert knowledge not yet reflected in market prices.
 
 You can explore more agent decisions with full logs [on our platform](https://predibench.com/events/20459).
 
