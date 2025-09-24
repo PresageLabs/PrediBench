@@ -1,6 +1,8 @@
 import json
 import os
+import time
 from datetime import datetime
+from functools import wraps
 from typing import Literal
 
 from apscheduler.schedulers.background import (
@@ -32,6 +34,24 @@ from predibench.storage_utils import read_from_storage, write_to_storage
 from pydantic import ValidationError
 
 print("Successfully imported predibench modules")
+
+
+def timing_decorator(func):
+    """Decorator to measure and print execution time of routes"""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        print(f"[TIMING] Starting route: {func.__name__}")
+        try:
+            result = func(*args, **kwargs)
+            elapsed_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+            print(f"[TIMING] Route {func.__name__} completed in {elapsed_time:.2f}ms")
+            return result
+        except Exception as e:
+            elapsed_time = (time.time() - start_time) * 1000
+            print(f"[TIMING] Route {func.__name__} failed after {elapsed_time:.2f}ms with error: {e}")
+            raise
+    return wrapper
 
 
 CACHED_DATA: list[
@@ -121,22 +141,26 @@ app.add_middleware(
 
 # API Endpoints
 @app.get("/")
+@timing_decorator
 def root():
     return {"message": "Polymarket LLM Benchmark API", "version": "1.0.0"}
 
 
 @app.get("/api/leaderboard", response_model=list[LeaderboardEntryBackend])
+@timing_decorator
 def get_leaderboard_endpoint():
     """Get the current leaderboard with LLM performance data"""
     return load_backend_cache().leaderboard
 
 
 @app.get("/api/prediction_dates", response_model=list[str])
+@timing_decorator
 def get_prediction_dates_endpoint():
     return load_backend_cache().prediction_dates
 
 
 @app.get("/api/models/ids", response_model=list[str])
+@timing_decorator
 def get_all_models_endpoint():
     """Get a list of all model IDs"""
     data = load_backend_cache()
@@ -146,11 +170,13 @@ def get_all_models_endpoint():
 
 
 @app.get("/api/model_results", response_model=list[ModelInvestmentDecisions])
+@timing_decorator
 def get_model_results_endpoint():
     return load_backend_cache().model_decisions
 
 
 @app.get("/api/model_results/by_id", response_model=list[ModelInvestmentDecisions])
+@timing_decorator
 def get_model_results_by_id_endpoint(model_id: str):
     data = load_backend_cache()
     results = data.model_results_by_id.get(model_id)
@@ -160,6 +186,7 @@ def get_model_results_by_id_endpoint(model_id: str):
 
 
 @app.get("/api/model_results/by_date", response_model=list[ModelInvestmentDecisions])
+@timing_decorator
 def get_model_results_by_date_endpoint(prediction_date: str):
     data = load_backend_cache()
     results = data.model_results_by_date.get(prediction_date)
@@ -169,6 +196,7 @@ def get_model_results_by_date_endpoint(prediction_date: str):
 
 
 @app.get("/api/model_results/by_id_and_date", response_model=ModelInvestmentDecisions)
+@timing_decorator
 def get_model_results_by_id_and_date_endpoint(model_id: str, prediction_date: str):
     data = load_backend_cache()
     by_id = data.model_results_by_id_and_date.get(model_id)
@@ -183,6 +211,7 @@ def get_model_results_by_id_and_date_endpoint(model_id: str, prediction_date: st
 
 
 @app.get("/api/model_results/by_event", response_model=list[ModelInvestmentDecisions])
+@timing_decorator
 def get_model_results_by_event_id_endpoint(event_id: str):
     data = load_backend_cache()
     results = data.model_results_by_event_id.get(event_id)
@@ -192,6 +221,7 @@ def get_model_results_by_event_id_endpoint(event_id: str):
 
 
 @app.get("/api/performance", response_model=list[ModelPerformanceBackend])
+@timing_decorator
 def get_performance_endpoint():
     """Return model performance by day."""
     data = load_backend_cache()
@@ -199,6 +229,7 @@ def get_performance_endpoint():
 
 
 @app.get("/api/performance/by_model", response_model=ModelPerformanceBackend)
+@timing_decorator
 def get_performance_by_model_endpoint(model_id: str):
     """Return performance for a specific model, by day."""
     data = load_backend_cache()
@@ -210,6 +241,7 @@ def get_performance_by_model_endpoint(model_id: str):
 
 
 @app.get("/api/events/by_id", response_model=EventBackend)
+@timing_decorator
 def get_event_endpoint(event_id: str):
     """Get a specific event"""
     data = load_backend_cache()
@@ -220,6 +252,7 @@ def get_event_endpoint(event_id: str):
 
 
 @app.get("/api/events", response_model=list[EventBackend])
+@timing_decorator
 def get_events_endpoint(
     search: str = "",
     sort_by: Literal["volume", "date"] = "volume",
@@ -258,6 +291,7 @@ def get_events_endpoint(
 
 
 @app.get("/api/events/all", response_model=list[EventBackend])
+@timing_decorator
 def get_all_events_endpoint():
     """Get all events without filtering"""
     return load_backend_cache().events
@@ -266,6 +300,7 @@ def get_all_events_endpoint():
 @app.get(
     "/api/decision_details/by_model_and_event", response_model=FullModelResult | None
 )
+@timing_decorator
 def get_decision_details_by_model_and_event_endpoint(
     model_id: str, event_id: str, target_date: str
 ):
@@ -275,6 +310,7 @@ def get_decision_details_by_model_and_event_endpoint(
 
 @app.post("/api/contact")
 @limiter.limit("5 per hour")
+@timing_decorator
 def submit_contact_form(request: Request, submission: ContactFormSubmission):
     """Save contact form submission to storage"""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
