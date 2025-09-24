@@ -21,7 +21,7 @@ We decided to test this forecasting ability: **Every day, we let AI models bet $
 
 ## Dataset & Models
 
-Our dataset and models are available on Hugging Face:
+Our dataset are available on Hugging Face:
 - **Dataset**: [PresageLabs/Predibench](https://huggingface.co/datasets/PresageLabs/Predibench)
 
 ## Repository Structure
