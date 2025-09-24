@@ -13,12 +13,14 @@ interface LeaderboardTableProps {
   leaderboard: LeaderboardEntry[]
   loading?: boolean
   initialVisibleModels?: number
+  showExpandButton?: boolean
 }
 
 export function LeaderboardTable({
   leaderboard,
   loading = false,
-  initialVisibleModels = 10
+  initialVisibleModels = 10,
+  showExpandButton = true
 }: LeaderboardTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('average_returns')
   const [leaderboardExpanded, setLeaderboardExpanded] = useState<boolean>(false)
@@ -132,8 +134,9 @@ export function LeaderboardTable({
 
       <div className="relative">
         <div
-          className={`overflow-hidden transition-all duration-300 ${leaderboardExpanded ? 'max-h-none' : 'max-h-[500px]'
-            }`}
+          className={`overflow-hidden transition-all duration-300 ${
+            !showExpandButton || leaderboardExpanded ? 'max-h-none' : 'max-h-[500px]'
+          }`}
         >
           <div className="bg-card rounded-xl border border-border/30 overflow-hidden">
             <div className="overflow-x-auto">
@@ -147,7 +150,7 @@ export function LeaderboardTable({
                         onClick={() => handleSort('average_returns')}
                         className="flex items-center justify-center gap-0.5 hover:text-primary transition-colors cursor-pointer"
                       >
-                        <ArrowDown className={`h-4 w-4 flex-shrink-0 ${sortKey === 'average_returns' ? 'text-primary' : 'opacity-40'}`} />
+                        <ArrowDown className={`h-4 w-4 flex-shrink-0 ${sortKey === 'average_returns' ? 'text-primary' : ''}`} />
                         <span className="text-center leading-tight">Average Returns</span>
                         <div className="flex-shrink-0"><InfoTooltip content="Average return per prediction across all bets. Each bet's return is calculated at 7 days. [Learn about our metrics](/#metrics)" /></div>
                       </div>
@@ -158,7 +161,7 @@ export function LeaderboardTable({
                         className="flex items-center justify-center gap-0.5 hover:text-primary transition-colors cursor-pointer"
                         title="Brier Score - Lower values indicate better prediction accuracy (0 = perfect, 1 = worst)"
                       >
-                        <ArrowDown className={`h-4 w-4 flex-shrink-0 ${sortKey === 'brier_score' ? 'text-primary' : 'opacity-40'}`} />
+                        <ArrowDown className={`h-4 w-4 flex-shrink-0 ${sortKey === 'brier_score' ? 'text-primary' : ''}`} />
                         <span className="text-center leading-tight">Brier Score</span>
                         <div className="flex-shrink-0"><BrierScoreInfoTooltip /></div>
                       </div>
@@ -168,7 +171,7 @@ export function LeaderboardTable({
                         onClick={() => handleSort('sharpe')}
                         className="flex items-center justify-center gap-0.5 hover:text-primary transition-colors cursor-pointer"
                       >
-                        <ArrowDown className={`h-4 w-4 flex-shrink-0 ${sortKey === 'sharpe' ? 'text-primary' : 'opacity-40'}`} />
+                        <ArrowDown className={`h-4 w-4 flex-shrink-0 ${sortKey === 'sharpe' ? 'text-primary' : ''}`} />
                         <span className="text-center leading-tight">Annualized Sharpe</span>
                         <div className="flex-shrink-0"><InfoTooltip content="Risk-adjusted return metric: Sharpe ratio is the ratio of the average 7-day return to the standard deviation of the returns. Green indicates statistically significant positive performance, computed using 5% significance t-statistic using the number of bets placed. [Learn more about our metrics](/#metrics)" /></div>
                       </div>
@@ -182,10 +185,10 @@ export function LeaderboardTable({
                   {loading && leaderboard.length === 0 ? (
                     Array.from({ length: 5 }).map((_, index) => (
                       <tr key={index} className="border-t border-border/20">
-                        <td className="py-2 px-3 text-center">
+                        <td className="py-4 px-3 text-center">
                           <div className="h-4 bg-gray-200 rounded animate-pulse w-8 mx-auto"></div>
                         </td>
-                        <td className="py-2 px-4">
+                        <td className="py-4 px-4">
                           <div className="h-4 bg-gray-200 rounded animate-pulse w-32 mb-2"></div>
                           <div className="h-3 bg-gray-200 rounded animate-pulse w-20 ml-2"></div>
                         </td>
@@ -206,7 +209,7 @@ export function LeaderboardTable({
                   ) : (
                     sortedLeaderboard.map((model, index) => (
                       <tr key={model.model_id} className="border-t border-border/20 hover:bg-muted/20 transition-colors">
-                        <td className="py-2 px-3 text-center">
+                        <td className="py-4 px-3 text-center">
                           <span className={index <= 2 ? "text-2xl" : "text-md font-medium text-muted-foreground"}>
                             {index === 0 ? '🥇' :
                               index === 1 ? '🥈' :
@@ -214,7 +217,7 @@ export function LeaderboardTable({
                                   `#${index + 1}`}
                           </span>
                         </td>
-                        <td className="py-2 px-4">
+                        <td className="py-4 px-4">
                           <div>
                             <a
                               href={`/models?selected=${encodeSlashes(model.model_id)}`}
@@ -239,7 +242,9 @@ export function LeaderboardTable({
                         </td>
                         <td className="py-4 px-4 text-center font-medium">
                           <a href={`/models?selected=${encodeSlashes(model.model_id)}`} className="block">
-                            {model.final_brier_score.toFixed(3)}
+                            <span>
+                              {model.final_brier_score.toFixed(3)}
+                            </span>
                           </a>
                         </td>
                         <td className="hidden md:table-cell py-4 px-4 text-center font-medium">
@@ -271,7 +276,7 @@ export function LeaderboardTable({
             </div>
           </div>
         </div>
-        {!leaderboardExpanded && sortedLeaderboard.length > initialVisibleModels && (
+        {showExpandButton && !leaderboardExpanded && sortedLeaderboard.length > initialVisibleModels && (
           <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-background to-transparent flex items-end justify-center pb-2">
             <button
               onClick={() => setLeaderboardExpanded(true)}

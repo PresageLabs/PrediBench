@@ -79,6 +79,7 @@ export function LeaderboardPage({ leaderboard, loading = false }: LeaderboardPag
         <LeaderboardTable
           leaderboard={leaderboard}
           loading={loading}
+          showExpandButton={false}
         />
       </div>
 

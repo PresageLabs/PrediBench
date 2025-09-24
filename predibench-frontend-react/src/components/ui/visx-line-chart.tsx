@@ -586,7 +586,7 @@ export function VisxLineChart({
                       width: '10px',
                       height: '10px',
                       borderRadius: '50%',
-                      backgroundColor: colorByDataKey[tooltip.lineConfig.dataKey] || tooltip.lineConfig.stroke,
+                      backgroundColor: colorByDataKey[tooltip.lineConfig.dataKey],
                       border: '2px solid white',
                       zIndex: 1000
                     }}
@@ -598,7 +598,7 @@ export function VisxLineChart({
                       top: tooltip.adjustedY,
                       transform: anchorRight ? 'translate(-100%, -50%)' : 'translateY(-50%)',
                       zIndex: 1001,
-                      backgroundColor: colorByDataKey[tooltip.lineConfig.dataKey] || tooltip.lineConfig.stroke,
+                      backgroundColor: colorByDataKey[tooltip.lineConfig.dataKey],
                       color: 'white',
                       padding: '4px 8px',
                       borderRadius: '6px',
