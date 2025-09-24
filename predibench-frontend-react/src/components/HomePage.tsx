@@ -1,4 +1,3 @@
-import { TrendingUpDown } from 'lucide-react'
 import type { LeaderboardEntry } from '../api'
 import MarkdownRenderer from '../lib/MarkdownRenderer'
 import { LeaderboardTable } from './LeaderboardTable'
@@ -17,9 +16,9 @@ export function HomePage({ leaderboard, loading = false }: HomePageProps) {
       {/* Page Title and Subtitle */}
       <div className="text-center mb-8 mt-6">
         <h1 className="text-4xl font-bold mb-4 flex items-center justify-center gap-3">
-          PrediBench
-          <TrendingUpDown size={36} />
+          PrediBench: AI models bet on the future
         </h1>
+        <p>We let AI models bet on Polymarket, and track their performance.</p>
       </div>
 
       {/* Leaderboard Table */}

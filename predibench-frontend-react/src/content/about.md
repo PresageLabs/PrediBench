@@ -234,15 +234,17 @@ Two baselines are added to the set:
 
 ## Results
 
-Let us compare our models and the baselines:
+### Top AI models beat the market baseline 🏆
 
 {caption="Average returns (7 days)", path=model_performance_comprehensive_analysis/average_return_ranking.json}
 
+While most models tested are not profitable, half of them beat the market baseline on Average returns.
+
+And some of the most recent/powerful ones, like GPT-5, DeepSeek R1, or Grok-4, achieve positive average returns. This profitability is confirmed by the Sharpe ratio of these models, which a Student t-test confirms to be significant at the 5% level.
+
+The exellent performance of Sonar Deep Research, the only model used in Deep research mode, hints that this setup draws a strong advantage from going broader in its research, to get a richer context.
+
 {caption="Brier Score (lower is better)", path=model_performance_comprehensive_analysis/brier_score_ranking.json}
-
-- While most models tested are not profitable, half of them beat the market baseline. And the most recent/powerful ones draw a profit.
-
-This shows that AI models are becoming better at forecasting!
 
 ### Predictive ability correlates well with general performance
 
