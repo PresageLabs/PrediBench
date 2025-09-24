@@ -2,7 +2,6 @@ import { TrendingUpDown } from 'lucide-react'
 import type { LeaderboardEntry } from '../api'
 import MarkdownRenderer from '../lib/MarkdownRenderer'
 import { LeaderboardTable } from './LeaderboardTable'
-import { RedirectButton } from './ui/redirect-button'
 import { TableOfContents } from './TableOfContents'
 // eslint-disable-next-line import/no-relative-packages
 import aboutContent from '../content/about.md?raw'
@@ -30,11 +29,8 @@ export function HomePage({ leaderboard, loading = false }: HomePageProps) {
           loading={loading}
           initialVisibleModels={10}
         />
-        <div className="text-center mt-6 space-y-3">
-          <RedirectButton href="/leaderboard">
-            Detailed leaderboard and profit curves
-          </RedirectButton>
-          <div className="text-sm text-muted-foreground md:hidden">
+        <div className="text-center mt-6 space-y-3 md:hidden">
+          <div className="text-sm text-muted-foreground">
             Quick links:
             <a href="#methods" className="text-primary hover:underline mx-2">Methods</a>•
             <a href="#metrics" className="text-primary hover:underline mx-2">Metrics</a>•
