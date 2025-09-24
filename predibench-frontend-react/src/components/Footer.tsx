@@ -22,7 +22,11 @@ export function Footer({ onContactClick }: FooterProps) {
                 key={index}
                 href={link.href}
                 onClick={link.onClick ? (e) => { e.preventDefault(); link.onClick!(); } : undefined}
-                className="text-muted-foreground hover:text-foreground text-sm font-medium transition-colors cursor-pointer"
+                className={`text-sm font-medium transition-colors cursor-pointer ${
+                  link.name === 'Contact'
+                    ? 'text-blue-500 hover:text-blue-600'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
               >
                 {link.name}
               </a>

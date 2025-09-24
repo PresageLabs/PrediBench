@@ -95,7 +95,7 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
               </div>
               <div>
                 <h2 className="text-lg font-semibold">Get in Touch</h2>
-                <p className="text-sm text-muted-foreground">We'd love to hear from you</p>
+                <p className="text-sm text-muted-foreground">Any request? Contact us below.</p>
               </div>
             </div>
             <button
@@ -166,7 +166,7 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
                     required
                     rows={4}
                     className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
-                    placeholder="Tell us what's on your mind..."
+                    placeholder="Your message..."
                   />
                 </div>
                 {error && (

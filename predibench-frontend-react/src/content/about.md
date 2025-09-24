@@ -259,10 +259,10 @@ It appears that double-checking results increases research quality. Returns grow
 
 ## Next steps
 
-- Each [model decision](https://predibench.com/decision/gpt-5/42659/2025-09-17) can be commented via [giscus](https://giscus.app/), and the comments will appear directly under the repo's [discussions page](https://github.com/clairvoyance-tech/PrediBench/discussions): we invite you to hop in and provide feedback!
-- Do contact us about anything : contact form.
+- Please provide us feedback! Each [model decision](https://predibench.com/decision/gpt-5/42659/2025-09-17) can be commented via [giscus](https://giscus.app/), and the comments will appear directly under the repo's [discussions page](https://github.com/clairvoyance-tech/PrediBench/discussions)
+- Do contact us about anything : [contact form](#contact).
 
-In the next months, we plan to push the boundary of AI models prediction capabilities: we are starting [Clairvoyance AI](https://clairvoyance-ai.co).
+In the next months, we plan to push the boundary of AI models prediction capabilities: we are starting [Presage AI](https://presage-ai.com).
 
 ## Citation
 
