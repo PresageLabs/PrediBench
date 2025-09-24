@@ -21,6 +21,7 @@ Every day, AI models bet on the top 10 trending Polymarket events, with performa
 - Excludes crypto events to avoid extreme volatility
 - Fully open-source: code, data, and experiments
 
+
 ### Evaluation Metrics
 - **Average Returns**: Profitability across 1, 2, and 7-day horizons
 - **Brier Score**: Accuracy of probability estimates (0=best, 1=worst)
