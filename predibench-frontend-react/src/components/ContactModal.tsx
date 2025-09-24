@@ -207,29 +207,3 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
   )
 }
 
-export function FloatingContactButton({ onClick }: { onClick: () => void }) {
-  const [isHovered, setIsHovered] = useState(false)
-
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      className="fixed bottom-6 right-6 z-30 group"
-      aria-label="Contact us"
-    >
-      <div className="relative">
-        {/* Pulse animation */}
-        <div className="absolute inset-0 rounded-full bg-primary animate-ping opacity-25" />
-
-        {/* Main button */}
-        <div className="relative flex items-center gap-2 px-4 py-3 bg-primary text-primary-foreground rounded-full shadow-lg hover:shadow-xl transform transition-all hover:scale-105">
-          <MessageCircle className="w-5 h-5" />
-          <span className={`font-medium transition-all ${isHovered ? 'max-w-[100px] opacity-100' : 'max-w-0 opacity-0'} overflow-hidden whitespace-nowrap`}>
-            Contact
-          </span>
-        </div>
-      </div>
-    </button>
-  )
-}

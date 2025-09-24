@@ -1,10 +1,15 @@
 
-export function Footer() {
+interface FooterProps {
+  onContactClick?: () => void
+}
+
+export function Footer({ onContactClick }: FooterProps) {
   const links = [
     { name: 'About', href: '/#About' },
     { name: 'Leaderboard', href: '/leaderboard' },
     { name: 'Models', href: '/models' },
     { name: 'Events', href: '/events' },
+    { name: 'Contact', href: '#', onClick: onContactClick },
   ]
 
   return (
@@ -16,7 +21,8 @@ export function Footer() {
               <a
                 key={index}
                 href={link.href}
-                className="text-muted-foreground hover:text-foreground text-sm font-medium transition-colors"
+                onClick={link.onClick ? (e) => { e.preventDefault(); link.onClick!(); } : undefined}
+                className="text-muted-foreground hover:text-foreground text-sm font-medium transition-colors cursor-pointer"
               >
                 {link.name}
               </a>

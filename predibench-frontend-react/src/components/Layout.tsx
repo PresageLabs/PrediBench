@@ -1,7 +1,7 @@
-import { BarChart3, Menu, Newspaper, TrendingUpDown, Trophy, X } from 'lucide-react'
+import { BarChart3, Mail, Menu, Newspaper, TrendingUpDown, Trophy, X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
-import { ContactModal, FloatingContactButton } from './ContactModal'
+import { ContactModal } from './ContactModal'
 import { Footer } from './Footer'
 import { ThemeToggle } from './ui/ThemeToggle'
 
@@ -57,6 +57,15 @@ export function Layout({ children, currentPage }: LayoutProps) {
                     </div>
                   </a>
                 ))}
+                <button
+                  onClick={() => setIsContactModalOpen(true)}
+                  className="px-3 py-2 font-medium text-sm transition-colors duration-200 text-muted-foreground hover:text-foreground"
+                >
+                  <div className="flex items-center space-x-2">
+                    <Mail size={16} />
+                    <span>Contact</span>
+                  </div>
+                </button>
               </nav>
               <ThemeToggle />
             </div>
@@ -94,6 +103,18 @@ export function Layout({ children, currentPage }: LayoutProps) {
                     </div>
                   </a>
                 ))}
+                <button
+                  onClick={() => {
+                    setIsContactModalOpen(true)
+                    setIsMobileMenuOpen(false)
+                  }}
+                  className="px-3 py-2 font-medium text-sm transition-colors duration-200 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent text-left"
+                >
+                  <div className="flex items-center space-x-2">
+                    <Mail size={16} />
+                    <span>Contact</span>
+                  </div>
+                </button>
                 <div className="px-3 py-2">
                   <ThemeToggle />
                 </div>
@@ -109,10 +130,8 @@ export function Layout({ children, currentPage }: LayoutProps) {
       </main>
 
       {/* Footer */}
-      <Footer />
+      <Footer onContactClick={() => setIsContactModalOpen(true)} />
 
-      {/* Floating Contact Button */}
-      <FloatingContactButton onClick={() => setIsContactModalOpen(true)} />
 
       {/* Contact Modal */}
       <ContactModal

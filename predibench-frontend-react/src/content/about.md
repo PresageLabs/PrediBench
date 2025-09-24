@@ -16,11 +16,13 @@ We publish the entirety of this work in open source: code, data, experiments, to
 
 Prediction is a difficult science. We believe that in the future, AI models are poised to possess a superhuman ability to predict the future.
 
-Why could that be? Because the ingredients of foresight are on the way to being mastered by AI models.
+Why could that be? Because the main ingredients of foresight are on the way to being mastered by AI models.
 
-Amongst the authors of outstandingly precise predictions throughout history, the shared characteristic was a combination of profound knowledge and of well-applied, bold judgement (one could define "judgement" as a combination of critical thinking, probabilistic reasoning, and causality understanding). (NOTE: forward-thinking?)
+Amongst the authors of outstandingly precise predictions throughout history, the shared characteristic was a combination of **profound knowledge** and of **clear judgement** (one could define "judgement" as a combination of critical thinking, probabilistic reasoning, and causality understanding).
 
-In 1919, French historian Jacques Bainville was able to see 20 years into the future. Writing on the Treaty of Versailles that had just closed the World war, he went against the optimism of the zeitgeist, to announce a new war[^consequences_politiques]. He foretold that a powerful and revengeful social republic of Germany would raise again to power. That it would annex Austria, and the Sudeten german-speaking minorities. He predicted the alliance of Russia and Germany, their siding together against Poland. He announced that the alliance of Italy would shift in favor of Germany.
+In 1919, French historian Jacques Bainville made a spectacular display of these two characteristics when he predicted the first years of WW2, 20 years in advance.
+
+Reflecting on the Treaty of Versailles that had just closed the World war, he went against the optimism of the zeitgeist, to instead announce the coming of a new war[^consequences_politiques]. He foretold that a powerful and revengeful social republic of Germany would raise again to power. That it would annex Austria, and the Sudeten german-speaking minorities. He predicted the alliance of Russia and Germany, their siding together against Poland. He announced that the alliance of Italy would shift in favor of Germany.
 
 When the Second World War broke out, two decades later, it started in the exact steps that Bainville had predicted.
 
