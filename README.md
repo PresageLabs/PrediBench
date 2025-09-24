@@ -286,6 +286,9 @@ output: FINAL STRUCTURED OUTPUT:
 
 You can explore more agent decisions with full logs [on our platform](https://predibench.com/events/20459).
 
+Currently, [Grok is performing well with a +6% return](https://predibench.com/decision/grok-4-0709/31406/2025-09-17?source=model), to be continued as more data comes in.
+
+
 ### Metrics
 
 We evaluate models over several metrics, emphasizing different aspects of investment choices:
