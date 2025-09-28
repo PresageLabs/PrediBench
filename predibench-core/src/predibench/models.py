@@ -8,6 +8,12 @@ MODELS_BY_PROVIDER = {
             inference_provider="xai",
             company_pretty_name="xAI",
         ),
+        ModelInfo(
+            model_id="grok-4-fast-non-reasoning",
+            model_pretty_name="Grok 4",
+            inference_provider="xai",
+            company_pretty_name="xAI",
+        ),
     ],
     "openai": [
         ModelInfo(
@@ -136,12 +142,6 @@ MODELS_BY_PROVIDER = {
         ModelInfo(
             model_id="claude-sonnet-4-20250514",
             model_pretty_name="Claude Sonnet 4",
-            inference_provider="anthropic",
-            company_pretty_name="Anthropic",
-        ),
-        ModelInfo(
-            model_id="claude-opus-4-1-20250805",
-            model_pretty_name="Claude Opus 4.1",
             inference_provider="anthropic",
             company_pretty_name="Anthropic",
         ),
