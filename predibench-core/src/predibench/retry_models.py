@@ -40,17 +40,15 @@ def is_rate_limit_error(exception):
         or "rate_limit" in error_str
     )
 
+
 def remove_content_after_stop_sequences(content: str, stop_sequences: list[str]) -> str:
     """Remove content after any stop sequence is encountered."""
     if not content or not stop_sequences:
         return content
     for stop_seq in stop_sequences:
         split = content.split(stop_seq)
-        if len(split) == 0 or len(split) == 1 or len(split) == 2:
-            continue
-        else:
-            # more than 2 stop sequences, the model did not stop properly so we truncate the content
-            content = stop_seq.join(split[:2])
+        if len(split) > 1:
+            content = split[0]
     return content
 
 
@@ -82,7 +80,9 @@ def add_retry_logic(base_class: Type[T], wait_time: float = 0) -> Type[T]:
                 tools_to_call_from=tools_to_call_from,
                 **kwargs,
             )
-            result.content = remove_content_after_stop_sequences(content=result.content, stop_sequences=stop_sequences)
+            result.content = remove_content_after_stop_sequences(
+                content=result.content, stop_sequences=stop_sequences
+            )
             return result
 
         @retry(
@@ -109,7 +109,9 @@ def add_retry_logic(base_class: Type[T], wait_time: float = 0) -> Type[T]:
                 tools_to_call_from=tools_to_call_from,
                 **kwargs,
             )
-            result.content = remove_content_after_stop_sequences(content=result.content, stop_sequences=stop_sequences)
+            result.content = remove_content_after_stop_sequences(
+                content=result.content, stop_sequences=stop_sequences
+            )
             return result
 
     ModelWithRetry.__name__ = f"{base_class.__name__}WithRetry"
