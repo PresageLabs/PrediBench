@@ -438,7 +438,6 @@ def run_smolagents(
     max_steps: int,
 ) -> CompleteMarketInvestmentDecisions:
     """Run smolagent for event-level analysis with structured output."""
-    print("FULL QUESTION:\n", question)
     model_client = model_info.client
     assert model_client is not None, "Model client is not set"
 
