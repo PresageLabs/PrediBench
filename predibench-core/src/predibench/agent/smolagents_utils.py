@@ -398,10 +398,6 @@ class FinalAnswerTool(Tool):
 #     return parse_market_decisions_and_unallocated(market_decisions, unallocated_capital)
 
 
-# print(final_answer.inputs)
-# quit()
-
-
 class ListMarketInvestmentDecisions(BaseModel):
     market_investment_decisions: list[MarketInvestmentDecision]
     unallocated_capital: float
