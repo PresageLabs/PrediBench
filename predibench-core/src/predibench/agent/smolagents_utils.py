@@ -31,7 +31,6 @@ from smolagents import (
     Tool,
     ToolCallingAgent,
     VisitWebpageTool,
-    tool,
 )
 from tenacity import (
     after_log,
@@ -233,12 +232,14 @@ class ScrapflyVisitWebPageTool(VisitWebpageToolWithSources):
         super().__init__()
         self.asp = asp
         self.render_js = render_js
+        self.visited_webpages_count = 0
 
     def forward(self, url: str) -> str:
         markdown_content = visit_webpage_scrapfly(
             url, asp=self.asp, render_js=self.render_js
         )
         self._add_source(url)
+        self.visited_webpages_count += 1
         return markdown_content
 
 
@@ -346,24 +347,59 @@ def parse_market_decisions_and_unallocated(
     return validated_decisions, unallocated_capital
 
 
-@tool
-def final_answer(
-    market_decisions: list[dict], unallocated_capital: float
-) -> tuple[list[MarketInvestmentDecision], float]:
-    """
-    Use this tool to validate and return the final event decisions for all relevant markets.
-    Provide decisions for all markets you want to bet on.
+class FinalAnswerTool(Tool):
+    name = "final_answer"
+    description = "Use this tool to validate and return the final event decisions for all relevant markets. Provide decisions for all markets you want to bet on."
+    inputs = {
+        "market_decisions": {
+            "type": "array",
+            "items": {"type": "object"},
+            "description": "List of market decisions. Each dict should contain: 1. market_id (str): The market ID 2. rationale (str): Explanation for your decision and why you think this market is mispriced (or correctly priced if skipping). Write at least a few sentences. If you take a strong bet, make sure to highlight the facts you know/value that the market doesn't. 3. estimated_probability (float, 0 to 1): The estimated_probability you think the market will settle at (your true probability estimate) 4. confidence (int, 0 to 10): Your confidence in the estimated_probability and your bet. Should be between 0 (absolute uncertainty, you shouldn't bet if you're not confident) and 10 (absolute certainty, then you can bet high). 5. bet (float, -1 to 1): The amount in dollars that you bet on this market (can be negative if you want to buy the opposite of the market)",
+        },
+        "unallocated_capital": {
+            "type": "number",
+            "description": "Fraction of capital not allocated to any bet (0.0 to 1.0)",
+        },
+    }
+    output_type = "array"
 
-    Args:
-        market_decisions (list[dict]): List of market decisions. Each dict should contain:
-            1. market_id (str): The market ID
-            2. rationale (str): Explanation for your decision and why you think this market is mispriced (or correctly priced if skipping). Write at least a few sentences. If you take a strong bet, make sure to highlight the facts you know/value that the market doesn't.
-            3. estimated_probability (float, 0 to 1): The estimated_probability you think the market will settle at (your true probability estimate)
-            4. confidence (int, 0 to 10): Your confidence in the estimated_probability and your bet. Should be between 0 (absolute uncertainty, you shouldn't bet if you're not confident) and 10 (absolute certainty, then you can bet high).
-            5. bet (float, -1 to 1): The amount in dollars that you bet on this market (can be negative if you want to buy the opposite of the market)
-        unallocated_capital (float): Fraction of capital not allocated to any bet (0.0 to 1.0)
-    """
-    return parse_market_decisions_and_unallocated(market_decisions, unallocated_capital)
+    def __init__(self, visit_webpage_tool: VisitWebpageToolWithSources):
+        super().__init__()
+        self.visit_webpage_tool = visit_webpage_tool
+
+    def forward(
+        self, market_decisions: list[dict], unallocated_capital: float
+    ) -> tuple[list[MarketInvestmentDecision], float]:
+        assert self.visit_webpage_tool.visited_webpages_count >= 2, (
+            "You need to visit at least 2 webpages using visit_webpage before returning the final answer!"
+        )
+        return parse_market_decisions_and_unallocated(
+            market_decisions, unallocated_capital
+        )
+
+
+# @tool
+# def final_answer(
+#     market_decisions: list[dict], unallocated_capital: float
+# ) -> tuple[list[MarketInvestmentDecision], float]:
+#     """
+#     Use this tool to validate and return the final event decisions for all relevant markets.
+#     Provide decisions for all markets you want to bet on.
+
+#     Args:
+#         market_decisions (list[dict]): List of market decisions. Each dict should contain:
+#             1. market_id (str): The market ID
+#             2. rationale (str): Explanation for your decision and why you think this market is mispriced (or correctly priced if skipping). Write at least a few sentences. If you take a strong bet, make sure to highlight the facts you know/value that the market doesn't.
+#             3. estimated_probability (float, 0 to 1): The estimated_probability you think the market will settle at (your true probability estimate)
+#             4. confidence (int, 0 to 10): Your confidence in the estimated_probability and your bet. Should be between 0 (absolute uncertainty, you shouldn't bet if you're not confident) and 10 (absolute certainty, then you can bet high).
+#             5. bet (float, -1 to 1): The amount in dollars that you bet on this market (can be negative if you want to buy the opposite of the market)
+#         unallocated_capital (float): Fraction of capital not allocated to any bet (0.0 to 1.0)
+#     """
+#     return parse_market_decisions_and_unallocated(market_decisions, unallocated_capital)
+
+
+# print(final_answer.inputs)
+# quit()
 
 
 class ListMarketInvestmentDecisions(BaseModel):
@@ -406,20 +442,23 @@ def run_smolagents(
     max_steps: int,
 ) -> CompleteMarketInvestmentDecisions:
     """Run smolagent for event-level analysis with structured output."""
+    print("FULL QUESTION:\n", question)
     model_client = model_info.client
     assert model_client is not None, "Model client is not set"
 
     if cutoff_date is not None:
         assert cutoff_date < date.today()
 
-    google_search_tool = GoogleSearchTool(
-        provider=search_provider, cutoff_date=cutoff_date
-    )
     visit_webpage_tool = ScrapflyVisitWebPageTool()
+    google_search_tool = GoogleSearchTool(
+        provider=search_provider,
+        cutoff_date=cutoff_date,
+    )
+    final_answer_tool = FinalAnswerTool(visit_webpage_tool=visit_webpage_tool)
     tools = [
         google_search_tool,
         visit_webpage_tool,
-        final_answer,
+        final_answer_tool,
     ]
     if model_info.agent_type == "code":
         agent = CodeAgent(

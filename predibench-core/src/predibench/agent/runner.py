@@ -1,3 +1,4 @@
+import textwrap
 import time
 from datetime import date, datetime
 
@@ -313,7 +314,7 @@ You are an expert prediction-market analyst. You have been given an amount of US
 </available_markets>
 
 <analysis_guidelines>
-- Use web search to gather up-to-date information about this event
+- Use web search to gather up-to-date information about this event.
 - Be critical of any sources, and be cautious of sensationalized headlines or partisan sources
 - If some web search results appear to indicate the event's outcome directly, that would be weird because the event should still be unresolved : so double-check that they do not refer to another event, for instance unrelated or long past.
 - Only place a bet when you estimate that the market is mispriced.
@@ -370,7 +371,12 @@ You are an expert prediction-market analyst. You have been given an amount of US
     else:
         complete_market_investment_decisions = run_smolagents(
             model_info=model_info,
-            question=full_question,
+            question=full_question
+            + textwrap.dedent("""
+            <additional_guidelines>
+            You have to use the web_search tool in at least 2 different queries, to get a wider view of the question.
+            Also, you need to use tool visit_webpage at least 2 times to confirm or infirm information.
+            </additional_guidelines>"""),
             cutoff_date=target_date if backward_mode else None,
             search_provider="bright_data",
             max_steps=20,

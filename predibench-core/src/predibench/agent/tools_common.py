@@ -5,10 +5,14 @@ from datetime import date
 from typing import Literal, Tuple
 
 import requests
+from dotenv import load_dotenv
 from markdownify import markdownify as md
 from predibench.logger_config import get_logger
 
 logger = get_logger(__name__)
+
+load_dotenv()
+assert os.getenv("SCRAPFLY_API_KEY") is not None
 
 
 def web_search_common(
@@ -57,7 +61,9 @@ def web_search_common(
             "url": search_url,
             "format": "json",
         }
-        response = requests.post("https://api.brightdata.com/request", json=payload, headers=headers)
+        response = requests.post(
+            "https://api.brightdata.com/request", json=payload, headers=headers
+        )
     elif provider == "serper":
         organic_key = "organic"
         api_key = os.getenv("SERPER_API_KEY")
@@ -65,7 +71,9 @@ def web_search_common(
         if cutoff_date is not None:
             payload["tbs"] = f"cdr:1,cd_max:{cutoff_date.strftime('%m/%d/%Y')}"
         headers = {"X-API-KEY": api_key, "Content-Type": "application/json"}
-        response = requests.post("https://google.serper.dev/search", json=payload, headers=headers)
+        response = requests.post(
+            "https://google.serper.dev/search", json=payload, headers=headers
+        )
     else:
         raise ValueError(f"Invalid provider: {provider}")
 
@@ -81,7 +89,9 @@ def web_search_common(
         results = response.json()
 
     if organic_key not in results:
-        raise ValueError(f"No results found for query: '{query}'. Use a less restrictive query.")
+        raise ValueError(
+            f"No results found for query: '{query}'. Use a less restrictive query."
+        )
 
     if not results.get(organic_key):
         return f"No results found for '{query}'. Try with a more general query.", []
@@ -91,7 +101,11 @@ def web_search_common(
 
     for idx, page in enumerate(results[organic_key]):
         date_published = ""
-        if provider == "bright_data" and isinstance(page.get("extensions"), list) and page["extensions"]:
+        if (
+            provider == "bright_data"
+            and isinstance(page.get("extensions"), list)
+            and page["extensions"]
+        ):
             first_ext = page["extensions"][0]
             if isinstance(first_ext, dict) and "text" in first_ext:
                 date_published = "\nDate published: " + first_ext["text"]
@@ -116,22 +130,27 @@ def web_search_common(
     return f"## Search Results for '{query}'\n" + "\n\n".join(web_snippets), sources
 
 
-def visit_webpage_scrapfly(url: str, asp: bool = True, render_js: bool = True) -> Tuple[str, list[str]]:
+def visit_webpage_scrapfly(
+    url: str, asp: bool = True, render_js: bool = True
+) -> Tuple[str, list[str]]:
     """Fetch a webpage via Scrapfly and return markdown content and sources list.
 
     Returns (markdown, [url]).
     """
     api_key = os.getenv("SCRAPFLY_API_KEY")
     if not api_key:
-        raise ValueError("Missing SCRAPFLY_API_KEY environment variable for Scrapfly API.")
+        raise ValueError(
+            "Missing SCRAPFLY_API_KEY environment variable for Scrapfly API."
+        )
 
-    from scrapfly import ScrapflyClient, ScrapeConfig, ScrapeApiResponse  # lazy import
+    from scrapfly import ScrapeApiResponse, ScrapeConfig, ScrapflyClient  # lazy import
 
     scrapfly = ScrapflyClient(key=api_key)
     result: ScrapeApiResponse = scrapfly.scrape(
-        ScrapeConfig(tags=["player", "project:default"], asp=asp, render_js=render_js, url=url)
+        ScrapeConfig(
+            tags=["player", "project:default"], asp=asp, render_js=render_js, url=url
+        )
     )
     html_content = result.content
     markdown_content = md(html_content, heading_style="ATX")
     return markdown_content
-
