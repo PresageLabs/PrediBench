@@ -67,7 +67,8 @@ def run_investments_for_specific_date(
 
     for model in models:
         if model.inference_provider == "openai":
-            model.client = OpenAIModelWithRetry(model_id=model.model_id)
+            # model.client = OpenAIModelWithRetry(model_id=model.model_id)
+            model.client = OpenAIModel(model_id="gpt-5-mini")
         elif model.inference_provider == "anthropic":
             # NOTE: Anthropic allows max 5 requests per minute
             model.client = LiteLLMModelWithRetryWait(
