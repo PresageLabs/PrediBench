@@ -593,7 +593,7 @@ def run_openai_deep_research(
 
     # Use structured output to get EventDecisions
     structured_market_decisions, unallocated_capital = structure_final_answer(
-        research_output, question
+        research_output
     )
     return CompleteMarketInvestmentDecisions(
         market_investment_decisions=structured_market_decisions,
@@ -688,7 +688,7 @@ def run_perplexity_deep_research(
         )
 
     structured_market_decisions, unallocated_capital = structure_final_answer(
-        research_output, question
+        research_output
     )
     return CompleteMarketInvestmentDecisions(
         market_investment_decisions=structured_market_decisions,
