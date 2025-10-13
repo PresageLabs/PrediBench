@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import textwrap
 import urllib.parse
 from datetime import date
 from typing import Any, Literal
@@ -523,45 +522,21 @@ def _save_research_result_to_cache(
 )
 def structure_final_answer(
     research_output: str,
-    original_question: str,
-    structured_output_model_id: str = "huggingface/fireworks-ai/Qwen/Qwen3-Coder-480B-A35B-Instruct",
+    structured_output_model_id: str = "huggingface/fireworks-ai/Qwen/Qwen3-Coder-30B-A3B-Instruct",
 ) -> tuple[list[MarketInvestmentDecision], float]:
     structured_model = LiteLLMModel(model_id=structured_output_model_id)
 
-    structured_prompt = textwrap.dedent(f"""
-        Based on the following research output, extract the investment decisions for each market:
-        
+    structured_prompt = f"""
+Based on the following research output, extract the investment decisions for each market:
 
+<research_output>
+{research_output}
+</research_output>
 
-        **ORIGINAL QUESTION AND MARKET CONTEXT:**
-        <original_question>
-        {original_question}
-        </original_question>
+Your output should be list of market decisions. Each decision should include:
+{BET_DESCRIPTION}
 
-        **RESEARCH ANALYSIS OUTPUT:**
-        <research_output>
-        {research_output}
-        </research_output>
-                
-        Your output should be list of market decisions. Each decision should include:
-
-
-        {BET_DESCRIPTION}
-
-        Make sure to directly use elements from the research output: return each market decision exactly as is, do not add or change any element, extract everything as-is.
-
-        **OUTPUT FORMAT:**
-        Provide a JSON object with:
-        - "market_investment_decisions": Array of market decisions
-        - "unallocated_capital": Float (0.0 to 1.0) for capital not allocated to any market
-
-        **VALIDATION:**
-        - All market IDs must match those in the original question's "AVAILABLE MARKETS" section
-        - Sum of absolute bet values + unallocated_capital should equal 1.0
-        - All rationales should reflect insights from the research analysis
-        - Confidence levels should reflect the certainty of your analysis
-        - If no good betting opportunities exist, you may return an empty market_investment_decisions array and set unallocated_capital to 1.0
-        """)
+Make sure to directly use elements from the research output: return each market decision exactly as is, do not add or change any element, extract everything as-is."""
     structured_output = structured_model.generate(
         [ChatMessage(role="user", content=structured_prompt)],
         response_format={
