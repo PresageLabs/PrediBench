@@ -5,6 +5,7 @@ import metaLogo from '../assets/logos/meta.svg'
 import moonshotLogo from '../assets/logos/moonshot.svg'
 import openaiLogo from '../assets/logos/openai.svg'
 import perplexityLogo from '../assets/logos/perplexity.svg'
+import presageLogo from '../assets/logos/presage.svg'
 import qwenLogo from '../assets/logos/qwen.svg'
 import xaiLogo from '../assets/logos/xai.svg'
 
@@ -51,7 +52,10 @@ const companyMapping: Record<string, CompanyInfo> = {
 
   // Baseline models
   'Random Baseline': { name: 'Random predictions', logo: moonshotLogo, logoType: 'png', description: 'Makes random trading decisions' },
-  'Market baseline': { name: 'Volume-weighted', logo: moonshotLogo, logoType: 'png', description: 'Follows market volume proportions' }
+  'Market baseline': { name: 'Volume-weighted', logo: moonshotLogo, logoType: 'png', description: 'Follows market volume proportions' },
+
+  // Aggregate models
+  'Presage Aggregate': { name: 'Presage Labs', logo: presageLogo, logoType: 'svg', description: 'Median aggregate of top 4 models' }
 }
 
 export function getCompanyInfo(modelName: string): CompanyInfo | null {
@@ -87,6 +91,9 @@ export function getCompanyInfo(modelName: string): CompanyInfo | null {
   }
   if (modelName.includes('Baseline') || modelName.includes('baseline')) {
     return { name: 'Baseline', logo: moonshotLogo, logoType: 'png', description: 'Benchmark model' }
+  }
+  if (modelName.includes('Presage') || modelName.includes('presage')) {
+    return { name: 'Presage Labs', logo: presageLogo, logoType: 'svg', description: 'Median aggregate of top models' }
   }
 
   return null

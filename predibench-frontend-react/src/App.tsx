@@ -12,6 +12,7 @@ import { ModelsPage } from './components/ModelsPage'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useAnalytics } from './hooks/useAnalytics'
 import { useAnchorJS } from './hooks/useAnchorJS'
+import { createAggregateModel } from './utils/aggregateModel'
 
 function AppContent() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
@@ -29,7 +30,20 @@ function AppContent() {
         apiService.getEvents(),
       ])
 
-      setLeaderboard(leaderboardData)
+      // Try to create the aggregate model
+      let finalLeaderboard = leaderboardData
+      try {
+        const aggregateModel = await createAggregateModel(leaderboardData)
+        if (aggregateModel) {
+          // Add aggregate model to the leaderboard
+          finalLeaderboard = [...leaderboardData, aggregateModel]
+        }
+      } catch (aggregateError) {
+        console.error('Error creating aggregate model:', aggregateError)
+        // Continue with regular leaderboard if aggregate fails
+      }
+
+      setLeaderboard(finalLeaderboard)
       setEvents(eventsData)
       // no-op: Stats removed
     } catch (error) {

@@ -37,7 +37,7 @@ export function CompanyDisplay({ modelName, className = "" }: CompanyDisplayProp
     )
   }
 
-  const needsColorInversion = companyInfo.name === 'OpenAI' || companyInfo.name === 'Anthropic' || companyInfo.name === 'xAI'
+  const needsColorInversion = companyInfo.name === 'OpenAI' || companyInfo.name === 'Anthropic' || companyInfo.name === 'xAI' || companyInfo.name === 'Presage Labs'
 
   return (
     <div className={`flex items-center gap-1.5 ${className}`}>

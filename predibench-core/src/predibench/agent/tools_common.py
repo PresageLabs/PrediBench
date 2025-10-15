@@ -14,7 +14,6 @@ from PyPDF2 import PdfReader
 logger = get_logger(__name__)
 
 load_dotenv()
-assert os.getenv("SCRAPFLY_API_KEY") is not None
 
 
 def web_search_common(
