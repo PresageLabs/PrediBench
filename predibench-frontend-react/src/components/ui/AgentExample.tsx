@@ -1,4 +1,4 @@
-import { CheckCircle, Clock, Search, Globe } from 'lucide-react'
+import { CheckCircle, Clock, Globe, Search } from 'lucide-react'
 
 interface AgentExampleProps {
   steps: Array<{
@@ -59,7 +59,7 @@ export function AgentExample({ steps }: AgentExampleProps) {
           <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded text-xs space-y-1">
             <div><strong>Capital Allocation Rules:</strong></div>
             <div>• You have exactly 1.0 dollars to allocate</div>
-            <div>• For EACH market, specify: market_id, rationale, odds (0-1), confidence (0-10), bet (-1 to 1)</div>
+            <div>• For EACH market, specify: market_id, rationale, estimated_probability (0-1), confidence (0-10), bet (-1 to 1)</div>
             <div>• Negative bet = buy second outcome ("No"), positive = first outcome ("Yes")</div>
             <div>• Sum of |bets| + unallocated_capital must equal 1.0</div>
           </div>
@@ -120,11 +120,10 @@ export function AgentExample({ steps }: AgentExampleProps) {
             )}
 
             {step.output && (
-              <div className={`my-2 p-3 rounded-lg border ${
-                step.isError
-                  ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                  : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-              }`}>
+              <div className={`my-2 p-3 rounded-lg border ${step.isError
+                ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                }`}>
                 <div className="flex items-start gap-2">
                   <CheckCircle size={16} className="text-green-500 mt-0.5 flex-shrink-0" />
                   <div className="min-w-0 flex-1">

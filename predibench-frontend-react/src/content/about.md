@@ -158,7 +158,7 @@ output: FINAL STRUCTURED OUTPUT:
     {
       "market_id": "560873",
       "rationale": "Sudan's Emergency Response Rooms is the top pick on the PRIO Director's shortlist for 2025, which has a strong history of predicting winners or themes (e.g., correctly shortlisting Nihon Hidankyo in 2024). Their work providing aid in Sudan's humanitarian crisis fits the committee's preference for timely, grassroots peace efforts amid conflict, similar to past laureates like MSF in 1999. The market price of 0.175 underestimates this, possibly because it's reacting to recent news but not fully accounting for PRIO's expert endorsement and the committee's pattern of awarding humanitarians in crisis years. I value the PRIO analysis highly, as it's based on deep research into nominations and committee trends, which the market seems to overlook in favor of earlier favorites.",
-      "odds": 0.30,
+      "estimated_probability": 0.30,
       "confidence": 8,
       "bet": 0.40
     },
@@ -166,7 +166,7 @@ output: FINAL STRUCTURED OUTPUT:
     {
       "market_id": "560856",
       "rationale": "Donald Trump has multiple nominations and recent news buzz from leaders like Netanyahu, but he's not on the PRIO shortlist, which avoids polarizing political figures without concrete peace achievements (e.g., no US presidents since Obama in 2009). His odds dropped in September likely due to election dynamics, but at 0.043, the market still overvalues name recognition over the committee's preference for non-partisan efforts. My estimate is lower, factoring in PRIO's focus on apolitical humanitarians.",
-      "odds": 0.03,
+      "estimated_probability": 0.03,
       "confidence": 7,
       "bet": -0.10
     },
